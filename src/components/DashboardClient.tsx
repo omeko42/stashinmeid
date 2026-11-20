@@ -38,6 +38,7 @@ import {
   KeyRound,
   Lock,
   Smartphone,
+  UserCircle,
 } from 'lucide-react';
 
 interface DashboardClientProps {
@@ -80,7 +81,7 @@ const CATEGORIES = {
   ],
 };
 
-type NavTab = 'overview' | 'cashflow' | 'debts' | 'tools' | 'users';
+type NavTab = 'overview' | 'cashflow' | 'debts' | 'tools' | 'profile' | 'users';
 
 export default function DashboardClient({
   initialTransactions,
@@ -123,6 +124,46 @@ export default function DashboardClient({
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState('');
   const [securityMsg, setSecurityMsg] = useState<string | null>(null);
+
+  // Profile Edit State
+  const [profileEmail, setProfileEmail] = useState(userEmail || '');
+  const [profileClient, setProfileClient] = useState(clientName);
+  const [profileNewPassword, setProfileNewPassword] = useState('');
+  const [profileSaving, setProfileSaving] = useState(false);
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSecurityMsg(null);
+    if (!supabase || isDemoMode) {
+      setSecurityMsg('Profil tersimpan di sesi lokal (login dengan Supabase untuk simpan permanen).');
+      return;
+    }
+    setProfileSaving(true);
+    const updates: { email?: string; password?: string } = {};
+    if (profileEmail && profileEmail !== userEmail) updates.email = profileEmail;
+    if (profileNewPassword.length >= 8) updates.password = profileNewPassword;
+
+    if (Object.keys(updates).length > 0) {
+      const { error } = await supabase.auth.updateUser(updates);
+      if (error) {
+        setSecurityMsg(error.message);
+        setProfileSaving(false);
+        return;
+      }
+    }
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData.user) {
+      await supabase
+        .from('profiles')
+        .update({ client_name: profileClient })
+        .eq('id', userData.user.id);
+    }
+
+    setProfileNewPassword('');
+    setSecurityMsg('Profil & pengaturan akun berhasil diperbarui!');
+    setProfileSaving(false);
+  };
 
   useEffect(() => {
     const savedPin = typeof window !== 'undefined' ? localStorage.getItem('stashinme_pin') : null;
@@ -676,6 +717,7 @@ export default function DashboardClient({
     { id: 'cashflow', label: 'Cashflow', icon: <ArrowLeftRight className="w-5 h-5" /> },
     { id: 'debts', label: 'Debt', icon: <Landmark className="w-5 h-5" /> },
     { id: 'tools', label: 'Tools', icon: <SlidersHorizontal className="w-5 h-5" /> },
+    { id: 'profile', label: 'Profile', icon: <UserCircle className="w-5 h-5" /> },
     ...(isSuperadmin
       ? [{ id: 'users' as NavTab, label: 'Users', icon: <Users className="w-5 h-5" /> }]
       : []),
@@ -1385,110 +1427,173 @@ export default function DashboardClient({
                     </p>
                   </button>
                 </div>
+              </motion.div>
+            )}
+
+            {/* PROFILE & SECURITY TAB */}
+            {activeTab === 'profile' && (
+              <motion.div
+                key="profile"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.25 }}
+                className="space-y-6"
+              >
+                <div>
+                  <h2 className="text-xl font-bold">Profile & Keamanan Akun</h2>
+                  <p className="text-xs text-zinc-400">
+                    Kelola email, password, PIN aplikasi, dan 2FA Authenticator kamu.
+                  </p>
+                </div>
+
+                {securityMsg && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs">
+                    {securityMsg}
+                  </div>
+                )}
+
+                {/* Account Info Form */}
+                <form
+                  onSubmit={handleSaveProfile}
+                  className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 space-y-4"
+                >
+                  <h3 className="font-semibold text-sm flex items-center gap-2">
+                    <UserCircle className="w-4 h-4 text-emerald-400" /> Informasi Akun & Email
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1">Email</label>
+                      <input
+                        type="email"
+                        value={profileEmail}
+                        onChange={(e) => setProfileEmail(e.target.value)}
+                        placeholder="email@domain.com"
+                        className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1">Nama Workspace / Client</label>
+                      <input
+                        type="text"
+                        value={profileClient}
+                        onChange={(e) => setProfileClient(e.target.value)}
+                        className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs text-zinc-400 mb-1">
+                        Password Baru (Opsional, min. 8)
+                      </label>
+                      <input
+                        type="password"
+                        value={profileNewPassword}
+                        onChange={(e) => setProfileNewPassword(e.target.value)}
+                        placeholder="Kosongkan jika tidak ganti"
+                        className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
+                      />
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={profileSaving}
+                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-semibold text-xs transition disabled:opacity-50"
+                  >
+                    {profileSaving ? 'Menyimpan...' : 'Simpan Perubahan Akun'}
+                  </button>
+                </form>
 
                 {/* Security: PIN Lock & 2FA Authenticator */}
-                <div className="pt-4 space-y-4">
-                  <h3 className="text-lg font-bold flex items-center gap-2">
-                    <Lock className="w-5 h-5 text-emerald-400" /> Keamanan (PIN & 2FA Authenticator)
-                  </h3>
-
-                  {securityMsg && (
-                    <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs">
-                      {securityMsg}
-                    </div>
-                  )}
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* App PIN Lock */}
-                    <div className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 space-y-3">
-                      <div className="flex items-center justify-between">
-                        <h4 className="font-semibold text-sm flex items-center gap-2">
-                          <KeyRound className="w-4 h-4 text-emerald-400" /> App PIN Lock (6 Digit)
-                        </h4>
-                        {appPin && (
-                          <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
-                            Aktif
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-zinc-400">
-                        Kunci layar aplikasi dengan PIN 6 angka agar lebih aman di HP.
-                      </p>
-                      <div className="flex gap-2">
-                        <input
-                          type="password"
-                          maxLength={6}
-                          value={newPinInput}
-                          onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
-                          placeholder="6 digit PIN baru"
-                          className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs"
-                        />
-                        <button
-                          onClick={handleSavePin}
-                          className="px-3.5 py-2 rounded-xl bg-emerald-500 text-zinc-950 font-semibold text-xs"
-                        >
-                          Simpan PIN
-                        </button>
-                      </div>
-                      {appPin && (
-                        <div className="flex gap-2 pt-1">
-                          <button
-                            onClick={() => setPinLocked(true)}
-                            className="flex-1 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-medium"
-                          >
-                            Kunci Layar Sekarang
-                          </button>
-                          <button
-                            onClick={handleRemovePin}
-                            className="px-3 py-2 rounded-xl bg-rose-500/15 text-rose-300 text-xs"
-                          >
-                            Hapus PIN
-                          </button>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* 2FA Authenticator */}
-                    <div className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 space-y-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* App PIN Lock */}
+                  <div className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 space-y-3">
+                    <div className="flex items-center justify-between">
                       <h4 className="font-semibold text-sm flex items-center gap-2">
-                        <Smartphone className="w-4 h-4 text-indigo-400" /> 2FA Authenticator (TOTP)
+                        <KeyRound className="w-4 h-4 text-emerald-400" /> App PIN Lock (6 Digit)
                       </h4>
-                      <p className="text-xs text-zinc-400">
-                        Hubungkan Google Authenticator / Authy untuk verifikasi 2 langkah.
-                      </p>
-                      {!mfaQr ? (
-                        <button
-                          onClick={handleEnroll2FA}
-                          className="px-4 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold"
-                        >
-                          Aktifkan 2FA Authenticator
-                        </button>
-                      ) : (
-                        <div className="space-y-3">
-                          <img
-                            src={mfaQr}
-                            alt="2FA QR Code"
-                            className="w-40 h-40 rounded-xl bg-white p-2"
-                          />
-                          <div className="flex gap-2">
-                            <input
-                              type="text"
-                              maxLength={6}
-                              value={mfaCode}
-                              onChange={(e) => setMfaCode(e.target.value)}
-                              placeholder="Kode 6 digit"
-                              className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs"
-                            />
-                            <button
-                              onClick={handleVerify2FA}
-                              className="px-3.5 py-2 rounded-xl bg-emerald-500 text-zinc-950 font-semibold text-xs"
-                            >
-                              Verifikasi
-                            </button>
-                          </div>
-                        </div>
+                      {appPin && (
+                        <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                          Aktif
+                        </span>
                       )}
                     </div>
+                    <p className="text-xs text-zinc-400">
+                      Kunci layar aplikasi dengan PIN 6 angka agar lebih aman di HP.
+                    </p>
+                    <div className="flex gap-2">
+                      <input
+                        type="password"
+                        maxLength={6}
+                        value={newPinInput}
+                        onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                        placeholder="6 digit PIN baru"
+                        className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs"
+                      />
+                      <button
+                        onClick={handleSavePin}
+                        className="px-3.5 py-2 rounded-xl bg-emerald-500 text-zinc-950 font-semibold text-xs"
+                      >
+                        Simpan PIN
+                      </button>
+                    </div>
+                    {appPin && (
+                      <div className="flex gap-2 pt-1">
+                        <button
+                          onClick={() => setPinLocked(true)}
+                          className="flex-1 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-medium"
+                        >
+                          Kunci Layar Sekarang
+                        </button>
+                        <button
+                          onClick={handleRemovePin}
+                          className="px-3 py-2 rounded-xl bg-rose-500/15 text-rose-300 text-xs"
+                        >
+                          Hapus PIN
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* 2FA Authenticator */}
+                  <div className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 space-y-3">
+                    <h4 className="font-semibold text-sm flex items-center gap-2">
+                      <Smartphone className="w-4 h-4 text-indigo-400" /> 2FA Authenticator (TOTP)
+                    </h4>
+                    <p className="text-xs text-zinc-400">
+                      Hubungkan Google Authenticator / Authy untuk verifikasi 2 langkah.
+                    </p>
+                    {!mfaQr ? (
+                      <button
+                        onClick={handleEnroll2FA}
+                        className="px-4 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold"
+                      >
+                        Aktifkan 2FA Authenticator
+                      </button>
+                    ) : (
+                      <div className="space-y-3">
+                        <img
+                          src={mfaQr}
+                          alt="2FA QR Code"
+                          className="w-40 h-40 rounded-xl bg-white p-2"
+                        />
+                        <div className="flex gap-2">
+                          <input
+                            type="text"
+                            maxLength={6}
+                            value={mfaCode}
+                            onChange={(e) => setMfaCode(e.target.value)}
+                            placeholder="Kode 6 digit"
+                            className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs"
+                          />
+                          <button
+                            onClick={handleVerify2FA}
+                            className="px-3.5 py-2 rounded-xl bg-emerald-500 text-zinc-950 font-semibold text-xs"
+                          >
+                            Verifikasi
+                          </button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </motion.div>
