@@ -6,6 +6,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getOrCreateSuperadminUserId } from '@/lib/superadminUser';
 import { verifySuperadminToken } from '@/lib/jwt';
 import DashboardClient from '@/components/DashboardClient';
+import { BrandLogo } from '@/components/BrandLogo';
 import { Transaction, Debt } from '@/types/finance';
 
 const DEMO_TRANSACTIONS: Transaction[] = [
@@ -159,8 +160,18 @@ export default function HomePage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-slate-950 text-slate-400 flex items-center justify-center text-sm">
-          Memuat Stashinme...
+        <div className="min-h-screen bg-[#09090b] text-zinc-300 flex flex-col items-center justify-center gap-4">
+          <div className="animate-pulse">
+            <BrandLogo size={52} />
+          </div>
+          <div className="flex items-center gap-1.5 text-sm font-medium tracking-tight">
+            <span>Memuat stashinmeid</span>
+            <span className="flex items-center gap-1 pt-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.3s]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.15s]" />
+              <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-bounce" />
+            </span>
+          </div>
         </div>
       }
     >
