@@ -1523,14 +1523,14 @@ export default function DashboardClient({
 
                     {/* Avatar & Identity */}
                     <div className="px-6 pb-6">
-                      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-10 mb-4">
+                      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-10 mb-5">
                         <div className="flex items-end gap-4">
-                          <div className="w-20 h-20 rounded-2xl bg-zinc-950 border-4 border-zinc-900 flex items-center justify-center shadow-xl overflow-hidden">
+                          <div className="w-20 h-20 rounded-2xl bg-zinc-950 border-4 border-zinc-900 flex items-center justify-center shadow-xl overflow-hidden shrink-0">
                             <BrandLogo size={68} />
                           </div>
-                          <div className="pb-1">
+                          <div className="pt-12 sm:pt-11">
                             <div className="flex items-center gap-2 flex-wrap">
-                              <h2 className="text-xl font-bold text-white">{profileClient}</h2>
+                              <h2 className="text-xl font-bold text-white leading-tight">{profileClient}</h2>
                               <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 font-mono">
                                 @{profileUsername}
                               </span>
@@ -1543,10 +1543,10 @@ export default function DashboardClient({
 
                         <button
                           type="button"
-                          onClick={() => setEditingProfile(!editingProfile)}
+                          onClick={() => setEditingProfile(true)}
                           className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-semibold text-xs transition hover:opacity-90 shrink-0"
                         >
-                          {editingProfile ? 'Tutup Edit' : 'Edit Profil'}
+                          Edit Profil
                         </button>
                       </div>
 
@@ -1618,90 +1618,115 @@ export default function DashboardClient({
                   </div>
                 </div>
 
-                {/* Collapsible Edit Form (only shown when user clicks Edit Profil / Ubah) */}
+                {/* Edit Profile Popup Modal */}
                 {editingProfile && (
-                  <form
-                    onSubmit={handleSaveProfile}
-                    autoComplete="off"
-                    className="p-6 rounded-3xl bg-zinc-900/90 border border-emerald-500/25 space-y-4"
-                  >
-                    <h3 className="font-semibold text-sm flex items-center gap-2">
-                      <UserCircle className="w-4 h-4 text-emerald-400" /> Ubah Data Diri & Password
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Username</label>
-                        <input
-                          type="text"
-                          value={profileUsername}
-                          onChange={(e) => setProfileUsername(e.target.value)}
-                          autoComplete="off"
-                          className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
-                        />
+                  <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.96, y: 20 }}
+                      animate={{ opacity: 1, scale: 1, y: 0 }}
+                      className="w-full sm:max-w-lg bg-zinc-900 border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl space-y-4"
+                    >
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-bold text-base flex items-center gap-2">
+                          <UserCircle className="w-5 h-5 text-emerald-400" /> Edit Profil & Akun
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setEditingProfile(false)}
+                          className="p-1.5 rounded-xl bg-white/[0.06] text-zinc-400 hover:text-white"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
                       </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">Email Tertaut</label>
-                        <input
-                          type="email"
-                          value={profileEmail}
-                          onChange={(e) => setProfileEmail(e.target.value)}
-                          placeholder="nama@email.com"
-                          autoComplete="off"
-                          className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">
-                          Nama Workspace / Client
-                        </label>
-                        <input
-                          type="text"
-                          value={profileClient}
-                          onChange={(e) => setProfileClient(e.target.value)}
-                          autoComplete="off"
-                          className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-xs text-zinc-400 mb-1">
-                          Password Baru (Opsional, min. 8 karakter)
-                        </label>
-                        <input
-                          type="password"
-                          value={profileNewPassword}
-                          onChange={(e) => setProfileNewPassword(e.target.value)}
-                          placeholder="Kosongkan jika tidak ganti"
-                          autoComplete="new-password"
-                          className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
-                        />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-xs text-zinc-400 mb-1">Bio Singkat</label>
-                        <input
-                          type="text"
-                          value={profileBio}
-                          onChange={(e) => setProfileBio(e.target.value)}
-                          className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button
-                        type="submit"
-                        disabled={profileSaving}
-                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-semibold text-xs transition disabled:opacity-50"
+
+                      <form
+                        onSubmit={async (e) => {
+                          await handleSaveProfile(e);
+                          setEditingProfile(false);
+                        }}
+                        autoComplete="off"
+                        className="space-y-3.5"
                       >
-                        {profileSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setEditingProfile(false)}
-                        className="px-4 py-2.5 rounded-xl bg-white/[0.06] text-zinc-300 text-xs"
-                      >
-                        Batal
-                      </button>
-                    </div>
-                  </form>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div>
+                            <label className="block text-xs text-zinc-400 mb-1">Username</label>
+                            <input
+                              type="text"
+                              value={profileUsername}
+                              onChange={(e) => setProfileUsername(e.target.value)}
+                              autoComplete="off"
+                              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs text-zinc-400 mb-1">Email Tertaut</label>
+                            <input
+                              type="email"
+                              value={profileEmail}
+                              onChange={(e) => setProfileEmail(e.target.value)}
+                              placeholder="nama@email.com"
+                              autoComplete="off"
+                              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
+                            />
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-zinc-400 mb-1">
+                            Nama Workspace / Client
+                          </label>
+                          <input
+                            type="text"
+                            value={profileClient}
+                            onChange={(e) => setProfileClient(e.target.value)}
+                            autoComplete="off"
+                            className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-zinc-400 mb-1">Bio Singkat</label>
+                          <input
+                            type="text"
+                            value={profileBio}
+                            onChange={(e) => setProfileBio(e.target.value)}
+                            className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs text-zinc-400 mb-1">
+                            Password Baru (Opsional, min. 8 karakter)
+                          </label>
+                          <input
+                            type="password"
+                            value={profileNewPassword}
+                            onChange={(e) => setProfileNewPassword(e.target.value)}
+                            placeholder="Kosongkan jika tidak ganti"
+                            autoComplete="new-password"
+                            className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
+                          />
+                        </div>
+
+                        <div className="flex gap-2 pt-2">
+                          <button
+                            type="submit"
+                            disabled={profileSaving}
+                            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-semibold text-sm transition disabled:opacity-50"
+                          >
+                            {profileSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingProfile(false)}
+                            className="px-4 py-2.5 rounded-xl bg-white/[0.06] text-zinc-300 text-sm"
+                          >
+                            Batal
+                          </button>
+                        </div>
+                      </form>
+                    </motion.div>
+                  </div>
                 )}
 
                 {/* Security: PIN Lock & 2FA Authenticator */}
