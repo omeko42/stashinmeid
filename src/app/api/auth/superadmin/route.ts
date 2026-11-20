@@ -23,8 +23,16 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  let body: { username?: unknown; password?: unknown };
   try {
-    const { username, password } = await req.json();
+    body = await req.json();
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error.';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+
+  try {
+    const { username, password } = body;
 
     const envUser = process.env.SUPERADMIN_USERNAME;
     const envPass = process.env.SUPERADMIN_PASSWORD;
@@ -73,8 +81,9 @@ export async function POST(req: NextRequest) {
       { error: 'Username atau password superadmin salah.' },
       { status: 401 }
     );
-  } catch {
-    return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Internal server error.';
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 
