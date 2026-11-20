@@ -40,10 +40,10 @@ export function exportToPDF(
   doc.text(`Stashinme - Laporan Keuangan (${clientName})`, 14, 18);
 
   doc.setFontSize(10);
-  doc.text(`Net Cashflow: ${formatRp(totalInflow - totalOutflow)}`, 14, 28);
+  doc.text(`Saldo: ${formatRp(totalInflow - totalOutflow)}`, 14, 28);
   doc.text(`Total Inflow: ${formatRp(totalInflow)}`, 14, 34);
   doc.text(`Total Outflow: ${formatRp(totalOutflow)}`, 14, 40);
-  doc.text(`Total Sisa Debt: ${formatRp(totalDebt)}`, 14, 46);
+  doc.text(`Total Sisa Pinjaman: ${formatRp(totalDebt)}`, 14, 46);
 
   autoTable(doc, {
     startY: 54,
@@ -144,13 +144,13 @@ export async function exportToWord(
             text: `Stashinme - Laporan Keuangan (${clientName})`,
             heading: HeadingLevel.HEADING_1,
           }),
-          new Paragraph(`Net Cashflow: ${formatRp(totalInflow - totalOutflow)}`),
+          new Paragraph(`Saldo: ${formatRp(totalInflow - totalOutflow)}`),
           new Paragraph(`Total Inflow: ${formatRp(totalInflow)}`),
           new Paragraph(`Total Outflow: ${formatRp(totalOutflow)}`),
-          new Paragraph(`Total Sisa Debt: ${formatRp(totalDebt)}`),
+          new Paragraph(`Total Sisa Pinjaman: ${formatRp(totalDebt)}`),
           new Paragraph({ text: 'Riwayat Transaksi', heading: HeadingLevel.HEADING_2 }),
           new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: txRows }),
-          new Paragraph({ text: 'Daftar Debt & Cicilan', heading: HeadingLevel.HEADING_2 }),
+          new Paragraph({ text: 'Daftar Pinjaman & Cicilan', heading: HeadingLevel.HEADING_2 }),
           new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: debtRows }),
         ],
       },

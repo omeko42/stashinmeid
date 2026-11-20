@@ -6,7 +6,7 @@
   "nav": {
     "overview": "Overview",
     "cashflow": "Cash Flow",
-    "debts": "Debts",
+    "debts": "Loans",
     "settings": "Settings",
     "users": "User Management",
     "profile": "Profile",
@@ -62,18 +62,19 @@
   },
   "overview": {
     "title": "Overview",
-    "balanceLabel": "Running balance",
+    "balanceLabel": "Balance",
     "balanceHint": "Money in minus money out",
     "savingsRate": "Savings rate",
     "inflow": "Money in",
     "outflow": "Money out",
-    "totalDebt": "Outstanding debt",
+    "totalDebt": "Loans",
     "monthlyInstallment": "Monthly installments",
-    "activeDebts": "active debts",
+    "activeDebts": "active loans",
     "trendTitle": "Money in and out",
     "trendEmpty": "No transactions to chart yet.",
-    "debtComposition": "Debt breakdown",
+    "debtComposition": "Loan Breakdown",
     "debtCompositionEmpty": "Every loan is paid off.",
+    "openDebts": "Open Simulation & Loan List →",
     "upcoming": "Upcoming due dates",
     "upcomingEmpty": "No payments due in the next 30 days.",
     "recent": "Recent transactions",
@@ -107,9 +108,10 @@
     "count": "{count} transactions"
   },
   "debts": {
-    "title": "Debts",
+    "title": "Loans",
+    "headerTitle": "Loans & Payoff Simulator",
     "subtitle": "Loans, paylater, and installments",
-    "add": "Add debt",
+    "add": "Add Loan",
     "simulator": {
       "title": "Payoff simulator",
       "selected": "{count} selected",
@@ -117,7 +119,7 @@
       "savings": "Monthly savings",
       "perMonth": "per month",
       "clear": "Clear selection",
-      "hint": "Tick a debt to see the simulation."
+      "hint": "Tick a loan to see the simulation."
     },
     "form": {
       "platform": "Platform",
@@ -145,12 +147,12 @@
       "remainingLabel": "Remaining balance"
     },
     "empty": {
-      "title": "No debts yet",
+      "title": "No loans yet",
       "description": "Add a loan or installment to track due dates and run payoff simulations.",
-      "action": "Add debt"
+      "action": "Add Loan"
     },
-    "deleted": "Debt deleted.",
-    "added": "Debt added."
+    "deleted": "Loan deleted.",
+    "added": "Loan added."
   },
   "budget": {
     "title": "Budget",

@@ -5,7 +5,7 @@ export default function manifest(): MetadataRoute.Manifest {
     name: 'stashinmeid - Aplikasi Manajemen Keuanganmu',
     short_name: 'stashinmeid',
     description:
-      'Catat inflow, outflow, cicilan debt, dan scan struk otomatis dengan AI.',
+      'Catat inflow, outflow, cicilan pinjaman, dan scan struk otomatis dengan AI.',
     start_url: '/',
     scope: '/',
     display: 'standalone',

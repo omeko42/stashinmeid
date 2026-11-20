@@ -21,10 +21,10 @@ export const metadata: Metadata = {
     template: '%s - stashinmeid',
   },
   description:
-    'Catat inflow, outflow, cicilan debt, dan scan struk otomatis dengan AI. Kelola keuangan pribadi dengan rapi.',
+    'Catat inflow, outflow, cicilan pinjaman, dan scan struk otomatis dengan AI. Kelola keuangan pribadi dengan rapi.',
   applicationName: 'stashinmeid',
   authors: [{ name: 'omeko42' }],
-  keywords: ['keuangan pribadi', 'cashflow', 'debt', 'anggaran', 'stashinmeid'],
+  keywords: ['keuangan pribadi', 'cashflow', 'pinjaman', 'anggaran', 'stashinmeid'],
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
@@ -42,7 +42,7 @@ export const metadata: Metadata = {
     siteName: 'stashinmeid',
     title: 'stashinmeid - Aplikasi Manajemen Keuanganmu',
     description:
-      'Catat inflow, outflow, cicilan debt, dan scan struk otomatis dengan AI.',
+      'Catat inflow, outflow, cicilan pinjaman, dan scan struk otomatis dengan AI.',
     images: [
       {
         url: '/icon-192x192.png',
@@ -55,7 +55,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary',
     title: 'stashinmeid - Aplikasi Manajemen Keuanganmu',
-    description: 'Catat inflow, outflow, cicilan debt, dan scan struk otomatis dengan AI.',
+    description: 'Catat inflow, outflow, cicilan pinjaman, dan scan struk otomatis dengan AI.',
     images: ['/icon-192x192.png'],
   },
   robots: {

@@ -1029,7 +1029,7 @@ export default function DashboardClient({
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                          Net Cashflow (Real)
+                          {t('overview.balanceLabel')}
                         </span>
                         <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mt-1 text-white">
                           {formatRp(netCashflow)}
@@ -1094,13 +1094,13 @@ export default function DashboardClient({
                   <div className="rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 p-6 flex flex-col justify-between gap-4">
                     <div>
                       <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                        Total Kewajiban Debt
+                        {t('overview.totalDebt')}
                       </span>
                       <p className="text-2xl sm:text-3xl font-bold text-amber-400 mt-1">
                         {formatRp(totalDebt)}
                       </p>
                       <p className="text-xs text-zinc-400 mt-1">
-                        {activeDebts.length} pinjaman aktif
+                        {activeDebts.length} {t('overview.activeDebts')}
                       </p>
                     </div>
 
@@ -1117,7 +1117,7 @@ export default function DashboardClient({
                       onClick={() => setActiveTab('debts')}
                       className="w-full py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-xs font-medium text-zinc-200 transition"
                     >
-                      Buka Simulasi & Daftar Debt →
+                      {t('overview.openDebts')}
                     </button>
                   </div>
                 </div>
@@ -1140,7 +1140,7 @@ export default function DashboardClient({
                   </div>
 
                   <div className="rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 p-5">
-                    <h3 className="font-semibold text-sm mb-2">Komposisi Sisa Debt</h3>
+                    <h3 className="font-semibold text-sm mb-2">{t('overview.debtComposition')}</h3>
                     <DebtDonutChart debts={debts} />
                   </div>
                 </div>
@@ -1314,7 +1314,7 @@ export default function DashboardClient({
               >
                 <div className="flex items-center justify-between">
                   <div>
-                    <h2 className="text-xl font-bold">Debt & Simulasi Pelunasan</h2>
+                    <h2 className="text-xl font-bold">{t('debts.headerTitle')}</h2>
                     <p className="text-xs text-zinc-400">
                       Centang pinjaman di bawah untuk simulasi penghematan cashflow bulanan.
                     </p>
@@ -1324,7 +1324,7 @@ export default function DashboardClient({
                       onClick={() => setShowDebtForm(!showDebtForm)}
                       className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-zinc-950 font-semibold text-xs flex items-center gap-1.5 transition"
                     >
-                      <Plus className="w-4 h-4" /> Tambah Debt
+                      <Plus className="w-4 h-4" /> {t('debts.add')}
                     </button>
                   )}
                 </div>

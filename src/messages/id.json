@@ -62,18 +62,19 @@
   },
   "overview": {
     "title": "Ringkasan",
-    "balanceLabel": "Balance",
+    "balanceLabel": "Saldo",
     "balanceHint": "Masuk dikurangi keluar",
     "savingsRate": "Tingkat tabung",
     "inflow": "Masuk",
     "outflow": "Keluar",
     "totalDebt": "Pinjaman",
     "monthlyInstallment": "Cicilan per bulan",
-    "activeDebts": "utang aktif",
+    "activeDebts": "pinjaman aktif",
     "trendTitle": "Tren masuk dan keluar",
     "trendEmpty": "Belum ada transaksi untuk digrafikkan.",
-    "debtComposition": "Komposisi sisa utang",
+    "debtComposition": "Komposisi Sisa Pinjaman",
     "debtCompositionEmpty": "Semua pinjaman sudah lunas.",
+    "openDebts": "Buka Simulasi & Daftar Pinjaman →",
     "upcoming": "Jatuh tempo terdekat",
     "upcomingEmpty": "Tidak ada jatuh tempo dalam 30 hari ke depan.",
     "recent": "Transaksi terbaru",
@@ -107,9 +108,10 @@
     "count": "{count} transaksi"
   },
   "debts": {
-    "title": "Utang",
+    "title": "Pinjaman",
+    "headerTitle": "Pinjaman & Simulasi Pelunasan",
     "subtitle": "Pinjaman, paylater, dan cicilan",
-    "add": "Tambah utang",
+    "add": "Tambah Pinjaman",
     "simulator": {
       "title": "Simulasi pelunasan",
       "selected": "{count} dipilih",
@@ -117,7 +119,7 @@
       "savings": "Hemat per bulan",
       "perMonth": "per bulan",
       "clear": "Hapus pilihan",
-      "hint": "Centang utang untuk melihat simulasi."
+      "hint": "Centang pinjaman untuk melihat simulasi."
     },
     "form": {
       "platform": "Platform",
@@ -145,12 +147,12 @@
       "remainingLabel": "Sisa tagihan"
     },
     "empty": {
-      "title": "Belum ada utang",
+      "title": "Belum ada pinjaman",
       "description": "Tambahkan pinjaman atau cicilan untuk pantau jatuh tempo dan hitung simulasi pelunasan.",
-      "action": "Tambah utang"
+      "action": "Tambah Pinjaman"
     },
-    "deleted": "Utang dihapus.",
-    "added": "Utang ditambahkan."
+    "deleted": "Pinjaman dihapus.",
+    "added": "Pinjaman ditambahkan."
   },
   "budget": {
     "title": "Anggaran",
