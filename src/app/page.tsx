@@ -3,6 +3,7 @@ import { cookies } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getOrCreateSuperadminUserId } from '@/lib/superadminUser';
 import { verifySuperadminToken } from '@/lib/jwt';
 import DashboardClient from '@/components/DashboardClient';
 import { Transaction, Debt } from '@/types/finance';
@@ -61,35 +62,36 @@ async function DashboardLoader() {
   const superadminSession = await verifySuperadminToken(sessionToken);
 
   if (superadminSession) {
-    if (superadminSession.impersonateUserId) {
-      const adminClient = createAdminClient();
-      if (adminClient) {
-        const [{ data: transactions }, { data: debts }] = await Promise.all([
-          adminClient
-            .from('transactions')
-            .select('*')
-            .eq('user_id', superadminSession.impersonateUserId)
-            .order('transaction_date', { ascending: false }),
-          adminClient
-            .from('debts')
-            .select('*')
-            .eq('user_id', superadminSession.impersonateUserId)
-            .order('created_at', { ascending: false }),
-        ]);
+    const adminClient = createAdminClient();
+    const targetUserId =
+      superadminSession.impersonateUserId || (await getOrCreateSuperadminUserId());
 
-        return (
-          <DashboardClient
-            initialTransactions={(transactions as Transaction[]) || []}
-            initialDebts={(debts as Debt[]) || []}
-            userEmail={superadminSession.impersonateEmail ?? null}
-            clientName={superadminSession.impersonateClientName ?? 'Client'}
-            userRole="admin"
-            isDemoMode={false}
-            isSuperadmin={true}
-            impersonatingEmail={superadminSession.impersonateEmail ?? null}
-          />
-        );
-      }
+    if (adminClient && targetUserId) {
+      const [{ data: transactions }, { data: debts }] = await Promise.all([
+        adminClient
+          .from('transactions')
+          .select('*')
+          .eq('user_id', targetUserId)
+          .order('transaction_date', { ascending: false }),
+        adminClient
+          .from('debts')
+          .select('*')
+          .eq('user_id', targetUserId)
+          .order('created_at', { ascending: false }),
+      ]);
+
+      return (
+        <DashboardClient
+          initialTransactions={(transactions as Transaction[]) || []}
+          initialDebts={(debts as Debt[]) || []}
+          userEmail={superadminSession.impersonateEmail ?? superadminSession.sub}
+          clientName={superadminSession.impersonateClientName ?? 'Superadmin Personal'}
+          userRole="admin"
+          isDemoMode={false}
+          isSuperadmin={true}
+          impersonatingEmail={superadminSession.impersonateEmail ?? null}
+        />
+      );
     }
 
     return (

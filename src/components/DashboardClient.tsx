@@ -321,7 +321,27 @@ export default function DashboardClient({
       source: scanMsg ? 'ai_scan' : 'manual',
     };
 
-    if (!isDemoMode && supabase) {
+    if (!isDemoMode && isSuperadmin) {
+      const res = await fetch('/api/superadmin/finance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'transactions',
+          payload: {
+            type: newTx.type,
+            amount: newTx.amount,
+            category: newTx.category,
+            description: newTx.description,
+            transaction_date: newTx.transaction_date,
+            source: newTx.source,
+          },
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.data?.[0]) {
+        setTransactions((prev) => [json.data[0], ...prev]);
+      }
+    } else if (!isDemoMode && supabase) {
       const { data: userData } = await supabase.auth.getUser();
       if (userData.user) {
         const { data, error } = await supabase
@@ -354,7 +374,13 @@ export default function DashboardClient({
   };
 
   const handleDeleteTransaction = async (id: string) => {
-    if (!isDemoMode && supabase) {
+    if (!isDemoMode && isSuperadmin) {
+      await fetch('/api/superadmin/finance', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table: 'transactions', id }),
+      });
+    } else if (!isDemoMode && supabase) {
       await supabase.from('transactions').delete().eq('id', id);
     }
     setTransactions((prev) => prev.filter((t) => t.id !== id));
@@ -382,7 +408,29 @@ export default function DashboardClient({
       notes: null,
     };
 
-    if (!isDemoMode && supabase) {
+    if (!isDemoMode && isSuperadmin) {
+      const res = await fetch('/api/superadmin/finance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'debts',
+          payload: {
+            platform: newDebt.platform,
+            contract_no: newDebt.contract_no,
+            total_tenor: newDebt.total_tenor,
+            remaining_tenor: newDebt.remaining_tenor,
+            due_day: newDebt.due_day,
+            remaining_balance: newDebt.remaining_balance,
+            monthly_installment: newDebt.monthly_installment,
+            status: 'active',
+          },
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.data) {
+        setDebts((prev) => [json.data, ...prev]);
+      }
+    } else if (!isDemoMode && supabase) {
       const { data: userData } = await supabase.auth.getUser();
       if (userData.user) {
         const { data, error } = await supabase
@@ -485,7 +533,13 @@ export default function DashboardClient({
   };
 
   const handleDeleteDebt = async (id: string) => {
-    if (!isDemoMode && supabase) {
+    if (!isDemoMode && isSuperadmin) {
+      await fetch('/api/superadmin/finance', {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ table: 'debts', id }),
+      });
+    } else if (!isDemoMode && supabase) {
       await supabase.from('debts').delete().eq('id', id);
     }
     setDebts((prev) => prev.filter((d) => d.id !== id));
