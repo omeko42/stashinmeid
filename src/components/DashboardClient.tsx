@@ -35,6 +35,9 @@ import {
   ArrowDownRight,
   Users,
   UserCheck,
+  KeyRound,
+  Lock,
+  Smartphone,
 } from 'lucide-react';
 
 interface DashboardClientProps {
@@ -109,6 +112,95 @@ export default function DashboardClient({
   const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
+  const [adminToast, setAdminToast] = useState<string | null>(null);
+
+  // Security: PIN Lock & 2FA Authenticator State
+  const [appPin, setAppPin] = useState<string>('');
+  const [pinLocked, setPinLocked] = useState(false);
+  const [pinInput, setPinInput] = useState('');
+  const [newPinInput, setNewPinInput] = useState('');
+  const [mfaQr, setMfaQr] = useState<string | null>(null);
+  const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [securityMsg, setSecurityMsg] = useState<string | null>(null);
+
+  useEffect(() => {
+    const savedPin = typeof window !== 'undefined' ? localStorage.getItem('stashinme_pin') : null;
+    if (savedPin) {
+      setAppPin(savedPin);
+    }
+  }, []);
+
+  const handleSavePin = () => {
+    if (!/^\d{6}$/.test(newPinInput)) {
+      setSecurityMsg('PIN harus tepat 6 digit angka.');
+      return;
+    }
+    localStorage.setItem('stashinme_pin', newPinInput);
+    setAppPin(newPinInput);
+    setNewPinInput('');
+    setSecurityMsg('PIN 6-digit berhasil diaktifkan!');
+  };
+
+  const handleRemovePin = () => {
+    localStorage.removeItem('stashinme_pin');
+    setAppPin('');
+    setPinLocked(false);
+    setSecurityMsg('PIN dinonaktifkan.');
+  };
+
+  const handleEnroll2FA = async () => {
+    setSecurityMsg(null);
+    if (!supabase || isDemoMode) {
+      setSecurityMsg('Login dengan akun Supabase (email) untuk mengaktifkan 2FA Authenticator.');
+      return;
+    }
+    const { data, error } = await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: 'stashinmeid Authenticator',
+    });
+    if (error) {
+      setSecurityMsg(error.message);
+      return;
+    }
+    setMfaFactorId(data.id);
+    setMfaQr(data.totp.qr_code);
+    setSecurityMsg('Scan QR Code ini di Google Authenticator / Authy lalu masukkan kode 6 digit.');
+  };
+
+  const handleVerify2FA = async () => {
+    if (!supabase || !mfaFactorId || !mfaCode) return;
+    const { data: challenge, error: chErr } = await supabase.auth.mfa.challenge({
+      factorId: mfaFactorId,
+    });
+    if (chErr) {
+      setSecurityMsg(chErr.message);
+      return;
+    }
+    const { error } = await supabase.auth.mfa.verify({
+      factorId: mfaFactorId,
+      challengeId: challenge.id,
+      code: mfaCode,
+    });
+    if (error) {
+      setSecurityMsg(error.message);
+    } else {
+      setMfaQr(null);
+      setMfaCode('');
+      setSecurityMsg('2FA Authenticator berhasil diaktifkan!');
+    }
+  };
+
+  const handleAdminResetPassword = async (email: string) => {
+    setAdminToast(null);
+    const res = await fetch('/api/admin/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const json = await res.json();
+    setAdminToast(res.ok ? json.message : json.error || 'Gagal kirim reset password.');
+  };
 
   const loadManagedUsers = async () => {
     if (!isSuperadmin) return;
@@ -1293,6 +1385,112 @@ export default function DashboardClient({
                     </p>
                   </button>
                 </div>
+
+                {/* Security: PIN Lock & 2FA Authenticator */}
+                <div className="pt-4 space-y-4">
+                  <h3 className="text-lg font-bold flex items-center gap-2">
+                    <Lock className="w-5 h-5 text-emerald-400" /> Keamanan (PIN & 2FA Authenticator)
+                  </h3>
+
+                  {securityMsg && (
+                    <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs">
+                      {securityMsg}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* App PIN Lock */}
+                    <div className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-semibold text-sm flex items-center gap-2">
+                          <KeyRound className="w-4 h-4 text-emerald-400" /> App PIN Lock (6 Digit)
+                        </h4>
+                        {appPin && (
+                          <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                            Aktif
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-zinc-400">
+                        Kunci layar aplikasi dengan PIN 6 angka agar lebih aman di HP.
+                      </p>
+                      <div className="flex gap-2">
+                        <input
+                          type="password"
+                          maxLength={6}
+                          value={newPinInput}
+                          onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
+                          placeholder="6 digit PIN baru"
+                          className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs"
+                        />
+                        <button
+                          onClick={handleSavePin}
+                          className="px-3.5 py-2 rounded-xl bg-emerald-500 text-zinc-950 font-semibold text-xs"
+                        >
+                          Simpan PIN
+                        </button>
+                      </div>
+                      {appPin && (
+                        <div className="flex gap-2 pt-1">
+                          <button
+                            onClick={() => setPinLocked(true)}
+                            className="flex-1 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-medium"
+                          >
+                            Kunci Layar Sekarang
+                          </button>
+                          <button
+                            onClick={handleRemovePin}
+                            className="px-3 py-2 rounded-xl bg-rose-500/15 text-rose-300 text-xs"
+                          >
+                            Hapus PIN
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* 2FA Authenticator */}
+                    <div className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 space-y-3">
+                      <h4 className="font-semibold text-sm flex items-center gap-2">
+                        <Smartphone className="w-4 h-4 text-indigo-400" /> 2FA Authenticator (TOTP)
+                      </h4>
+                      <p className="text-xs text-zinc-400">
+                        Hubungkan Google Authenticator / Authy untuk verifikasi 2 langkah.
+                      </p>
+                      {!mfaQr ? (
+                        <button
+                          onClick={handleEnroll2FA}
+                          className="px-4 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold"
+                        >
+                          Aktifkan 2FA Authenticator
+                        </button>
+                      ) : (
+                        <div className="space-y-3">
+                          <img
+                            src={mfaQr}
+                            alt="2FA QR Code"
+                            className="w-40 h-40 rounded-xl bg-white p-2"
+                          />
+                          <div className="flex gap-2">
+                            <input
+                              type="text"
+                              maxLength={6}
+                              value={mfaCode}
+                              onChange={(e) => setMfaCode(e.target.value)}
+                              placeholder="Kode 6 digit"
+                              className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs"
+                            />
+                            <button
+                              onClick={handleVerify2FA}
+                              className="px-3.5 py-2 rounded-xl bg-emerald-500 text-zinc-950 font-semibold text-xs"
+                            >
+                              Verifikasi
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
               </motion.div>
             )}
 
@@ -1320,6 +1518,12 @@ export default function DashboardClient({
                     Refresh
                   </button>
                 </div>
+
+                {adminToast && (
+                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs">
+                    {adminToast}
+                  </div>
+                )}
 
                 {usersError && (
                   <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs">
@@ -1360,6 +1564,14 @@ export default function DashboardClient({
                             <option value="member">Member</option>
                             <option value="viewer">Viewer</option>
                           </select>
+
+                          <button
+                            onClick={() => handleAdminResetPassword(u.email)}
+                            className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                            title="Kirim link reset password ke email user"
+                          >
+                            <KeyRound className="w-3.5 h-3.5" /> Reset PW
+                          </button>
 
                           <button
                             onClick={() => handleImpersonate(u)}
@@ -1425,6 +1637,37 @@ export default function DashboardClient({
           </button>
         ))}
       </nav>
+
+      {/* PIN Lock Overlay */}
+      {pinLocked && appPin && (
+        <div className="fixed inset-0 z-[60] bg-[#09090b]/95 backdrop-blur-xl flex items-center justify-center p-4">
+          <div className="w-full max-w-xs bg-zinc-900 border border-white/10 rounded-3xl p-6 text-center space-y-4 shadow-2xl">
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+              <Lock className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base">stashinmeid Terkunci</h3>
+              <p className="text-xs text-zinc-400 mt-0.5">Masukkan PIN 6 digit untuk membuka</p>
+            </div>
+            <input
+              type="password"
+              maxLength={6}
+              value={pinInput}
+              onChange={(e) => {
+                const v = e.target.value.replace(/\D/g, '');
+                setPinInput(v);
+                if (v === appPin) {
+                  setPinLocked(false);
+                  setPinInput('');
+                }
+              }}
+              placeholder="••••••"
+              className="w-full text-center tracking-[0.5em] text-lg py-3 bg-black/50 border border-white/10 rounded-xl focus:outline-none focus:border-emerald-500"
+              autoFocus
+            />
+          </div>
+        </div>
+      )}
 
       {/* Quick Add / AI Scan Bottom-Sheet Modal */}
       {showQuickAdd && (

@@ -110,6 +110,35 @@ export default function LoginPage() {
     setLoading(false);
   };
 
+  const handleForgotPassword = async () => {
+    setMessage(null);
+    if (!email || !email.includes('@')) {
+      setMessage({
+        type: 'error',
+        text: 'Masukkan alamat email akunmu dulu, lalu klik Lupa Password.',
+      });
+      return;
+    }
+    const supabase = createClient();
+    if (!supabase) {
+      setMessage({ type: 'error', text: 'Supabase belum dikonfigurasi.' });
+      return;
+    }
+    setLoading(true);
+    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+      redirectTo: `${window.location.origin}/reset-password`,
+    });
+    if (error) {
+      setMessage({ type: 'error', text: error.message });
+    } else {
+      setMessage({
+        type: 'success',
+        text: `Link reset password telah dikirim ke ${email}. Cek inbox / folder spam.`,
+      });
+    }
+    setLoading(false);
+  };
+
   const handleGoogleLogin = async () => {
     const supabase = createClient();
     if (!supabase) {
@@ -314,9 +343,16 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">
-                    Password
-                  </label>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="block text-xs font-medium text-slate-400">Password</label>
+                    <button
+                      type="button"
+                      onClick={handleForgotPassword}
+                      className="text-xs text-emerald-400 hover:underline"
+                    >
+                      Lupa Password?
+                    </button>
+                  </div>
                   <input
                     type="password"
                     required
