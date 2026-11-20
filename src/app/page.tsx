@@ -68,7 +68,12 @@ async function DashboardLoader() {
       superadminSession.impersonateUserId || (await getOrCreateSuperadminUserId());
 
     if (adminClient && targetUserId) {
-      const [{ data: transactions }, { data: debts }] = await Promise.all([
+      const [{ data: profile }, { data: transactions }, { data: debts }] = await Promise.all([
+        adminClient
+          .from('profiles')
+          .select('email, client_name')
+          .eq('id', targetUserId)
+          .single(),
         adminClient
           .from('transactions')
           .select('*')
@@ -85,8 +90,10 @@ async function DashboardLoader() {
         <DashboardClient
           initialTransactions={(transactions as Transaction[]) || []}
           initialDebts={(debts as Debt[]) || []}
-          userEmail={superadminSession.impersonateEmail ?? superadminSession.sub}
-          clientName={superadminSession.impersonateClientName ?? 'Superadmin Personal'}
+          userEmail={superadminSession.impersonateEmail ?? profile?.email ?? superadminSession.sub}
+          clientName={
+            superadminSession.impersonateClientName ?? profile?.client_name ?? 'Superadmin Personal'
+          }
           userRole="admin"
           isDemoMode={false}
           isSuperadmin={true}

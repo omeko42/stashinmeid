@@ -149,7 +149,7 @@ export default function DashboardClient({
   const [mfaCode, setMfaCode] = useState('');
   const [securityMsg, setSecurityMsg] = useState<string | null>(null);
 
-  // Profile Edit State
+  // Profile Live State
   const [profileUsername, setProfileUsername] = useState(
     userEmail && !userEmail.includes('@') ? userEmail : (userEmail?.split('@')[0] || 'user')
   );
@@ -160,9 +160,25 @@ export default function DashboardClient({
   const [profileBio, setProfileBio] = useState(
     'Pengelola keuangan pribadi & pemantauan cashflow di stashinmeid.'
   );
+
+  // Profile Draft State (for Popup Modal so typing doesn't mutate background)
+  const [draftUsername, setDraftUsername] = useState('');
+  const [draftEmail, setDraftEmail] = useState('');
+  const [draftClient, setDraftClient] = useState('');
+  const [draftBio, setDraftBio] = useState('');
   const [profileNewPassword, setProfileNewPassword] = useState('');
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
+  const [saveConfirmMsg, setSaveConfirmMsg] = useState<string | null>(null);
+
+  const openEditProfile = () => {
+    setDraftUsername(profileUsername);
+    setDraftEmail(profileEmail);
+    setDraftClient(profileClient);
+    setDraftBio(profileBio);
+    setProfileNewPassword('');
+    setEditingProfile(true);
+  };
 
   const profileCompleteness = useMemo(() => {
     let score = 40;
@@ -176,22 +192,50 @@ export default function DashboardClient({
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSecurityMsg(null);
+    setProfileSaving(true);
 
     if (isSuperadmin) {
-      setProfileSaving(true);
+      const res = await fetch('/api/superadmin/finance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'profiles',
+          updates: {
+            client_name: draftClient,
+            ...(draftEmail && draftEmail.includes('@') ? { email: draftEmail } : {}),
+          },
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json();
+        setSecurityMsg(j.error || 'Gagal menyimpan ke database.');
+        setProfileSaving(false);
+        return;
+      }
+      setProfileUsername(draftUsername);
+      setProfileEmail(draftEmail);
+      setProfileClient(draftClient);
+      setProfileBio(draftBio);
       setProfileNewPassword('');
-      setSecurityMsg('Profil Superadmin berhasil diperbarui!');
+      setEditingProfile(false);
+      setSaveConfirmMsg('Perubahan profil berhasil disimpan permanen ke database!');
       setProfileSaving(false);
       return;
     }
 
     if (!supabase || isDemoMode) {
-      setSecurityMsg('Profil tersimpan di sesi lokal (login dengan Supabase untuk simpan permanen).');
+      setProfileUsername(draftUsername);
+      setProfileEmail(draftEmail);
+      setProfileClient(draftClient);
+      setProfileBio(draftBio);
+      setEditingProfile(false);
+      setSaveConfirmMsg('Profil tersimpan di sesi lokal.');
+      setProfileSaving(false);
       return;
     }
-    setProfileSaving(true);
+
     const updates: { email?: string; password?: string } = {};
-    if (profileEmail && profileEmail !== userEmail) updates.email = profileEmail;
+    if (draftEmail && draftEmail !== profileEmail) updates.email = draftEmail;
     if (profileNewPassword.length >= 8) updates.password = profileNewPassword;
 
     if (Object.keys(updates).length > 0) {
@@ -207,12 +251,17 @@ export default function DashboardClient({
     if (userData.user) {
       await supabase
         .from('profiles')
-        .update({ client_name: profileClient })
+        .update({ client_name: draftClient })
         .eq('id', userData.user.id);
     }
 
+    setProfileUsername(draftUsername);
+    setProfileEmail(draftEmail);
+    setProfileClient(draftClient);
+    setProfileBio(draftBio);
     setProfileNewPassword('');
-    setSecurityMsg('Profil & pengaturan akun berhasil diperbarui!');
+    setEditingProfile(false);
+    setSaveConfirmMsg('Perubahan profil & akun berhasil disimpan!');
     setProfileSaving(false);
   };
 
@@ -1554,7 +1603,7 @@ export default function DashboardClient({
 
                         <button
                           type="button"
-                          onClick={() => setEditingProfile(true)}
+                          onClick={openEditProfile}
                           className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-semibold text-xs transition hover:opacity-90 shrink-0"
                         >
                           Edit Profil
@@ -1596,7 +1645,7 @@ export default function DashboardClient({
                         </h3>
                         <button
                           type="button"
-                          onClick={() => setEditingProfile(true)}
+                          onClick={openEditProfile}
                           className="text-xs text-emerald-400 hover:underline"
                         >
                           Ubah
@@ -1651,10 +1700,7 @@ export default function DashboardClient({
                       </div>
 
                       <form
-                        onSubmit={async (e) => {
-                          await handleSaveProfile(e);
-                          setEditingProfile(false);
-                        }}
+                        onSubmit={handleSaveProfile}
                         autoComplete="off"
                         className="space-y-3.5"
                       >
@@ -1663,8 +1709,8 @@ export default function DashboardClient({
                             <label className="block text-xs text-zinc-400 mb-1">Username</label>
                             <input
                               type="text"
-                              value={profileUsername}
-                              onChange={(e) => setProfileUsername(e.target.value)}
+                              value={draftUsername}
+                              onChange={(e) => setDraftUsername(e.target.value)}
                               autoComplete="off"
                               className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
                             />
@@ -1673,8 +1719,8 @@ export default function DashboardClient({
                             <label className="block text-xs text-zinc-400 mb-1">Email Tertaut</label>
                             <input
                               type="email"
-                              value={profileEmail}
-                              onChange={(e) => setProfileEmail(e.target.value)}
+                              value={draftEmail}
+                              onChange={(e) => setDraftEmail(e.target.value)}
                               placeholder="nama@email.com"
                               autoComplete="off"
                               className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
@@ -1688,8 +1734,8 @@ export default function DashboardClient({
                           </label>
                           <input
                             type="text"
-                            value={profileClient}
-                            onChange={(e) => setProfileClient(e.target.value)}
+                            value={draftClient}
+                            onChange={(e) => setDraftClient(e.target.value)}
                             autoComplete="off"
                             className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
                           />
@@ -1699,8 +1745,8 @@ export default function DashboardClient({
                           <label className="block text-xs text-zinc-400 mb-1">Bio Singkat</label>
                           <input
                             type="text"
-                            value={profileBio}
-                            onChange={(e) => setProfileBio(e.target.value)}
+                            value={draftBio}
+                            onChange={(e) => setDraftBio(e.target.value)}
                             className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
                           />
                         </div>
@@ -2026,6 +2072,32 @@ export default function DashboardClient({
           </button>
         ))}
       </nav>
+
+      {/* Save Confirmation Popup Modal */}
+      {saveConfirmMsg && (
+        <div className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="w-full max-w-sm bg-zinc-900 border border-emerald-500/30 rounded-3xl p-6 text-center space-y-4 shadow-2xl"
+          >
+            <div className="mx-auto w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+            <div>
+              <h3 className="font-bold text-base text-white">Berhasil Disimpan</h3>
+              <p className="text-xs text-zinc-400 mt-1">{saveConfirmMsg}</p>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSaveConfirmMsg(null)}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-semibold text-sm"
+            >
+              Oke
+            </button>
+          </motion.div>
+        </div>
+      )}
 
       {/* PIN Lock Overlay */}
       {pinLocked && appPin && (

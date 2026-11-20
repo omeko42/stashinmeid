@@ -53,7 +53,14 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const { id, updates } = await req.json();
+  const { table, id, updates } = await req.json();
+
+  if (table === 'profiles') {
+    const { error } = await admin.from('profiles').update(updates).eq('id', userId);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ ok: true });
+  }
+
   const { error } = await admin
     .from('debts')
     .update(updates)
