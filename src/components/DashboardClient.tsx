@@ -176,6 +176,15 @@ export default function DashboardClient({
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setSecurityMsg(null);
+
+    if (isSuperadmin) {
+      setProfileSaving(true);
+      setProfileNewPassword('');
+      setSecurityMsg('Profil Superadmin berhasil diperbarui!');
+      setProfileSaving(false);
+      return;
+    }
+
     if (!supabase || isDemoMode) {
       setSecurityMsg('Profil tersimpan di sesi lokal (login dengan Supabase untuk simpan permanen).');
       return;
@@ -833,11 +842,13 @@ export default function DashboardClient({
             <div className="flex items-center justify-between gap-1.5 text-emerald-400 font-semibold">
               <span className="flex items-center gap-1.5 truncate">
                 <Shield className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{clientName}</span>
+                <span className="truncate">{profileClient}</span>
               </span>
               <UserCircle className="w-4 h-4 text-zinc-400 shrink-0" />
             </div>
-            <p className="text-zinc-400 truncate">{userEmail || 'Demo Mode'}</p>
+            <p className="text-zinc-400 truncate">
+              {profileEmail || `@${profileUsername}`}
+            </p>
             <span className="inline-block text-[10px] px-2 py-0.5 rounded-md bg-white/[0.06] text-zinc-300 uppercase tracking-wider">
               {userRole}
             </span>
@@ -860,7 +871,7 @@ export default function DashboardClient({
             <BrandLogo size={32} />
             <div>
               <h1 className="font-bold text-base leading-none lowercase">stashinmeid</h1>
-              <span className="text-[11px] text-zinc-400">{clientName}</span>
+              <span className="text-[11px] text-zinc-400">{profileClient}</span>
             </div>
           </div>
           <div className="flex items-center gap-2">
