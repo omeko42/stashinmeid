@@ -741,7 +741,6 @@ export default function DashboardClient({
     { id: 'cashflow', label: 'Cashflow', icon: <ArrowLeftRight className="w-5 h-5" /> },
     { id: 'debts', label: 'Debt', icon: <Landmark className="w-5 h-5" /> },
     { id: 'tools', label: 'Tools', icon: <SlidersHorizontal className="w-5 h-5" /> },
-    { id: 'profile', label: 'Profile', icon: <UserCircle className="w-5 h-5" /> },
     ...(isSuperadmin
       ? [{ id: 'users' as NavTab, label: 'Users', icon: <Users className="w-5 h-5" /> }]
       : []),
@@ -803,16 +802,28 @@ export default function DashboardClient({
         </div>
 
         <div className="space-y-3 pt-4 border-t border-white/[0.06]">
-          <div className="p-3.5 rounded-2xl bg-zinc-900/80 border border-white/[0.06] text-xs space-y-1.5">
-            <div className="flex items-center gap-1.5 text-rose-400 font-semibold">
-              <Shield className="w-3.5 h-3.5" />
-              <span className="truncate">{clientName}</span>
+          <button
+            type="button"
+            onClick={() => setActiveTab('profile')}
+            className={`w-full text-left p-3.5 rounded-2xl border text-xs space-y-1.5 transition ${
+              activeTab === 'profile'
+                ? 'bg-emerald-500/15 border-emerald-500/40 ring-1 ring-emerald-500/20'
+                : 'bg-zinc-900/80 border-white/[0.06] hover:border-white/20 hover:bg-zinc-800/80'
+            }`}
+            title="Buka Profile & Keamanan Akun"
+          >
+            <div className="flex items-center justify-between gap-1.5 text-emerald-400 font-semibold">
+              <span className="flex items-center gap-1.5 truncate">
+                <Shield className="w-3.5 h-3.5 shrink-0" />
+                <span className="truncate">{clientName}</span>
+              </span>
+              <UserCircle className="w-4 h-4 text-zinc-400 shrink-0" />
             </div>
             <p className="text-zinc-400 truncate">{userEmail || 'Demo Mode'}</p>
             <span className="inline-block text-[10px] px-2 py-0.5 rounded-md bg-white/[0.06] text-zinc-300 uppercase tracking-wider">
               {userRole}
             </span>
-          </div>
+          </button>
 
           <button
             onClick={handleLogout}
@@ -844,6 +855,17 @@ export default function DashboardClient({
                 <Camera className="w-4 h-4" />
               </button>
             )}
+            <button
+              onClick={() => setActiveTab('profile')}
+              className={`p-2 rounded-xl border transition ${
+                activeTab === 'profile'
+                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
+                  : 'bg-white/[0.05] border-white/[0.08] text-zinc-300'
+              }`}
+              title="Profile & Keamanan"
+            >
+              <UserCircle className="w-4 h-4" />
+            </button>
             <button
               onClick={handleLogout}
               className="p-2 rounded-xl bg-white/[0.05] border border-white/[0.08] text-zinc-300"
