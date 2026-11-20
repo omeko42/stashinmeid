@@ -1,0 +1,346 @@
+{
+  "app": {
+    "name": "stashinmeid",
+    "tagline": "Manajemen keuanganmu"
+  },
+  "nav": {
+    "overview": "Ringkasan",
+    "cashflow": "Arus Kas",
+    "debts": "Pinjaman",
+    "settings": "Pengaturan",
+    "users": "Manajemen User",
+    "profile": "Profil",
+    "signOut": "Keluar",
+    "openMenu": "Buka menu navigasi",
+    "settingsMenu": "Menu pengaturan",
+    "closeMenu": "Tutup menu",
+    "more": "Lainnya"
+  },
+  "common": {
+    "save": "Simpan",
+    "cancel": "Batal",
+    "close": "Tutup",
+    "delete": "Hapus",
+    "deletePermanently": "Hapus Permanen",
+    "edit": "Ubah",
+    "add": "Tambah",
+    "back": "Kembali",
+    "next": "Lanjut",
+    "search": "Cari",
+    "searchPlaceholder": "Cari transaksi...",
+    "loading": "Memuat",
+    "all": "Semua",
+    "inflow": "Masuk",
+    "outflow": "Keluar",
+    "total": "Total",
+    "amount": "Nominal",
+    "date": "Tanggal",
+    "category": "Kategori",
+    "description": "Keterangan",
+    "optional": "opsional",
+    "required": "wajib",
+    "confirm": "Ya, lanjutkan",
+    "undo": "Urungkan",
+    "retry": "Coba lagi",
+    "language": "Bahasa",
+    "theme": {
+      "label": "Tema",
+      "light": "Terang",
+      "dark": "Gelap",
+      "system": "Ikuti sistem",
+      "toggle": "Ganti tema"
+    },
+    "demo": {
+      "badge": "Mode Demo",
+      "description": "Data contoh - belum tersimpan ke database"
+    },
+    "empty": {
+      "title": "Belum ada data",
+      "description": "Belum ada data untuk ditampilkan.",
+      "action": "Mulai sekarang"
+    }
+  },
+  "overview": {
+    "title": "Ringkasan",
+    "balanceLabel": "Balance",
+    "balanceHint": "Masuk dikurangi keluar",
+    "savingsRate": "Tingkat tabung",
+    "inflow": "Masuk",
+    "outflow": "Keluar",
+    "totalDebt": "Pinjaman",
+    "monthlyInstallment": "Cicilan per bulan",
+    "activeDebts": "utang aktif",
+    "trendTitle": "Tren masuk dan keluar",
+    "trendEmpty": "Belum ada transaksi untuk digrafikkan.",
+    "debtComposition": "Komposisi sisa utang",
+    "debtCompositionEmpty": "Semua pinjaman sudah lunas.",
+    "upcoming": "Jatuh tempo terdekat",
+    "upcomingEmpty": "Tidak ada jatuh tempo dalam 30 hari ke depan.",
+    "recent": "Transaksi terbaru",
+    "recentEmpty": "Belum ada transaksi tercatat.",
+    "viewAll": "Lihat semua",
+    "period": {
+      "label": "Periode",
+      "week": "Minggu",
+      "month": "Bulan",
+      "year": "Tahun",
+      "all": "Semua"
+    },
+    "quickAdd": "Catat",
+    "quickAddHint": "Catat transaksi baru"
+  },
+  "cashflow": {
+    "title": "Arus Kas",
+    "subtitle": "Riwayat masuk dan keluar",
+    "filterAll": "Semua",
+    "filterInflow": "Masuk",
+    "filterOutflow": "Keluar",
+    "empty": {
+      "title": "Belum ada transaksi",
+      "description": "Catat transaksi pertamamu atau pindai struk dengan AI.",
+      "action": "Catat transaksi"
+    },
+    "noMatch": "Tidak ada transaksi yang cocok.",
+    "deleteTitle": "Hapus transaksi ini?",
+    "deleteBody": "Transaksi akan dihapus permanen dari database.",
+    "deleted": "Transaksi dihapus.",
+    "count": "{count} transaksi"
+  },
+  "debts": {
+    "title": "Utang",
+    "subtitle": "Pinjaman, paylater, dan cicilan",
+    "add": "Tambah utang",
+    "simulator": {
+      "title": "Simulasi pelunasan",
+      "selected": "{count} dipilih",
+      "payoff": "Total pelunasan",
+      "savings": "Hemat per bulan",
+      "perMonth": "per bulan",
+      "clear": "Hapus pilihan",
+      "hint": "Centang utang untuk melihat simulasi."
+    },
+    "form": {
+      "platform": "Platform",
+      "platformPlaceholder": "mis. SPinjam, Kredivo",
+      "contract": "Nomor kontrak",
+      "contractPlaceholder": "Nomor kontrak atau keterangan",
+      "balance": "Sisa tagihan",
+      "balancePlaceholder": "Sisa tagihan (Rp)",
+      "installment": "Cicilan per bulan",
+      "installmentPlaceholder": "Cicilan per bulan (Rp)",
+      "tenor": "Sisa tenor",
+      "tenorPlaceholder": "Sisa tenor (bulan)",
+      "dueDay": "Tanggal jatuh tempo",
+      "notes": "Catatan",
+      "notesPlaceholder": "Catatan tambahan (opsional)"
+    },
+    "card": {
+      "paid": "Lunas",
+      "active": "Aktif",
+      "remaining": "Sisa tenor",
+      "dueOn": "Jatuh tempo setiap tanggal {day}",
+      "pay": "Bayar cicilan",
+      "payConfirm": "Catat pembayaran cicilan ini sebagai transaksi keluar?",
+      "paidToast": "Cicilan dicatat.",
+      "remainingLabel": "Sisa tagihan"
+    },
+    "empty": {
+      "title": "Belum ada utang",
+      "description": "Tambahkan pinjaman atau cicilan untuk pantau jatuh tempo dan hitung simulasi pelunasan.",
+      "action": "Tambah utang"
+    },
+    "deleted": "Utang dihapus.",
+    "added": "Utang ditambahkan."
+  },
+  "budget": {
+    "title": "Anggaran",
+    "subtitle": "Pagu bulanan per kategori",
+    "set": "Atur pagu",
+    "unset": "Hapus pagu",
+    "spent": "terpakai",
+    "remaining": "sisa",
+    "over": "melebihi pagu",
+    "of": "dari {total}",
+    "placeholder": "Pagu (Rp)",
+    "empty": {
+      "title": "Belum ada pagu",
+      "description": "Tetapkan pagu per kategori supaya pengeluaran lebih terkendali.",
+      "action": "Atur pagu pertama"
+    },
+    "saved": "Pagu disimpan.",
+    "deleted": "Pagu dihapus."
+  },
+  "settings": {
+    "title": "Pengaturan",
+    "subtitle": "Profil, data, keamanan, dan admin",
+    "sections": {
+      "profile": "Profil",
+      "data": "Data dan ekspor",
+      "security": "Keamanan",
+      "admin": "Administrasi",
+      "appearance": "Tampilan"
+    },
+    "profile": {
+      "cover": "Profil & Keamanan",
+      "edit": "Ubah profil",
+      "editTitle": "Ubah profil dan akun",
+      "username": "Username",
+      "email": "Email",
+      "emailNotSet": "Belum ditambahkan",
+      "workspace": "Nama workspace",
+      "bio": "Tentang",
+      "bioPlaceholder": "Ceritakan sedikit tentangmu",
+      "role": "Peran",
+      "completeness": "Kelengkapan data",
+      "newPassword": "Password baru",
+      "newPasswordHint": "Kosongkan jika tidak ingin mengganti",
+      "save": "Simpan profil",
+      "saved": "Profil berhasil disimpan.",
+      "saveFailed": "Gagal menyimpan profil."
+    },
+    "data": {
+      "scan": "Pindai struk dengan AI",
+      "scanHint": "Unggah foto struk atau bukti transfer, AI akan mengisi nominal dan kategorinya.",
+      "import": "Impor data CSV",
+      "importHint": "Tambah banyak transaksi sekaligus dari berkas CSV.",
+      "exportPdf": "Ekspor laporan PDF",
+      "exportWord": "Ekspor laporan Word",
+      "exportCsv": "Ekspor data CSV",
+      "exportHint": "Unduh laporan keuangan dalam format yang kamu butuhkan."
+    },
+    "security": {
+      "title": "Keamanan",
+      "pin": "Kunci aplikasi dengan PIN",
+      "pinHint": "Butuh 6 digit untuk membuka aplikasi. Disimpan hanya di perangkat ini.",
+      "pinSet": "PIN aktif",
+      "pinNotSet": "PIN belum aktif",
+      "pinNew": "PIN baru",
+      "pinConfirm": "Ulangi PIN",
+      "pinSave": "Simpan PIN",
+      "pinRemove": "Hapus PIN",
+      "pinSaved": "PIN berhasil diaktifkan.",
+      "pinRemoved": "PIN dinonaktifkan.",
+      "pinMismatch": "PIN tidak cocok.",
+      "pinInvalid": "PIN harus tepat 6 digit angka.",
+      "twofa": "Verifikasi dua langkah",
+      "twofaHint": "Hubungkan Google Authenticator untuk lapis keamanan tambahan.",
+      "twofaEnable": "Aktifkan 2FA",
+      "twofaVerify": "Masukkan kode 6 digit",
+      "twofaConfirm": "Verifikasi dan aktifkan",
+      "twofaActive": "2FA aktif",
+      "twofaNeedLogin": "Login dengan akun email dulu untuk mengaktifkan 2FA.",
+      "locked": "Aplikasi terkunci",
+      "unlock": "Masukkan PIN untuk membuka"
+    },
+    "appearance": {
+      "title": "Tampilan",
+      "theme": "Tema",
+      "language": "Bahasa"
+    }
+  },
+  "users": {
+    "title": "Manajemen User",
+    "subtitle": "Kelola akses dan sesi pengguna",
+    "refresh": "Muat ulang",
+    "role": "Peran",
+    "roles": {
+      "admin": "Admin",
+      "member": "Member",
+      "viewer": "Viewer"
+    },
+    "edit": "Ubah data login",
+    "editTitle": "Ubah data login {name}",
+    "resetPassword": "Kirim reset password",
+    "resetSent": "Link reset password dikirim ke {email}.",
+    "impersonate": "Masuk sebagai",
+    "stopImpersonate": "Berhenti menyamar",
+    "deleteUser": "Hapus user",
+    "deleteUserConfirm": "Hapus user {name}? Akun dan seluruh datanya akan dih permanen.",
+    "deleteUserDone": "User dihapus.",
+    "saved": "Data user diperbarui.",
+    "empty": {
+      "title": "Belum ada user",
+      "description": "User yang mendaftar akan muncul di sini."
+    },
+    "impersonating": "Menyamar sebagai {email}",
+    "stop": "Berhenti"
+  },
+  "tools": {
+    "scanning": "Membaca struk...",
+    "scanFailed": "Gagal membaca struk. Coba foto yang lebih jelas.",
+    "scanSuccess": "Struk terbaca. Periksa nominalnya sebelum disimpan.",
+    "importSuccess": "{count} transaksi diimpor.",
+    "importFailed": "Gagal membaca berkas CSV.",
+    "exported": "Laporan berhasil diunduh."
+  },
+  "quickAdd": {
+    "title": "Catat transaksi",
+    "type": "Jenis",
+    "typeInflow": "Uang masuk",
+    "typeOutflow": "Uang keluar",
+    "amount": "Nominal",
+    "amountPlaceholder": "50000",
+    "category": "Kategori",
+    "description": "Keterangan",
+    "descriptionPlaceholder": "mis. Kopi Kenangan, Gaji bulanan",
+    "date": "Tanggal",
+    "save": "Simpan",
+    "saved": "Transaksi dicatat.",
+    "failed": "Gagal menyimpan transaksi."
+  },
+  "command": {
+    "placeholder": "Cari aksi atau navigasi...",
+    "empty": "Tidak ada hasil.",
+    "group": {
+      "navigate": "Navigasi",
+      "action": "Aksi"
+    },
+    "open": "Buka palet perintah",
+    "navigate": "Navigasi ke {name}",
+    "actions": {
+      "addTransaction": "Catat transaksi",
+      "scanReceipt": "Pindai struk AI",
+      "toggleTheme": "Ganti tema",
+      "changeLanguage": "Ganti bahasa",
+      "exportPdf": "Ekspor PDF",
+      "exportCsv": "Ekspor CSV",
+      "signOut": "Keluar"
+    }
+  },
+  "auth": {
+    "signIn": "Masuk",
+    "signUp": "Daftar",
+    "signOut": "Keluar",
+    "email": "Email",
+    "password": "Password",
+    "passwordHint": "Minimal 8 karakter, ada huruf dan angka.",
+    "confirmPassword": "Ulangi password",
+    "username": "Username",
+    "fullName": "Nama lengkap",
+    "workspace": "Nama workspace",
+    "bio": "Tentang",
+    "forgotPassword": "Lupa password?",
+    "noAccount": "Belum punya akun? Daftar",
+    "hasAccount": "Sudah punya akun? Masuk",
+    "withGoogle": "Lanjutkan dengan Google",
+    "withPasskey": "Masuk dengan passkey",
+    "or": "atau",
+    "step": "Langkah {current} dari {total}",
+    "passwordMismatch": "Konfirmasi password tidak cocok.",
+    "passwordWeak": "Password harus minimal 8 karakter dan mengandung huruf serta angka.",
+    "emailRequired": "Masukkan alamat email akunmu dulu, lalu klik Lupa Password.",
+    "signedIn": "Berhasil masuk.",
+    "signedUp": "Akun berhasil dibuat. Cek email untuk verifikasi.",
+    "resetTitle": "Buat password baru",
+    "resetSuccess": "Password berhasil diperbarui.",
+    "invalidCredentials": "Username atau password salah.",
+    "demoHint": "Supabase belum dikonfigurasi. Kamu bisa langsung pakai mode Demo di halaman utama."
+  },
+  "errors": {
+    "generic": "Terjadi kesalahan. Coba lagi.",
+    "network": "Koneksi bermasalah. Periksa internetmu.",
+    "unauthorized": "Kamu harus masuk dulu.",
+    "rateLimit": "Terlalu banyak permintaan. Coba lagi sebentar.",
+    "notFound": "Halaman tidak ditemukan."
+  }
+}

@@ -1,6 +1,9 @@
+import type { Locale } from '@/i18n/routing';
+import { routing } from '@/i18n/routing';
+import { setRequestLocale } from 'next-intl/server';
 import { Suspense } from 'react';
 import { cookies } from 'next/headers';
-import { redirect } from 'next/navigation';
+import { redirect } from '@/i18n/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getOrCreateSuperadminUserId } from '@/lib/superadminUser';
@@ -57,7 +60,16 @@ const DEMO_DEBTS: Debt[] = [
   },
 ];
 
-async function DashboardLoader() {
+export function generateStaticParams() {
+  return routing.locales.map((locale) => ({ locale }));
+}
+
+interface HomePageProps {
+  params: Promise<{ locale: string }>;
+}
+
+async function DashboardLoader({ locale }: { locale: Locale }) {
+  setRequestLocale(locale);
   const cookieStore = await cookies();
   const sessionToken = cookieStore.get('stashinme_session')?.value;
   const superadminSession = await verifySuperadminToken(sessionToken);
@@ -136,53 +148,56 @@ async function DashboardLoader() {
   } = await supabase.auth.getUser();
 
   if (!user) {
-    redirect('/login');
+    redirect({ href: '/login', locale });
+  } else {
+    const [{ data: profile }, { data: transactions }, { data: debts }] = await Promise.all([
+      supabase.from('profiles').select('client_name, role').eq('id', user.id).single(),
+      supabase
+        .from('transactions')
+        .select('*')
+        .order('transaction_date', { ascending: false }),
+      supabase
+        .from('debts')
+        .select('*')
+        .order('created_at', { ascending: false }),
+    ]);
+
+    return (
+      <DashboardClient
+        initialTransactions={(transactions as Transaction[]) || []}
+        initialDebts={(debts as Debt[]) || []}
+        userEmail={user.email ?? null}
+        clientName={profile?.client_name ?? 'Personal'}
+        userRole={(profile?.role as 'admin' | 'member' | 'viewer') ?? 'member'}
+        isDemoMode={false}
+      />
+    );
   }
-
-  const [{ data: profile }, { data: transactions }, { data: debts }] = await Promise.all([
-    supabase.from('profiles').select('client_name, role').eq('id', user.id).single(),
-    supabase
-      .from('transactions')
-      .select('*')
-      .order('transaction_date', { ascending: false }),
-    supabase
-      .from('debts')
-      .select('*')
-      .order('created_at', { ascending: false }),
-  ]);
-
-  return (
-    <DashboardClient
-      initialTransactions={(transactions as Transaction[]) || []}
-      initialDebts={(debts as Debt[]) || []}
-      userEmail={user.email ?? null}
-      clientName={profile?.client_name ?? 'Personal'}
-      userRole={(profile?.role as 'admin' | 'member' | 'viewer') ?? 'member'}
-      isDemoMode={false}
-    />
-  );
 }
 
-export default function HomePage() {
+export default async function HomePage({ params }: HomePageProps) {
+  const { locale: rawLocale } = await params;
+  const locale = routing.locales.includes(rawLocale as Locale)
+    ? (rawLocale as Locale)
+    : routing.defaultLocale;
+  setRequestLocale(locale);
+
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#09090b] text-zinc-300 flex flex-col items-center justify-center gap-4">
+        <div className="min-h-screen bg-[var(--bg)] text-[var(--text-muted)] flex flex-col items-center justify-center gap-4">
           <div className="animate-pulse">
             <BrandLogo size={52} />
           </div>
-          <div className="flex items-center gap-1.5 text-sm font-medium tracking-tight">
-            <span>Memuat stashinmeid</span>
-            <span className="flex items-center gap-1 pt-1">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.3s]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-bounce [animation-delay:-0.15s]" />
-              <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-bounce" />
-            </span>
+          <div className="flex items-center gap-1.5 pt-1">
+            <span className="w-2 h-2 rounded-full bg-[var(--brand)] animate-bounce [animation-delay:-0.3s]" />
+            <span className="w-2 h-2 rounded-full bg-[var(--brand)] animate-bounce [animation-delay:-0.15s]" />
+            <span className="w-2 h-2 rounded-full bg-[var(--brand)] animate-bounce" />
           </div>
         </div>
       }
     >
-      <DashboardLoader />
+      <DashboardLoader locale={locale} />
     </Suspense>
   );
 }

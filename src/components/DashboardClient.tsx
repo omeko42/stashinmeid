@@ -1,7 +1,11 @@
 'use client';
 
 import { useState, useRef, useEffect, useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/i18n/navigation';
+import { useTranslations } from 'next-intl';
+import { useHotkey } from '@/hooks/useHotkey';
+import { SettingsMenu } from '@/components/shell/SettingsMenu';
+import { CommandPalette, type CommandAction } from '@/components/shell/CommandPalette';
 import { motion, AnimatePresence } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { Transaction, Debt, TransactionType, UserRole } from '@/types/finance';
@@ -93,6 +97,8 @@ export default function DashboardClient({
   isSuperadmin = false,
   impersonatingEmail = null,
 }: DashboardClientProps) {
+  const t = useTranslations();
+  const tNav = useTranslations('nav');
   const router = useRouter();
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -105,6 +111,7 @@ export default function DashboardClient({
   const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [commandOpen, setCommandOpen] = useState(false);
 
   // Debt Payoff Simulator Selection
   const [simSelectedIds, setSimSelectedIds] = useState<string[]>([]);
@@ -813,17 +820,49 @@ export default function DashboardClient({
   };
 
   const navItems: { id: NavTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'overview', label: 'Overview', icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'cashflow', label: 'Cashflow', icon: <ArrowLeftRight className="w-5 h-5" /> },
-    { id: 'debts', label: 'Debt', icon: <Landmark className="w-5 h-5" /> },
-    { id: 'tools', label: 'Tools', icon: <SlidersHorizontal className="w-5 h-5" /> },
+    { id: 'overview', label: tNav('overview'), icon: <LayoutDashboard className="w-5 h-5" /> },
+    { id: 'cashflow', label: tNav('cashflow'), icon: <ArrowLeftRight className="w-5 h-5" /> },
+    { id: 'debts', label: tNav('debts'), icon: <Landmark className="w-5 h-5" /> },
+    { id: 'tools', label: tNav('more'), icon: <SlidersHorizontal className="w-5 h-5" /> },
+  ];
+
+  const paletteActions: CommandAction[] = [
+    { id: 'go-overview', label: tNav('overview'), group: 'navigate', onSelect: () => setActiveTab('overview') },
+    { id: 'go-cashflow', label: tNav('cashflow'), group: 'navigate', onSelect: () => setActiveTab('cashflow') },
+    { id: 'go-debts', label: tNav('debts'), group: 'navigate', onSelect: () => setActiveTab('debts') },
+    { id: 'go-profile', label: tNav('profile'), group: 'navigate', onSelect: () => setActiveTab('profile') },
     ...(isSuperadmin
-      ? [{ id: 'users' as NavTab, label: 'Users', icon: <Users className="w-5 h-5" /> }]
+      ? [
+          {
+            id: 'go-users',
+            label: tNav('users'),
+            group: 'navigate' as const,
+            onSelect: () => setActiveTab('users'),
+          },
+        ]
+      : []),
+    ...(canEdit
+      ? [
+          {
+            id: 'scan',
+            label: t('settings.data.scan'),
+            group: 'action' as const,
+            onSelect: () => fileInputRef.current?.click(),
+          },
+          {
+            id: 'quick-add',
+            label: t('quickAdd.title'),
+            group: 'action' as const,
+            onSelect: () => setShowQuickAdd(true),
+          },
+        ]
       : []),
   ];
 
+  useHotkey('mod+k', () => setCommandOpen(true));
+
   return (
-    <div className="relative min-h-screen bg-[#09090b] text-zinc-100 flex flex-col lg:flex-row pb-24 lg:pb-0 overflow-x-hidden">
+    <div className="relative min-h-screen bg-[var(--bg)] text-[var(--text)] flex flex-col lg:flex-row pb-20 lg:pb-0 overflow-x-hidden">
       {/* Ambient Coral & Indigo Mesh Glows */}
       <div className="pointer-events-none fixed top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-rose-500/10 blur-[120px]" />
       <div className="pointer-events-none fixed bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-indigo-500/10 blur-[120px]" />
@@ -877,31 +916,26 @@ export default function DashboardClient({
           </nav>
         </div>
 
-        <div className="space-y-3 pt-4 border-t border-white/[0.06]">
-          <button
-            type="button"
-            onClick={() => setActiveTab('profile')}
-            className={`w-full text-left p-3.5 rounded-2xl border text-xs space-y-1.5 transition ${
-              activeTab === 'profile'
-                ? 'bg-emerald-500/15 border-emerald-500/40 ring-1 ring-emerald-500/20'
-                : 'bg-zinc-900/80 border-white/[0.06] hover:border-white/20 hover:bg-zinc-800/80'
-            }`}
-            title="Buka Profile & Keamanan Akun"
-          >
-            <div className="flex items-center justify-between gap-1.5 text-emerald-400 font-semibold">
-              <span className="flex items-center gap-1.5 truncate">
-                <Shield className="w-3.5 h-3.5 shrink-0" />
-                <span className="truncate">{profileClient}</span>
-              </span>
-              <UserCircle className="w-4 h-4 text-zinc-400 shrink-0" />
-            </div>
-            <p className="text-zinc-400 truncate">
-              {profileEmail || `@${profileUsername}`}
-            </p>
-            <span className="inline-block text-[10px] px-2 py-0.5 rounded-md bg-white/[0.06] text-zinc-300 uppercase tracking-wider">
+        <div className="space-y-3 pt-4 border-t border-[var(--line)]">
+          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-1)] p-3 text-xs space-y-2">
+            <p className="font-semibold text-[var(--text)] truncate">{profileClient}</p>
+            <p className="text-[var(--text-muted)] truncate">{profileEmail || `@${profileUsername}`}</p>
+            <span className="inline-block text-[10px] px-2 py-0.5 rounded-md bg-[var(--surface-2)] text-[var(--text-muted)] uppercase tracking-wider">
               {userRole}
             </span>
-          </button>
+          </div>
+
+          <SettingsMenu
+            align="left"
+            canEdit={canEdit}
+            showUsers={isSuperadmin}
+            onProfile={() => setActiveTab('profile')}
+            onUsers={() => setActiveTab('users')}
+            onScan={() => fileInputRef.current?.click()}
+            onImport={() => csvInputRef.current?.click()}
+            onExportPdf={() => exportToPDF(transactions, debts, clientName)}
+            onExportWord={() => exportToWord(transactions, debts, clientName)}
+          />
 
           <button
             onClick={handleLogout}
@@ -915,44 +949,49 @@ export default function DashboardClient({
       {/* Main Content */}
       <div className="relative z-10 flex-1 lg:pl-64 flex flex-col min-w-0">
         {/* Mobile Top Bar */}
-        <header className="lg:hidden sticky top-0 z-20 bg-[#09090b]/85 backdrop-blur-xl border-b border-white/[0.06] px-4 py-3 flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <BrandLogo size={32} />
-            <div>
-              <h1 className="font-bold text-base leading-none lowercase">stashinmeid</h1>
-              <span className="text-[11px] text-zinc-400">{profileClient}</span>
+        <header className="lg:hidden sticky top-0 z-20 bg-[var(--bg)]/90 backdrop-blur-xl border-b border-[var(--line)] px-3 py-2.5 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <BrandLogo size={30} />
+            <div className="min-w-0">
+              <h1 className="font-bold text-sm leading-none lowercase truncate">stashinmeid</h1>
+              <span className="text-[10px] text-[var(--text-muted)] truncate block">{profileClient}</span>
             </div>
           </div>
-          <div className="flex items-center gap-2">
-            {canEdit && (
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                className="p-2 rounded-xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-300"
-                title="Scan Struk AI"
-              >
-                <Camera className="w-4 h-4" />
-              </button>
-            )}
+          <div className="flex items-center gap-1 shrink-0">
+            <SettingsMenu
+              canEdit={canEdit}
+              showUsers={isSuperadmin}
+              onProfile={() => setActiveTab('profile')}
+              onUsers={() => setActiveTab('users')}
+              onScan={() => fileInputRef.current?.click()}
+              onImport={() => csvInputRef.current?.click()}
+              onExportPdf={() => exportToPDF(transactions, debts, clientName)}
+              onExportWord={() => exportToWord(transactions, debts, clientName)}
+            />
             <button
-              onClick={() => setActiveTab('profile')}
-              className={`p-2 rounded-xl border transition ${
-                activeTab === 'profile'
-                  ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                  : 'bg-white/[0.05] border-white/[0.08] text-zinc-300'
-              }`}
-              title="Profile & Keamanan"
-            >
-              <UserCircle className="w-4 h-4" />
-            </button>
-            <button
+              type="button"
               onClick={handleLogout}
-              className="p-2 rounded-xl bg-white/[0.05] border border-white/[0.08] text-zinc-300"
-              title="Keluar"
+              className="p-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] text-[var(--text-muted)]"
+              title={tNav('signOut')}
+              aria-label={tNav('signOut')}
             >
               <LogOut className="w-4 h-4" />
             </button>
           </div>
         </header>
+
+        <div className="hidden lg:flex sticky top-0 z-20 border-b border-[var(--line)] bg-[var(--bg)]/90 backdrop-blur-xl px-6 py-3 items-center justify-end gap-3">
+          <SettingsMenu
+            canEdit={canEdit}
+            showUsers={isSuperadmin}
+            onProfile={() => setActiveTab('profile')}
+            onUsers={() => setActiveTab('users')}
+            onScan={() => fileInputRef.current?.click()}
+            onImport={() => csvInputRef.current?.click()}
+            onExportPdf={() => exportToPDF(transactions, debts, clientName)}
+            onExportWord={() => exportToWord(transactions, debts, clientName)}
+          />
+        </div>
 
         <main className="p-4 lg:p-8 max-w-6xl w-full mx-auto">
           {impersonatingEmail && (
@@ -2248,6 +2287,8 @@ export default function DashboardClient({
           </motion.div>
         </div>
       )}
+
+      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} actions={paletteActions} />
     </div>
   );
 }

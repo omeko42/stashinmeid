@@ -13,6 +13,58 @@ async function getTargetUserId() {
   return getOrCreateSuperadminUserId();
 }
 
+/**
+ * Whitelist kolom yang boleh ditulis per tabel.
+ *
+ * Tanpa whitelist, request bisa meng-update kolom apa saja - termasuk `id`
+ * (mengganti primary key) atau `role` (menaikkan hak akses pengguna menjadi
+ * admin). Semua kolom yang di luar daftar ini diabaikan.
+ */
+const ALLOWED_COLUMNS: Record<string, string[]> = {
+  profiles: ['client_name', 'email', 'bio'],
+  transactions: [
+    'type',
+    'amount',
+    'category',
+    'description',
+    'transaction_date',
+    'source',
+  ],
+  debts: [
+    'platform',
+    'contract_no',
+    'total_tenor',
+    'remaining_tenor',
+    'due_day',
+    'remaining_balance',
+    'monthly_installment',
+    'status',
+    'notes',
+  ],
+};
+
+/**
+ * Ambil hanya kolom yang diizinkan dari payload bebas.
+ * Mengembalikan null kalau tidak ada satu pun kolom valid.
+ */
+function sanitizeUpdates(
+  table: string,
+  payload: unknown
+): Record<string, unknown> | null {
+  const allowed = ALLOWED_COLUMNS[table];
+  if (!allowed) return null;
+  if (!payload || typeof payload !== 'object' || Array.isArray(payload)) return null;
+
+  const source = payload as Record<string, unknown>;
+  const clean: Record<string, unknown> = {};
+
+  for (const key of allowed) {
+    if (key in source) clean[key] = source[key];
+  }
+
+  return Object.keys(clean).length > 0 ? clean : null;
+}
+
 export async function POST(req: NextRequest) {
   const userId = await getTargetUserId();
   const admin = createAdminClient();
@@ -55,15 +107,32 @@ export async function PATCH(req: NextRequest) {
 
   const { table, id, updates } = await req.json();
 
+  // Hanya tabel yang memang boleh diubah lewat superadmin. `profiles` ikut
+  // bisa diubah supaya superadmin bisa impersonate lalu menyunting profil target.
+  if (table !== 'profiles' && table !== 'debts') {
+    return NextResponse.json({ error: 'Invalid table.' }, { status: 400 });
+  }
+
+  const clean = sanitizeUpdates(table, updates);
+  if (!clean) {
+    return NextResponse.json({ error: 'Invalid updates.' }, { status: 400 });
+  }
+
   if (table === 'profiles') {
-    const { error } = await admin.from('profiles').update(updates).eq('id', userId);
+    // Selalu batasi ke userId - jangan biarkan request menarget user lain.
+    const { error } = await admin.from('profiles').update(clean).eq('id', userId);
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });
     return NextResponse.json({ ok: true });
   }
 
+  // debts: wajib menyebut id baris yang mau diubah, dan tetap batasi ke userId.
+  if (!id) {
+    return NextResponse.json({ error: 'id wajib diisi.' }, { status: 400 });
+  }
+
   const { error } = await admin
     .from('debts')
-    .update(updates)
+    .update(clean)
     .eq('id', id)
     .eq('user_id', userId);
 

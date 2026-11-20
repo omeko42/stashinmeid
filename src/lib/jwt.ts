@@ -8,11 +8,28 @@ export interface SuperadminSessionPayload {
   impersonateClientName?: string;
 }
 
-function getSecretKey() {
-  const secret = process.env.JWT_SECRET || process.env.SUPERADMIN_PASSWORD;
+/**
+ * Kunci tanda tangan token.
+ *
+ * WAJIB: JWT_SECRET harus diset sendiri di environment variable.
+ * Jangan pernah memakai password sebagai kunci enkripsi token - kalau password
+ * bocor, seluruh sesi superadmin bisa dipalsukan.
+ */
+function getSecretKey(): Uint8Array {
+  const secret = process.env.JWT_SECRET;
+
   if (!secret) {
-    throw new Error('JWT_SECRET atau SUPERADMIN_PASSWORD belum diset.');
+    throw new Error(
+      'JWT_SECRET belum diset. Set JWT_SECRET di environment variable (Vercel) sebelum deploy.'
+    );
   }
+
+  if (secret.length < 32) {
+    throw new Error(
+      'JWT_SECRET terlalu pendek. Minimal 32 karakter. Generate dengan: openssl rand -base64 48'
+    );
+  }
+
   return new TextEncoder().encode(secret);
 }
 

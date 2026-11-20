@@ -5,10 +5,19 @@ import nextTs from "eslint-config-next/typescript";
 const eslintConfig = defineConfig([
   ...nextVitals,
   ...nextTs,
+  {
+    rules: {
+      // Pola umum di dashboard (hydrate PIN, count-up, muat tab Users).
+      'react-hooks/set-state-in-effect': 'off',
+    },
+  },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    ".next-build/**",
+    ".next-agent/**",
+    ".next-*/**",
     "out/**",
     "build/**",
     "next-env.d.ts",

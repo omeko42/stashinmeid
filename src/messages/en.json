@@ -1,0 +1,346 @@
+{
+  "app": {
+    "name": "stashinmeid",
+    "tagline": "Your money, managed"
+  },
+  "nav": {
+    "overview": "Overview",
+    "cashflow": "Cash Flow",
+    "debts": "Debts",
+    "settings": "Settings",
+    "users": "User Management",
+    "profile": "Profile",
+    "signOut": "Sign out",
+    "openMenu": "Open navigation menu",
+    "settingsMenu": "Settings menu",
+    "closeMenu": "Close menu",
+    "more": "More"
+  },
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "close": "Close",
+    "delete": "Delete",
+    "deletePermanently": "Delete permanently",
+    "edit": "Edit",
+    "add": "Add",
+    "back": "Back",
+    "next": "Next",
+    "search": "Search",
+    "searchPlaceholder": "Search transactions...",
+    "loading": "Loading",
+    "all": "All",
+    "inflow": "In",
+    "outflow": "Out",
+    "total": "Total",
+    "amount": "Amount",
+    "date": "Date",
+    "category": "Category",
+    "description": "Description",
+    "optional": "optional",
+    "required": "required",
+    "confirm": "Yes, continue",
+    "undo": "Undo",
+    "retry": "Try again",
+    "language": "Language",
+    "theme": {
+      "label": "Theme",
+      "light": "Light",
+      "dark": "Dark",
+      "system": "Match system",
+      "toggle": "Switch theme"
+    },
+    "demo": {
+      "badge": "Demo mode",
+      "description": "Sample data - nothing is saved to the database"
+    },
+    "empty": {
+      "title": "No data yet",
+      "description": "There is nothing to show here yet.",
+      "action": "Get started"
+    }
+  },
+  "overview": {
+    "title": "Overview",
+    "balanceLabel": "Running balance",
+    "balanceHint": "Money in minus money out",
+    "savingsRate": "Savings rate",
+    "inflow": "Money in",
+    "outflow": "Money out",
+    "totalDebt": "Outstanding debt",
+    "monthlyInstallment": "Monthly installments",
+    "activeDebts": "active debts",
+    "trendTitle": "Money in and out",
+    "trendEmpty": "No transactions to chart yet.",
+    "debtComposition": "Debt breakdown",
+    "debtCompositionEmpty": "Every loan is paid off.",
+    "upcoming": "Upcoming due dates",
+    "upcomingEmpty": "No payments due in the next 30 days.",
+    "recent": "Recent transactions",
+    "recentEmpty": "No transactions recorded yet.",
+    "viewAll": "View all",
+    "period": {
+      "label": "Period",
+      "week": "Week",
+      "month": "Month",
+      "year": "Year",
+      "all": "All"
+    },
+    "quickAdd": "Add",
+    "quickAddHint": "Record a new transaction"
+  },
+  "cashflow": {
+    "title": "Cash Flow",
+    "subtitle": "Money in and money out",
+    "filterAll": "All",
+    "filterInflow": "In",
+    "filterOutflow": "Out",
+    "empty": {
+      "title": "No transactions yet",
+      "description": "Record your first transaction or scan a receipt with AI.",
+      "action": "Add transaction"
+    },
+    "noMatch": "No transactions match.",
+    "deleteTitle": "Delete this transaction?",
+    "deleteBody": "This transaction will be permanently removed from the database.",
+    "deleted": "Transaction deleted.",
+    "count": "{count} transactions"
+  },
+  "debts": {
+    "title": "Debts",
+    "subtitle": "Loans, paylater, and installments",
+    "add": "Add debt",
+    "simulator": {
+      "title": "Payoff simulator",
+      "selected": "{count} selected",
+      "payoff": "Total payoff",
+      "savings": "Monthly savings",
+      "perMonth": "per month",
+      "clear": "Clear selection",
+      "hint": "Tick a debt to see the simulation."
+    },
+    "form": {
+      "platform": "Platform",
+      "platformPlaceholder": "e.g. SPinjam, Kredivo",
+      "contract": "Contract number",
+      "contractPlaceholder": "Contract number or note",
+      "balance": "Outstanding balance",
+      "balancePlaceholder": "Outstanding balance",
+      "installment": "Monthly installment",
+      "installmentPlaceholder": "Monthly installment",
+      "tenor": "Remaining tenor",
+      "tenorPlaceholder": "Remaining months",
+      "dueDay": "Due day of month",
+      "notes": "Notes",
+      "notesPlaceholder": "Extra notes (optional)"
+    },
+    "card": {
+      "paid": "Paid off",
+      "active": "Active",
+      "remaining": "Remaining",
+      "dueOn": "Due on the {day}th of each month",
+      "pay": "Pay installment",
+      "payConfirm": "Record this installment as an outgoing transaction?",
+      "paidToast": "Installment recorded.",
+      "remainingLabel": "Remaining balance"
+    },
+    "empty": {
+      "title": "No debts yet",
+      "description": "Add a loan or installment to track due dates and run payoff simulations.",
+      "action": "Add debt"
+    },
+    "deleted": "Debt deleted.",
+    "added": "Debt added."
+  },
+  "budget": {
+    "title": "Budget",
+    "subtitle": "Monthly cap per category",
+    "set": "Set cap",
+    "unset": "Remove cap",
+    "spent": "spent",
+    "remaining": "left",
+    "over": "over cap",
+    "of": "of {total}",
+    "placeholder": "Cap",
+    "empty": {
+      "title": "No caps yet",
+      "description": "Set a cap per category to keep spending under control.",
+      "action": "Set your first cap"
+    },
+    "saved": "Cap saved.",
+    "deleted": "Cap removed."
+  },
+  "settings": {
+    "title": "Settings",
+    "subtitle": "Profile, data, security, and admin",
+    "sections": {
+      "profile": "Profile",
+      "data": "Data and export",
+      "security": "Security",
+      "admin": "Administration",
+      "appearance": "Appearance"
+    },
+    "profile": {
+      "cover": "Profile and Security",
+      "edit": "Edit profile",
+      "editTitle": "Edit profile and account",
+      "username": "Username",
+      "email": "Email",
+      "emailNotSet": "Not set yet",
+      "workspace": "Workspace name",
+      "bio": "About",
+      "bioPlaceholder": "Tell us a little about yourself",
+      "role": "Role",
+      "completeness": "Profile completeness",
+      "newPassword": "New password",
+      "newPasswordHint": "Leave empty to keep your current password",
+      "save": "Save profile",
+      "saved": "Profile saved.",
+      "saveFailed": "Could not save profile."
+    },
+    "data": {
+      "scan": "Scan receipts with AI",
+      "scanHint": "Upload a receipt or transfer proof and AI will fill in the amount and category.",
+      "import": "Import CSV data",
+      "importHint": "Add many transactions at once from a CSV file.",
+      "exportPdf": "Export PDF report",
+      "exportWord": "Export Word report",
+      "exportCsv": "Export CSV data",
+      "exportHint": "Download your financial report in the format you need."
+    },
+    "security": {
+      "title": "Security",
+      "pin": "Lock app with a PIN",
+      "pinHint": "Requires 6 digits to open the app. Stored on this device only.",
+      "pinSet": "PIN is on",
+      "pinNotSet": "PIN is off",
+      "pinNew": "New PIN",
+      "pinConfirm": "Confirm PIN",
+      "pinSave": "Save PIN",
+      "pinRemove": "Remove PIN",
+      "pinSaved": "PIN enabled.",
+      "pinRemoved": "PIN disabled.",
+      "pinMismatch": "PINs do not match.",
+      "pinInvalid": "PIN must be exactly 6 digits.",
+      "twofa": "Two-step verification",
+      "twofaHint": "Connect Google Authenticator for an extra layer of security.",
+      "twofaEnable": "Enable 2FA",
+      "twofaVerify": "Enter the 6-digit code",
+      "twofaConfirm": "Verify and enable",
+      "twofaActive": "2FA is on",
+      "twofaNeedLogin": "Sign in with an email account first to enable 2FA.",
+      "locked": "App is locked",
+      "unlock": "Enter your PIN to unlock"
+    },
+    "appearance": {
+      "title": "Appearance",
+      "theme": "Theme",
+      "language": "Language"
+    }
+  },
+  "users": {
+    "title": "User Management",
+    "subtitle": "Manage access and user sessions",
+    "refresh": "Reload",
+    "role": "Role",
+    "roles": {
+      "admin": "Admin",
+      "member": "Member",
+      "viewer": "Viewer"
+    },
+    "edit": "Edit login details",
+    "editTitle": "Edit login details for {name}",
+    "resetPassword": "Send password reset",
+    "resetSent": "Password reset link sent to {email}.",
+    "impersonate": "Sign in as",
+    "stopImpersonate": "Stop impersonating",
+    "deleteUser": "Delete user",
+    "deleteUserConfirm": "Delete user {name}? Their account and all data will be permanently removed.",
+    "deleteUserDone": "User deleted.",
+    "saved": "User details updated.",
+    "empty": {
+      "title": "No users yet",
+      "description": "People who sign up will show up here."
+    },
+    "impersonating": "Impersonating {email}",
+    "stop": "Stop"
+  },
+  "tools": {
+    "scanning": "Reading receipt...",
+    "scanFailed": "Could not read the receipt. Try a clearer photo.",
+    "scanSuccess": "Receipt read. Check the amount before saving.",
+    "importSuccess": "Imported {count} transactions.",
+    "importFailed": "Could not read the CSV file.",
+    "exported": "Report downloaded."
+  },
+  "quickAdd": {
+    "title": "Add transaction",
+    "type": "Type",
+    "typeInflow": "Money in",
+    "typeOutflow": "Money out",
+    "amount": "Amount",
+    "amountPlaceholder": "50000",
+    "category": "Category",
+    "description": "Description",
+    "descriptionPlaceholder": "e.g. Coffee, Monthly salary",
+    "date": "Date",
+    "save": "Save",
+    "saved": "Transaction recorded.",
+    "failed": "Could not save the transaction."
+  },
+  "command": {
+    "placeholder": "Search actions or pages...",
+    "empty": "No results.",
+    "group": {
+      "navigate": "Navigate",
+      "action": "Actions"
+    },
+    "open": "Open command palette",
+    "navigate": "Go to {name}",
+    "actions": {
+      "addTransaction": "Add transaction",
+      "scanReceipt": "Scan receipt with AI",
+      "toggleTheme": "Switch theme",
+      "changeLanguage": "Change language",
+      "exportPdf": "Export PDF",
+      "exportCsv": "Export CSV",
+      "signOut": "Sign out"
+    }
+  },
+  "auth": {
+    "signIn": "Sign in",
+    "signUp": "Sign up",
+    "signOut": "Sign out",
+    "email": "Email",
+    "password": "Password",
+    "passwordHint": "At least 8 characters, with letters and numbers.",
+    "confirmPassword": "Confirm password",
+    "username": "Username",
+    "fullName": "Full name",
+    "workspace": "Workspace name",
+    "bio": "About",
+    "forgotPassword": "Forgot password?",
+    "noAccount": "No account yet? Sign up",
+    "hasAccount": "Already have an account? Sign in",
+    "withGoogle": "Continue with Google",
+    "withPasskey": "Sign in with passkey",
+    "or": "or",
+    "step": "Step {current} of {total}",
+    "passwordMismatch": "Passwords do not match.",
+    "passwordWeak": "Password must be at least 8 characters and contain letters and numbers.",
+    "emailRequired": "Enter your account email first, then click Forgot password.",
+    "signedIn": "Signed in.",
+    "signedUp": "Account created. Check your email to verify it.",
+    "resetTitle": "Create a new password",
+    "resetSuccess": "Password updated.",
+    "invalidCredentials": "Wrong username or password.",
+    "demoHint": "Supabase is not configured yet. You can use demo mode on the main page."
+  },
+  "errors": {
+    "generic": "Something went wrong. Try again.",
+    "network": "Connection problem. Check your internet.",
+    "unauthorized": "You need to sign in first.",
+    "rateLimit": "Too many requests. Try again shortly.",
+    "notFound": "Page not found."
+  }
+}

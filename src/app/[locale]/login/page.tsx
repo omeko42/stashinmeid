@@ -1,13 +1,17 @@
 'use client';
 
+import { useLocale, useTranslations } from 'next-intl';
+
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter } from '@/i18n/navigation';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { BrandLogo } from '@/components/BrandLogo';
 import { Loader2, KeyRound, ArrowRight, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
+  const locale = useLocale();
+  const t = useTranslations();
   const router = useRouter();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -28,13 +32,13 @@ export default function LoginPage() {
     if (password.length < 8 || !/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) {
       setMessage({
         type: 'error',
-        text: 'Password harus minimal 8 karakter dan mengandung huruf serta angka.',
+        text: t('auth.passwordWeak'),
       });
       return;
     }
 
     if (password !== confirmPassword) {
-      setMessage({ type: 'error', text: 'Konfirmasi password tidak cocok.' });
+      setMessage({ type: 'error', text: t('auth.passwordMismatch') });
       return;
     }
 
@@ -88,7 +92,7 @@ export default function LoginPage() {
         },
       });
       if (error) {
-        setMessage({ type: 'error', text: error.message });
+        setMessage({ type: 'error', text: t('errors.generic') });
       } else {
         setMessage({
           type: 'success',
@@ -100,7 +104,7 @@ export default function LoginPage() {
     } else {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) {
-        setMessage({ type: 'error', text: error.message });
+        setMessage({ type: 'error', text: t('errors.generic') });
       } else {
         router.push('/');
         router.refresh();
@@ -129,7 +133,7 @@ export default function LoginPage() {
       redirectTo: `${window.location.origin}/reset-password`,
     });
     if (error) {
-      setMessage({ type: 'error', text: error.message });
+      setMessage({ type: 'error', text: t('errors.generic') });
     } else {
       setMessage({
         type: 'success',
@@ -358,7 +362,7 @@ export default function LoginPage() {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
+                    placeholder="••••••"
                     className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:border-emerald-500"
                   />
                 </div>

@@ -38,6 +38,8 @@ export async function GET() {
   return NextResponse.json({ users: data || [] });
 }
 
+const VALID_ROLES = ['admin', 'member', 'viewer'];
+
 export async function PATCH(req: NextRequest) {
   const session = await requireSuperadmin();
   if (!session) {
@@ -67,8 +69,11 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
+  // Hanya kolom yang boleh diubah. `id` dan `created_at` sengaja tidak ada di
+  // daftar - kalau ikut berubah, primary key bisa diganti dan baris lama
+  // kehilangan kepemilikan.
   const profileUpdates: Record<string, string> = {};
-  if (role && ['admin', 'member', 'viewer'].includes(role)) profileUpdates.role = role;
+  if (role && VALID_ROLES.includes(role)) profileUpdates.role = role;
   if (email) profileUpdates.email = email;
   if (client_name) profileUpdates.client_name = client_name;
 

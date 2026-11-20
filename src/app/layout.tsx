@@ -1,26 +1,84 @@
-import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
-import "./globals.css";
+import type { ReactNode } from 'react';
+import type { Metadata, Viewport } from 'next';import { Geist, Geist_Mono } from 'next/font/google';
+import './globals.css';
 
 const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+  variable: '--font-geist-sans',
+  subsets: ['latin'],
 });
 
 const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
+  variable: '--font-geist-mono',
+  subsets: ['latin'],
 });
 
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://stashinmeid.vercel.app';
+
 export const metadata: Metadata = {
-  title: "stashinmeid — Aplikasi Manajemen Keuanganmu",
-  description: "Catat inflow, outflow, cicilan debt, dan scan struk otomatis dengan AI.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: 'stashinmeid - Aplikasi Manajemen Keuanganmu',
+    template: '%s - stashinmeid',
+  },
+  description:
+    'Catat inflow, outflow, cicilan debt, dan scan struk otomatis dengan AI. Kelola keuangan pribadi dengan rapi.',
+  applicationName: 'stashinmeid',
+  authors: [{ name: 'omeko42' }],
+  keywords: ['keuangan pribadi', 'cashflow', 'debt', 'anggaran', 'stashinmeid'],
+  manifest: '/manifest.webmanifest',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'stashinmeid',
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  openGraph: {
+    type: 'website',
+    locale: 'id_ID',
+    alternateLocale: 'en_US',
+    url: SITE_URL,
+    siteName: 'stashinmeid',
+    title: 'stashinmeid - Aplikasi Manajemen Keuanganmu',
+    description:
+      'Catat inflow, outflow, cicilan debt, dan scan struk otomatis dengan AI.',
+    images: [
+      {
+        url: '/icon-192x192.png',
+        width: 192,
+        height: 192,
+        alt: 'stashinmeid',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary',
+    title: 'stashinmeid - Aplikasi Manajemen Keuanganmu',
+    description: 'Catat inflow, outflow, cicilan debt, dan scan struk otomatis dengan AI.',
+    images: ['/icon-192x192.png'],
+  },
+  robots: {
+    index: false,
+    follow: false,
+  },
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#f5f7f6' },
+    { media: '(prefers-color-scheme: dark)', color: '#0c1013' },
+  ],
+};
+
+export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
-      lang="en"
+      lang="id"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">{children}</body>
