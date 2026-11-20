@@ -26,17 +26,16 @@ export async function POST(req: NextRequest) {
   let body: { username?: unknown; password?: unknown };
   try {
     body = await req.json();
-  } catch (err) {
-    const message = err instanceof Error ? err.message : 'Internal server error.';
-    return NextResponse.json({ error: message }, { status: 500 });
+  } catch {
+    return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
 
   try {
     const { username, password } = body;
 
-    const envUser = process.env.SUPERADMIN_USERNAME;
+    const envUser = process.env.SUPERADMIN_USERNAME?.trim();
     const envPass = process.env.SUPERADMIN_PASSWORD;
-    const envHash = process.env.SUPERADMIN_PASSWORD_HASH;
+    const envHash = process.env.SUPERADMIN_PASSWORD_HASH?.trim();
 
     if (!envUser || (!envHash && !envPass)) {
       return NextResponse.json(
@@ -45,7 +44,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const usernameOk = safeEqual(String(username ?? ''), envUser);
+    const inputUser = String(username ?? '').trim();
+    const usernameOk = safeEqual(inputUser, envUser);
 
     // Dua jalur kompatibilitas:
     // 1. SUPERADMIN_PASSWORD_HASH - password sudah di-hash (disarankan)

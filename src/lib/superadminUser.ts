@@ -2,11 +2,16 @@ import { createAdminClient } from '@/lib/supabase/admin';
 
 export async function getOrCreateSuperadminUserId(): Promise<string | null> {
   const admin = createAdminClient();
-  const superadminEmail = process.env.SUPERADMIN_EMAIL;
+  const envUsername = process.env.SUPERADMIN_USERNAME?.trim();
+  const superadminEmail =
+    process.env.SUPERADMIN_EMAIL?.trim() ||
+    (envUsername ? `${envUsername}@stashinmeid.id` : null);
   if (!admin || !superadminEmail) return null;
 
   const { data: listData } = await admin.auth.admin.listUsers({ perPage: 100 });
-  const existing = listData?.users?.find((u) => u.email === superadminEmail);
+  const existing = listData?.users?.find(
+    (u) => u.email?.toLowerCase() === superadminEmail.toLowerCase()
+  );
   if (existing) {
     return existing.id;
   }
@@ -16,6 +21,8 @@ export async function getOrCreateSuperadminUserId(): Promise<string | null> {
     password: crypto.randomUUID() + 'Aa1!',
     email_confirm: true,
     user_metadata: {
+      full_name: envUsername || 'Superadmin',
+      client_name: envUsername ? `${envUsername} (Superadmin)` : 'Superadmin',
       role: 'admin',
     },
   });
