@@ -150,10 +150,28 @@ export default function DashboardClient({
   const [securityMsg, setSecurityMsg] = useState<string | null>(null);
 
   // Profile Edit State
-  const [profileEmail, setProfileEmail] = useState(userEmail || '');
+  const [profileUsername, setProfileUsername] = useState(
+    userEmail && !userEmail.includes('@') ? userEmail : (userEmail?.split('@')[0] || 'user')
+  );
+  const [profileEmail, setProfileEmail] = useState(
+    userEmail && userEmail.includes('@') ? userEmail : ''
+  );
   const [profileClient, setProfileClient] = useState(clientName);
+  const [profileBio, setProfileBio] = useState(
+    'Pengelola keuangan pribadi & pemantauan cashflow di stashinmeid.'
+  );
   const [profileNewPassword, setProfileNewPassword] = useState('');
+  const [editingProfile, setEditingProfile] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
+
+  const profileCompleteness = useMemo(() => {
+    let score = 40;
+    if (profileUsername) score += 15;
+    if (profileEmail && profileEmail.includes('@')) score += 15;
+    if (profileClient) score += 15;
+    if (appPin) score += 15;
+    return Math.min(100, score);
+  }, [profileUsername, profileEmail, profileClient, appPin]);
 
   const handleSaveProfile = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -1476,7 +1494,7 @@ export default function DashboardClient({
               </motion.div>
             )}
 
-            {/* PROFILE & SECURITY TAB */}
+            {/* PROFILE & SECURITY TAB (WS96-Inspired Layout) */}
             {activeTab === 'profile' && (
               <motion.div
                 key="profile"
@@ -1486,73 +1504,210 @@ export default function DashboardClient({
                 transition={{ duration: 0.25 }}
                 className="space-y-6"
               >
-                <div>
-                  <h2 className="text-xl font-bold">Profile & Keamanan Akun</h2>
-                  <p className="text-xs text-zinc-400">
-                    Kelola email, password, PIN aplikasi, dan 2FA Authenticator kamu.
-                  </p>
-                </div>
-
                 {securityMsg && (
                   <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs">
                     {securityMsg}
                   </div>
                 )}
 
-                {/* Account Info Form */}
-                <form
-                  onSubmit={handleSaveProfile}
-                  className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 space-y-4"
-                >
-                  <h3 className="font-semibold text-sm flex items-center gap-2">
-                    <UserCircle className="w-4 h-4 text-emerald-400" /> Informasi Akun & Email
-                  </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
-                    <div>
-                      <label className="block text-xs text-zinc-400 mb-1">Email</label>
-                      <input
-                        type="email"
-                        value={profileEmail}
-                        onChange={(e) => setProfileEmail(e.target.value)}
-                        placeholder="email@domain.com"
-                        className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
-                      />
+                {/* Top Grid: Profile Hero Card (Left 2 cols) + Info Akun Card (Right 1 col) */}
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+                  {/* Profile Hero Card with Cover Banner */}
+                  <div className="lg:col-span-2 rounded-3xl bg-zinc-900/75 border border-white/10 overflow-hidden shadow-xl">
+                    {/* Cover Banner */}
+                    <div className="h-32 sm:h-36 bg-gradient-to-r from-emerald-900 via-teal-800 to-zinc-900 relative p-4 flex items-end justify-end">
+                      <span className="text-[11px] px-2.5 py-1 rounded-full bg-black/40 backdrop-blur border border-white/10 text-emerald-300 font-medium">
+                        stashinmeid • {userRole.toUpperCase()}
+                      </span>
                     </div>
-                    <div>
-                      <label className="block text-xs text-zinc-400 mb-1">Nama Workspace / Client</label>
-                      <input
-                        type="text"
-                        value={profileClient}
-                        onChange={(e) => setProfileClient(e.target.value)}
-                        className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-zinc-400 mb-1">
-                        Password Baru (Opsional, min. 8)
-                      </label>
-                      <input
-                        type="password"
-                        value={profileNewPassword}
-                        onChange={(e) => setProfileNewPassword(e.target.value)}
-                        placeholder="Kosongkan jika tidak ganti"
-                        className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
-                      />
+
+                    {/* Avatar & Identity */}
+                    <div className="px-6 pb-6">
+                      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-10 mb-4">
+                        <div className="flex items-end gap-4">
+                          <div className="w-20 h-20 rounded-2xl bg-zinc-950 border-4 border-zinc-900 flex items-center justify-center shadow-xl overflow-hidden">
+                            <BrandLogo size={68} />
+                          </div>
+                          <div className="pb-1">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h2 className="text-xl font-bold text-white">{profileClient}</h2>
+                              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 font-mono">
+                                @{profileUsername}
+                              </span>
+                            </div>
+                            <p className="text-xs text-zinc-400 mt-0.5">
+                              {profileEmail || 'Email belum ditautkan'}
+                            </p>
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => setEditingProfile(!editingProfile)}
+                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-semibold text-xs transition hover:opacity-90 shrink-0"
+                        >
+                          {editingProfile ? 'Tutup Edit' : 'Edit Profil'}
+                        </button>
+                      </div>
+
+                      {/* Kelengkapan Data Bar */}
+                      <div className="p-3.5 rounded-2xl bg-black/30 border border-white/[0.06] space-y-1.5 mb-4">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="text-zinc-400">Kelengkapan Data & Keamanan</span>
+                          <span className="font-semibold text-emerald-400">
+                            {profileCompleteness}%
+                          </span>
+                        </div>
+                        <div className="h-2 bg-zinc-950 rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all"
+                            style={{ width: `${profileCompleteness}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Tentang / Bio */}
+                      <div className="space-y-1">
+                        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
+                          Tentang
+                        </h3>
+                        <p className="text-sm text-zinc-300">{profileBio}</p>
+                      </div>
                     </div>
                   </div>
-                  <button
-                    type="submit"
-                    disabled={profileSaving}
-                    className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-semibold text-xs transition disabled:opacity-50"
+
+                  {/* Right Card: Info Akun (Read-Only Summary ala WS96) */}
+                  <div className="rounded-3xl bg-zinc-900/75 border border-white/10 p-6 flex flex-col justify-between gap-4">
+                    <div className="space-y-4">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-sm flex items-center gap-2">
+                          <Shield className="w-4 h-4 text-emerald-400" /> Info Akun
+                        </h3>
+                        <button
+                          type="button"
+                          onClick={() => setEditingProfile(true)}
+                          className="text-xs text-emerald-400 hover:underline"
+                        >
+                          Ubah
+                        </button>
+                      </div>
+
+                      <div className="space-y-3 text-xs">
+                        <div>
+                          <span className="text-zinc-500 block">Username</span>
+                          <span className="font-medium text-zinc-200">@{profileUsername}</span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 block">Email Tertaut</span>
+                          <span className="font-medium text-zinc-200">
+                            {profileEmail || 'Belum diset'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 block">Nama Workspace / Client</span>
+                          <span className="font-medium text-zinc-200">{profileClient}</span>
+                        </div>
+                        <div>
+                          <span className="text-zinc-500 block">Status & Role</span>
+                          <span className="inline-block mt-0.5 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 uppercase text-[10px] font-semibold">
+                            {userRole} • Aktif
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Collapsible Edit Form (only shown when user clicks Edit Profil / Ubah) */}
+                {editingProfile && (
+                  <form
+                    onSubmit={handleSaveProfile}
+                    autoComplete="off"
+                    className="p-6 rounded-3xl bg-zinc-900/90 border border-emerald-500/25 space-y-4"
                   >
-                    {profileSaving ? 'Menyimpan...' : 'Simpan Perubahan Akun'}
-                  </button>
-                </form>
+                    <h3 className="font-semibold text-sm flex items-center gap-2">
+                      <UserCircle className="w-4 h-4 text-emerald-400" /> Ubah Data Diri & Password
+                    </h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Username</label>
+                        <input
+                          type="text"
+                          value={profileUsername}
+                          onChange={(e) => setProfileUsername(e.target.value)}
+                          autoComplete="off"
+                          className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">Email Tertaut</label>
+                        <input
+                          type="email"
+                          value={profileEmail}
+                          onChange={(e) => setProfileEmail(e.target.value)}
+                          placeholder="nama@email.com"
+                          autoComplete="off"
+                          className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">
+                          Nama Workspace / Client
+                        </label>
+                        <input
+                          type="text"
+                          value={profileClient}
+                          onChange={(e) => setProfileClient(e.target.value)}
+                          autoComplete="off"
+                          className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs text-zinc-400 mb-1">
+                          Password Baru (Opsional, min. 8 karakter)
+                        </label>
+                        <input
+                          type="password"
+                          value={profileNewPassword}
+                          onChange={(e) => setProfileNewPassword(e.target.value)}
+                          placeholder="Kosongkan jika tidak ganti"
+                          autoComplete="new-password"
+                          className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-xs text-zinc-400 mb-1">Bio Singkat</label>
+                        <input
+                          type="text"
+                          value={profileBio}
+                          onChange={(e) => setProfileBio(e.target.value)}
+                          className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <button
+                        type="submit"
+                        disabled={profileSaving}
+                        className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-semibold text-xs transition disabled:opacity-50"
+                      >
+                        {profileSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setEditingProfile(false)}
+                        className="px-4 py-2.5 rounded-xl bg-white/[0.06] text-zinc-300 text-xs"
+                      >
+                        Batal
+                      </button>
+                    </div>
+                  </form>
+                )}
 
                 {/* Security: PIN Lock & 2FA Authenticator */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {/* App PIN Lock */}
-                  <div className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 space-y-3">
+                  <div className="p-6 rounded-3xl bg-zinc-900/75 border border-white/10 space-y-3">
                     <div className="flex items-center justify-between">
                       <h4 className="font-semibold text-sm flex items-center gap-2">
                         <KeyRound className="w-4 h-4 text-emerald-400" /> App PIN Lock (6 Digit)
@@ -1570,6 +1725,7 @@ export default function DashboardClient({
                       <input
                         type="password"
                         maxLength={6}
+                        autoComplete="new-password"
                         value={newPinInput}
                         onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
                         placeholder="6 digit PIN baru"
@@ -1601,7 +1757,7 @@ export default function DashboardClient({
                   </div>
 
                   {/* 2FA Authenticator */}
-                  <div className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 space-y-3">
+                  <div className="p-6 rounded-3xl bg-zinc-900/75 border border-white/10 space-y-3">
                     <h4 className="font-semibold text-sm flex items-center gap-2">
                       <Smartphone className="w-4 h-4 text-indigo-400" /> 2FA Authenticator (TOTP)
                     </h4>
