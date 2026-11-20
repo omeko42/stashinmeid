@@ -1,12 +1,14 @@
 export function BrandLogo({ size = 40 }: { size?: number }) {
   return (
-    <img
-      src="/logo-konsep1.jpg"
-      alt="stashinmeid logo"
-      width={size}
-      height={size}
+    <div
       style={{ width: size, height: size }}
-      className="shrink-0 rounded-xl object-cover border border-white/10 shadow-md"
-    />
+      className="shrink-0 rounded-xl overflow-hidden shadow-md bg-emerald-600"
+    >
+      <img
+        src="/logo-icon.png"
+        alt="stashinmeid logo"
+        className="w-full h-full object-cover scale-[1.18]"
+      />
+    </div>
   );
 }

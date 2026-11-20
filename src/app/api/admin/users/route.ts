@@ -52,14 +52,31 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  const { userId, role } = await req.json();
-  if (!userId || !['admin', 'member', 'viewer'].includes(role)) {
-    return NextResponse.json({ error: 'Data tidak valid.' }, { status: 400 });
+  const { userId, role, email, client_name } = await req.json();
+  if (!userId) {
+    return NextResponse.json({ error: 'userId wajib diisi.' }, { status: 400 });
   }
 
-  const { error } = await admin.from('profiles').update({ role }).eq('id', userId);
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+  if (email) {
+    const { error: authErr } = await admin.auth.admin.updateUserById(userId, {
+      email,
+      email_confirm: true,
+    });
+    if (authErr) {
+      return NextResponse.json({ error: authErr.message }, { status: 500 });
+    }
+  }
+
+  const profileUpdates: Record<string, string> = {};
+  if (role && ['admin', 'member', 'viewer'].includes(role)) profileUpdates.role = role;
+  if (email) profileUpdates.email = email;
+  if (client_name) profileUpdates.client_name = client_name;
+
+  if (Object.keys(profileUpdates).length > 0) {
+    const { error } = await admin.from('profiles').update(profileUpdates).eq('id', userId);
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 500 });
+    }
   }
 
   return NextResponse.json({ ok: true });

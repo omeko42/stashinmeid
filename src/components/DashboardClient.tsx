@@ -114,6 +114,30 @@ export default function DashboardClient({
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [adminToast, setAdminToast] = useState<string | null>(null);
+  const [editingUserId, setEditingUserId] = useState<string | null>(null);
+  const [editUserEmail, setEditUserEmail] = useState('');
+  const [editUserClient, setEditUserClient] = useState('');
+
+  const handleSaveUserEdit = async (userId: string) => {
+    setAdminToast(null);
+    const res = await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, email: editUserEmail, client_name: editUserClient }),
+    });
+    const json = await res.json();
+    if (res.ok) {
+      setManagedUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId ? { ...u, email: editUserEmail, client_name: editUserClient } : u
+        )
+      );
+      setEditingUserId(null);
+      setAdminToast('Data login user berhasil diperbarui.');
+    } else {
+      setAdminToast(json.error || 'Gagal memperbarui user.');
+    }
+  };
 
   // Security: PIN Lock & 2FA Authenticator State
   const [appPin, setAppPin] = useState<string>('');
@@ -1649,50 +1673,96 @@ export default function DashboardClient({
                     {managedUsers.map((u) => (
                       <div
                         key={u.id}
-                        className="p-4 rounded-2xl bg-zinc-900/70 border border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                        className="p-4 rounded-2xl bg-zinc-900/70 border border-white/10 space-y-3"
                       >
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm truncate">{u.email}</p>
-                          <p className="text-xs text-zinc-400">
-                            Workspace: {u.client_name} • Daftar:{' '}
-                            {new Date(u.created_at).toLocaleDateString('id-ID')}
-                          </p>
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm truncate">{u.email}</p>
+                            <p className="text-xs text-zinc-400">
+                              Workspace: {u.client_name} • Daftar:{' '}
+                              {new Date(u.created_at).toLocaleDateString('id-ID')}
+                            </p>
+                          </div>
+
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <select
+                              value={u.role}
+                              onChange={(e) => handleChangeUserRole(u.id, e.target.value as UserRole)}
+                              className="px-2.5 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs"
+                            >
+                              <option value="admin">Admin</option>
+                              <option value="member">Member</option>
+                              <option value="viewer">Viewer</option>
+                            </select>
+
+                            <button
+                              onClick={() => {
+                                setEditingUserId(editingUserId === u.id ? null : u.id);
+                                setEditUserEmail(u.email);
+                                setEditUserClient(u.client_name);
+                              }}
+                              className="px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-zinc-200 text-xs font-medium transition"
+                            >
+                              Edit
+                            </button>
+
+                            <button
+                              onClick={() => handleAdminResetPassword(u.email)}
+                              className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                              title="Kirim link reset password ke email user"
+                            >
+                              <KeyRound className="w-3.5 h-3.5" /> Reset PW
+                            </button>
+
+                            <button
+                              onClick={() => handleImpersonate(u)}
+                              className="px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1 transition"
+                            >
+                              <UserCheck className="w-3.5 h-3.5" /> Impersonate
+                            </button>
+
+                            <button
+                              onClick={() => handleDeleteUser(u.id)}
+                              className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition"
+                              title="Hapus User"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-2 flex-wrap">
-                          <select
-                            value={u.role}
-                            onChange={(e) => handleChangeUserRole(u.id, e.target.value as UserRole)}
-                            className="px-2.5 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs"
-                          >
-                            <option value="admin">Admin</option>
-                            <option value="member">Member</option>
-                            <option value="viewer">Viewer</option>
-                          </select>
-
-                          <button
-                            onClick={() => handleAdminResetPassword(u.email)}
-                            className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1 transition"
-                            title="Kirim link reset password ke email user"
-                          >
-                            <KeyRound className="w-3.5 h-3.5" /> Reset PW
-                          </button>
-
-                          <button
-                            onClick={() => handleImpersonate(u)}
-                            className="px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1 transition"
-                          >
-                            <UserCheck className="w-3.5 h-3.5" /> Impersonate
-                          </button>
-
-                          <button
-                            onClick={() => handleDeleteUser(u.id)}
-                            className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition"
-                            title="Hapus User"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </button>
-                        </div>
+                        {editingUserId === u.id && (
+                          <div className="pt-3 border-t border-white/[0.06] grid grid-cols-1 sm:grid-cols-3 gap-2">
+                            <input
+                              type="email"
+                              value={editUserEmail}
+                              onChange={(e) => setEditUserEmail(e.target.value)}
+                              placeholder="Email tertaut"
+                              className="px-3 py-2 rounded-xl bg-black/40 border border-white/10 text-xs"
+                            />
+                            <input
+                              type="text"
+                              value={editUserClient}
+                              onChange={(e) => setEditUserClient(e.target.value)}
+                              placeholder="Nama Workspace / Client"
+                              className="px-3 py-2 rounded-xl bg-black/40 border border-white/10 text-xs"
+                            />
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => handleSaveUserEdit(u.id)}
+                                className="flex-1 py-2 rounded-xl bg-emerald-500 text-zinc-950 font-semibold text-xs"
+                              >
+                                Simpan
+                              </button>
+                              <button
+                                onClick={() => setEditingUserId(null)}
+                                className="px-3 py-2 rounded-xl bg-white/[0.06] text-zinc-300 text-xs"
+                              >
+                                Batal
+                              </button>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>
