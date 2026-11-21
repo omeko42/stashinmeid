@@ -31,7 +31,12 @@
     "chatBack": "Back to conversations",
     "chatStartHint": "No messages yet - say hi!",
     "chatInputPlaceholder": "Type a message...",
-    "chatSend": "Send"
+    "chatSend": "Send",
+    "feedComposerPlaceholder": "Share something... (Ctrl+Enter to post)",
+    "postSend": "Post",
+    "feedEmptyTitle": "Feed is empty",
+    "feedEmptyDesc": "Be the first to post - savings goals, weekly recaps, or joint-funding invites.",
+    "you": "You"
   },
   "common": {
     "save": "Save",

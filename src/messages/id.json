@@ -31,7 +31,12 @@
     "chatBack": "Kembali ke daftar percakapan",
     "chatStartHint": "Belum ada pesan - sapa dulu!",
     "chatInputPlaceholder": "Tulis pesan...",
-    "chatSend": "Kirim"
+    "chatSend": "Kirim",
+    "feedComposerPlaceholder": "Bagikan sesuatu... (Ctrl+Enter untuk kirim)",
+    "postSend": "Kirim",
+    "feedEmptyTitle": "Feed masih kosong",
+    "feedEmptyDesc": "Jadilah yang pertama memosting - bisa soal target menabung, laporan mingguan, atau ajakan patungan.",
+    "you": "Anda"
   },
   "common": {
     "save": "Simpan",
