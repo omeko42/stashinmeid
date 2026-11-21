@@ -1094,7 +1094,7 @@ export default function DashboardClient({
           onLogout={handleLogout}
         />
 
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-5 lg:px-8 lg:pb-10">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-7 lg:px-8 lg:pb-10 lg:pt-10">
           {impersonatingEmail && (
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--info)]/30 bg-[var(--info-soft)] px-4 py-3 text-[12px] text-[var(--info)]">
               <span className="inline-flex items-center gap-2">
