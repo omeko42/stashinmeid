@@ -22,6 +22,7 @@ import { DebtsTab } from '@/components/tabs/DebtsTab';
 import { BudgetTab } from '@/components/tabs/BudgetTab';
 import { SettingsTab } from '@/components/tabs/SettingsTab';
 import { ProfileTab } from '@/components/tabs/ProfileTab';
+import { SecuritySettings } from '@/components/profile/SecuritySettings';
 import { UsersTab, type ManagedUser } from '@/components/tabs/UsersTab';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -91,6 +92,7 @@ export default function DashboardClient({
   const tBudget = useTranslations('budget');
   const tUsers = useTranslations('users');
   const tSettings = useTranslations('settings.profile');
+  const tSecSettings = useTranslations('settings');
   const router = useRouter();
 
   const supabase = createClient();
@@ -106,6 +108,7 @@ export default function DashboardClient({
   const [searchQuery, setSearchQuery] = useState('');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [securityOpen, setSecurityOpen] = useState(false);
 
   // Simulasi pelunasan
   const [simSelectedIds, setSimSelectedIds] = useState<string[]>([]);
@@ -1009,6 +1012,7 @@ export default function DashboardClient({
         profileUsername={profileUsername}
         userRole={userRole}
         isSuperadmin={isSuperadmin}
+        onOpenSecurity={() => setSecurityOpen(true)}
         onLogout={handleLogout}
       />
 
@@ -1134,21 +1138,37 @@ export default function DashboardClient({
                   profileBio={profileBio}
                   userRole={userRole}
                   profileCompleteness={profileCompleteness}
+                  canEdit={canEdit}
+                  onEditProfile={openEditProfile}
+                />
+              )}
+
+              {/* Keamanan pribadi: modal pop-up dari menu profil di sidebar */}
+              <Modal
+                open={securityOpen}
+                onClose={() => setSecurityOpen(false)}
+                title={tSecSettings('security.title')}
+                description={tSecSettings('security.twofaHint')}
+                size="lg"
+              >
+                <SecuritySettings
                   appPin={appPin}
                   newPinInput={newPinInput}
                   mfaQr={mfaQr}
                   mfaCode={mfaCode}
                   canEdit={canEdit}
-                  onEditProfile={openEditProfile}
                   onNewPinChange={setNewPinInput}
                   onSavePin={handleSavePin}
                   onRemovePin={handleRemovePin}
-                  onLockNow={() => setPinLocked(true)}
+                  onLockNow={() => {
+                    setSecurityOpen(false);
+                    setPinLocked(true);
+                  }}
                   onEnroll2FA={handleEnroll2FA}
                   onMfaCodeChange={setMfaCode}
                   onVerify2FA={handleVerify2FA}
                 />
-              )}
+              </Modal>
 
               {activeTab === 'users' && isSuperadmin && (
                 <UsersTab

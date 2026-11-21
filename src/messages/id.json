@@ -245,6 +245,25 @@
       "title": "Tampilan",
       "theme": "Tema",
       "language": "Bahasa"
+    },
+    "kyc": {
+      "title": "Verifikasi diri (KYC)",
+      "subtitle": "Data identitas tersimpan terpisah dan hanya kamu yang bisa melihatnya.",
+      "fullName": "Nama lengkap sesuai identitas",
+      "idNumber": "NIK / nomor identitas",
+      "birthDate": "Tanggal lahir",
+      "address": "Alamat",
+      "phone": "Nomor telepon",
+      "occupation": "Pekerjaan",
+      "status": {
+        "unverified": "Belum terverifikasi",
+        "pending": "Menunggu verifikasi",
+        "verified": "Terverifikasi"
+      },
+      "save": "Simpan data KYC",
+      "saved": "Data KYC berhasil disimpan.",
+      "saveFailed": "Gagal menyimpan data KYC.",
+      "enabled": "Aktifkan"
     }
   },
   "users": {

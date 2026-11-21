@@ -5,7 +5,6 @@ import {
   ArrowLeftRight,
   Landmark,
   LayoutDashboard,
-  LogOut,
   SlidersHorizontal,
   UserCircle,
   Users,
@@ -13,6 +12,7 @@ import {
 } from 'lucide-react';
 import type { UserRole } from '@/types/finance';
 import { BrandLogo } from '@/components/BrandLogo';
+import { ProfileMenu } from '@/components/shell/ProfileMenu';
 import { cn } from '@/lib/cn';
 
 export type NavTab =
@@ -33,6 +33,7 @@ interface SidebarProps {
   profileUsername: string;
   userRole: UserRole;
   isSuperadmin: boolean;
+  onOpenSecurity: () => void;
   onLogout: () => void;
 }
 
@@ -50,6 +51,7 @@ export function Sidebar({
   profileUsername,
   userRole,
   isSuperadmin,
+  onOpenSecurity,
   onLogout,
 }: SidebarProps) {
   const t = useTranslations();
@@ -172,27 +174,16 @@ export function Sidebar({
         )}
       </nav>
 
-      <div className="space-y-2 border-t border-[var(--line)] pt-3">
-        <div className="px-2.5">
-          <p className="truncate text-[12px] font-semibold text-[var(--text)]">
-            {profileClient}
-          </p>
-          <p className="truncate text-[11px] text-[var(--text-muted)]">
-            {profileEmail || `@${profileUsername}`}
-          </p>
-          <span className="mt-1 inline-block rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--text-muted)]">
-            {userRole}
-          </span>
-        </div>
-
-        <button
-          type="button"
-          onClick={onLogout}
-          className="flex w-full items-center justify-center gap-2 rounded-lg px-3 py-2 text-[12px] font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
-        >
-          <LogOut className="size-3.5" aria-hidden />
-          {tNav('signOut')}
-        </button>
+      <div className="border-t border-[var(--line)] pt-3">
+        <ProfileMenu
+          profileClient={profileClient}
+          profileEmail={profileEmail}
+          profileUsername={profileUsername}
+          userRole={userRole}
+          onOpenProfile={() => onNavigate('profile')}
+          onOpenSecurity={onOpenSecurity}
+          onLogout={onLogout}
+        />
       </div>
     </aside>
   );

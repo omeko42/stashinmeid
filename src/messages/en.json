@@ -245,6 +245,25 @@
       "title": "Appearance",
       "theme": "Theme",
       "language": "Language"
+    },
+    "kyc": {
+      "title": "Identity verification (KYC)",
+      "subtitle": "Your identity data is stored separately and visible only to you.",
+      "fullName": "Full legal name",
+      "idNumber": "ID / citizen number",
+      "birthDate": "Date of birth",
+      "address": "Address",
+      "phone": "Phone number",
+      "occupation": "Occupation",
+      "status": {
+        "unverified": "Unverified",
+        "pending": "Pending",
+        "verified": "Verified"
+      },
+      "save": "Save KYC data",
+      "saved": "KYC data saved.",
+      "saveFailed": "Could not save KYC data.",
+      "enabled": "Enable"
     }
   },
   "users": {
