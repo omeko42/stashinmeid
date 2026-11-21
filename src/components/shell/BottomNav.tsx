@@ -2,11 +2,10 @@
 
 import { useTranslations } from 'next-intl';
 import {
-  ArrowLeftRight,
   Landmark,
   LayoutDashboard,
   Plus,
-  UserCircle,
+  SlidersHorizontal,
   Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -16,20 +15,21 @@ interface BottomNavProps {
   activeTab: NavTab;
   onNavigate: (tab: NavTab) => void;
   canEdit: boolean;
-  onQuickAdd: () => void;
+  /** Tombol "+": membuka menu pilihan catat (anggaran/arus kas/aset). */
+  onAddMenu: () => void;
 }
 
 /**
  * Bottom nav mobile.
  *
- * Lima item + FAB di tengah. Tab Profil ikut ada di sini - sebelumnya
- * Profile cuma bisa accessed lewat header, jadi tersembunyi.
+ * Lima slot sesuai spesifikasi: Ringkasan, Saldo, tanda "+" untuk mencatat,
+ * Pinjaman, dan Pengaturan.
  */
 export function BottomNav({
   activeTab,
   onNavigate,
   canEdit,
-  onQuickAdd,
+  onAddMenu,
 }: BottomNavProps) {
   const t = useTranslations();
   const tNav = useTranslations('nav');
@@ -41,9 +41,9 @@ export function BottomNav({
       icon: <LayoutDashboard className="size-5" />,
     },
     {
-      id: 'cashflow',
-      label: tNav('cashflow'),
-      icon: <ArrowLeftRight className="size-5" />,
+      id: 'saldo',
+      label: tNav('saldo'),
+      icon: <Wallet className="size-5" />,
     },
   ];
 
@@ -54,14 +54,9 @@ export function BottomNav({
       icon: <Landmark className="size-5" />,
     },
     {
-      id: 'budget',
-      label: t('budget.title'),
-      icon: <Wallet className="size-5" />,
-    },
-    {
-      id: 'profile',
-      label: tNav('profile'),
-      icon: <UserCircle className="size-5" />,
+      id: 'settings',
+      label: tNav('settings'),
+      icon: <SlidersHorizontal className="size-5" />,
     },
   ];
 
@@ -98,7 +93,7 @@ export function BottomNav({
       {canEdit && (
         <button
           type="button"
-          onClick={onQuickAdd}
+          onClick={onAddMenu}
           aria-label={t('quickAdd.title')}
           className="mx-1 flex size-11 shrink-0 items-center justify-center rounded-xl bg-[var(--brand)] text-[var(--brand-contrast)] shadow-[var(--shadow-md)] transition active:scale-95"
         >

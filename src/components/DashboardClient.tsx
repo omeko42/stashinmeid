@@ -39,7 +39,7 @@ import {
 } from '@/lib/exportUtils';
 import { budgetStatuses } from '@/lib/budget';
 import { nextDueDate, todayIso } from '@/lib/format';
-import { UserCheck } from 'lucide-react';
+import { Bitcoin, Landmark, UserCheck, Wallet, ArrowLeftRight } from 'lucide-react';
 
 interface DashboardClientProps {
   initialTransactions: Transaction[];
@@ -99,6 +99,7 @@ export default function DashboardClient({
   const tDebts = useTranslations('debts');
   const tBudget = useTranslations('budget');
   const tUsers = useTranslations('users');
+  const tQuickAdd = useTranslations('quickAdd');
   const tSettings = useTranslations('settings.profile');
   const tSecSettings = useTranslations('settings');
   const router = useRouter();
@@ -114,6 +115,7 @@ export default function DashboardClient({
   const [debts, setDebts] = useState<Debt[]>(initialDebts);
   const [activeTab, setActiveTab] = useState<NavTab>('overview');
   const [saldoSub, setSaldoSub] = useState<SaldoSub>('cashflow');
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -854,7 +856,7 @@ export default function DashboardClient({
     if (activeTab === 'users' && (isSuperadmin || userRole === 'admin')) {
       void loadManagedUsers();
     }
-  }, [activeTab, isSuperadmin, loadManagedUsers]);
+  }, [activeTab, isSuperadmin, userRole, loadManagedUsers]);
 
   const handleSaveUserEdit = async (userId: string) => {
     const res = await fetch('/api/admin/users', {
@@ -1276,7 +1278,7 @@ export default function DashboardClient({
         activeTab={activeTab}
         onNavigate={navigate}
         canEdit={canEdit}
-        onQuickAdd={() => setShowQuickAdd(true)}
+        onAddMenu={() => setAddMenuOpen(true)}
       />
 
       {/* Input tersembunyi */}
@@ -1308,6 +1310,65 @@ export default function DashboardClient({
         onStateChange={setQuickAdd}
         onSubmit={handleAddTransaction}
       />
+
+      {/* Menu pilihan "+ catat": arus kas, anggaran, aset, atau pinjaman */}
+      <Modal
+        open={addMenuOpen}
+        onClose={() => setAddMenuOpen(false)}
+        title={tQuickAdd('choiceTitle')}
+        size="sm"
+      >
+        <div className="grid gap-2">
+          {[
+            {
+              id: 'cashflow' as const,
+              label: tQuickAdd('choiceCashflow'),
+              icon: <ArrowLeftRight className="size-4" aria-hidden />,
+              action: () => setShowQuickAdd(true),
+            },
+            {
+              id: 'budget' as const,
+              label: tQuickAdd('choiceBudget'),
+              icon: <Wallet className="size-4" aria-hidden />,
+              action: () => {
+                setSaldoSub('budget');
+                navigate('saldo');
+              },
+            },
+            {
+              id: 'assets' as const,
+              label: tQuickAdd('choiceAssets'),
+              icon: <Bitcoin className="size-4" aria-hidden />,
+              action: () => {
+                setSaldoSub('assets');
+                navigate('saldo');
+              },
+            },
+            {
+              id: 'debts' as const,
+              label: tQuickAdd('choiceDebts'),
+              icon: <Landmark className="size-4" aria-hidden />,
+              action: () => {
+                setShowDebtForm(true);
+                navigate('debts');
+              },
+            },
+          ].map((choice) => (
+            <button
+              key={choice.id}
+              type="button"
+              onClick={() => {
+                setAddMenuOpen(false);
+                choice.action();
+              }}
+              className="flex items-center gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-left text-[13px] font-semibold text-[var(--text)] transition-colors hover:border-[var(--brand)]"
+            >
+              <span className="text-[var(--brand)]">{choice.icon}</span>
+              {choice.label}
+            </button>
+          ))}
+        </div>
+      </Modal>
 
       {/* Modal edit profil */}
       <Modal

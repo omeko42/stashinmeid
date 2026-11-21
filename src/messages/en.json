@@ -353,6 +353,11 @@
   },
   "quickAdd": {
     "title": "Add transaction",
+    "choiceTitle": "What to record?",
+    "choiceCashflow": "Cash Flow",
+    "choiceBudget": "Budget",
+    "choiceAssets": "Assets",
+    "choiceDebts": "Loans",
     "type": "Type",
     "typeInflow": "Money in",
     "typeOutflow": "Money out",

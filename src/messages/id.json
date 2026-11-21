@@ -353,6 +353,11 @@
   },
   "quickAdd": {
     "title": "Catat transaksi",
+    "choiceTitle": "Mau catat apa?",
+    "choiceCashflow": "Arus Kas",
+    "choiceBudget": "Anggaran",
+    "choiceAssets": "Aset",
+    "choiceDebts": "Pinjaman",
     "type": "Jenis",
     "typeInflow": "Uang masuk",
     "typeOutflow": "Uang keluar",
