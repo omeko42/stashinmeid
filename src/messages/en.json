@@ -23,7 +23,15 @@
     "title": "Social",
     "kolega": "Kolega",
     "chat": "Chat",
-    "feed": "Feed"
+    "feed": "Feed",
+    "chatSearchPlaceholder": "Search by name or email...",
+    "chatNoThreads": "No conversations yet. Search for an account above to start chatting.",
+    "chatEmptyTitle": "Pick a conversation",
+    "chatEmptyDesc": "Find a kolega via the search box, then start talking about shared finances.",
+    "chatBack": "Back to conversations",
+    "chatStartHint": "No messages yet - say hi!",
+    "chatInputPlaceholder": "Type a message...",
+    "chatSend": "Send"
   },
   "common": {
     "save": "Save",

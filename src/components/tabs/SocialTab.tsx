@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { Segmented } from '@/components/ui/Segmented';
 import { KolegaSection } from '@/components/profile/KolegaSection';
+import { ChatPanel } from './ChatPanel';
 import type { KolegaApi } from '@/hooks/useKolega';
 
 export type SocialSub = 'kolega' | 'chat' | 'feed';
@@ -39,7 +40,7 @@ export function SocialTab({ sub, onSubChange, kolega }: SocialTabProps) {
       />
 
       {sub === 'kolega' && <KolegaSection kolega={kolega} />}
-      {sub === 'chat' && null /* dipasang pada commit Obrolan */}
+      {sub === 'chat' && <ChatPanel />}
       {sub === 'feed' && null /* dipasang pada commit Feed */}
     </div>
   );

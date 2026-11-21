@@ -23,7 +23,15 @@
     "title": "Sosial",
     "kolega": "Kolega",
     "chat": "Obrolan",
-    "feed": "Feed"
+    "feed": "Feed",
+    "chatSearchPlaceholder": "Cari nama atau email akun...",
+    "chatNoThreads": "Belum ada percakapan. Cari akun di atas untuk mulai ngobrol.",
+    "chatEmptyTitle": "Pilih percakapan",
+    "chatEmptyDesc": "Cari kolega lewat kolom pencarian, lalu mulai ngobrol tentang keuangan bersama.",
+    "chatBack": "Kembali ke daftar percakapan",
+    "chatStartHint": "Belum ada pesan - sapa dulu!",
+    "chatInputPlaceholder": "Tulis pesan...",
+    "chatSend": "Kirim"
   },
   "common": {
     "save": "Simpan",
