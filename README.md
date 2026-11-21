@@ -54,7 +54,7 @@ deploy. Env var tetap dipakai sebagai override kalau lu punya project lain.
 ### 3. Deploy
 
 ```bash
-bash scripts/push.sh
+npm run push
 ```
 
 Script itu commit, push ke GitHub (Vercel auto-deploy), lalu menyinkronkan

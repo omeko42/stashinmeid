@@ -10,7 +10,7 @@
     "typecheck": "tsc --noEmit",
     "hash-password": "node scripts/hash-password.mjs",
     "sync:vercel-env": "node scripts/sync-vercel-env.mjs",
-    "push": "bash scripts/push.sh"
+    "push": "node scripts/push.mjs"
   },
   "dependencies": {
     "@google/genai": "^3.6.1",
