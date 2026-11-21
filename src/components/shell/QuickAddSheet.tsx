@@ -16,6 +16,8 @@ export interface QuickAddState {
   category: string;
   description: string;
   date: string;
+  /** Ruang bersama (kolega); kosong = pribadi. */
+  groupId: string;
 }
 
 interface QuickAddSheetProps {
@@ -24,6 +26,8 @@ interface QuickAddSheetProps {
   state: QuickAddState;
   scanMsg: string | null;
   saving: boolean;
+  /** Daftar ruang bersama aktif; kosong = pilihan tidak muncul. */
+  sharedGroups?: { id: string; name: string }[];
   onStateChange: (next: QuickAddState) => void;
   onSubmit: (e: React.FormEvent) => void;
 }
@@ -40,6 +44,7 @@ export function QuickAddSheet({
   state,
   scanMsg,
   saving,
+  sharedGroups = [],
   onStateChange,
   onSubmit,
 }: QuickAddSheetProps) {
@@ -154,6 +159,21 @@ export function QuickAddSheet({
           onChange={(e) => set('description', e.target.value)}
           placeholder={tQuickAdd('descriptionPlaceholder')}
         />
+
+        {sharedGroups.length > 0 && (
+          <Select
+            label={tQuickAdd('shared')}
+            value={state.groupId}
+            onChange={(e) => set('groupId', e.target.value)}
+          >
+            <option value="">{tQuickAdd('sharedPersonal')}</option>
+            {sharedGroups.map((g) => (
+              <option key={g.id} value={g.id}>
+                {g.name}
+              </option>
+            ))}
+          </Select>
+        )}
       </form>
     </Modal>
   );
@@ -167,5 +187,6 @@ export function initialQuickAddState(): QuickAddState {
     category: categoryOptions('outflow')[0].id,
     description: '',
     date: todayIso(),
+    groupId: '',
   };
 }

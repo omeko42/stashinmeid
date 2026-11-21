@@ -11,6 +11,7 @@ interface ProfileMenuProps {
   profileEmail: string;
   profileUsername: string;
   userRole: UserRole;
+  avatarUrl?: string | null;
   onOpenProfile: () => void;
   /** Diauditkan bila KYC modal siap (patch 4); item KYC muncul bila handler ada. */
   onOpenKyc?: () => void;
@@ -29,6 +30,7 @@ export function ProfileMenu({
   profileEmail,
   profileUsername,
   userRole,
+  avatarUrl,
   onOpenProfile,
   onOpenKyc,
   onOpenSecurity,
@@ -133,9 +135,14 @@ export function ProfileMenu({
           open && 'border-[var(--line)] bg-[var(--surface-2)]'
         )}
       >
-        {/* Avatar foto profil masuk di patch 4; inisial jaga posisinya. */}
-        <span className="flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-[13px] font-semibold text-[var(--text-muted)]">
-          {(profileClient || '?').slice(0, 1).toUpperCase()}
+        {/* Foto profil dari menu Bio; inisial jaga posisi sebelum ada filenya. */}
+        <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-2)] text-[13px] font-semibold text-[var(--text-muted)]">
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt="" className="size-full object-cover" />
+          ) : (
+            (profileClient || '?').slice(0, 1).toUpperCase()
+          )}
         </span>
         <span className="min-w-0 flex-1">
           <span className="block truncate text-[12px] font-semibold text-[var(--text)]">

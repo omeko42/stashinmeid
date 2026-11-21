@@ -151,7 +151,11 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
     redirect({ href: '/login', locale });
   } else {
     const [{ data: profile }, { data: transactions }, { data: debts }] = await Promise.all([
-      supabase.from('profiles').select('client_name, role').eq('id', user.id).single(),
+      supabase
+        .from('profiles')
+        .select('client_name, role, bio, avatar_url, banner_url')
+        .eq('id', user.id)
+        .single(),
       supabase
         .from('transactions')
         .select('*')
@@ -169,6 +173,9 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
         userEmail={user.email ?? null}
         clientName={profile?.client_name ?? 'Personal'}
         userRole={(profile?.role as 'admin' | 'member' | 'viewer') ?? 'member'}
+        initialBio={(profile?.bio as string) || ''}
+        initialAvatarUrl={(profile?.avatar_url as string) || null}
+        initialBannerUrl={(profile?.banner_url as string) || null}
         isDemoMode={false}
       />
     );

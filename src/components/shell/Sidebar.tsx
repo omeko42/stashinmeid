@@ -33,6 +33,8 @@ interface SidebarProps {
   profileUsername: string;
   userRole: UserRole;
   isSuperadmin: boolean;
+  avatarUrl?: string | null;
+  onOpenKyc: () => void;
   onOpenSecurity: () => void;
   onLogout: () => void;
 }
@@ -51,6 +53,8 @@ export function Sidebar({
   profileUsername,
   userRole,
   isSuperadmin,
+  avatarUrl,
+  onOpenKyc,
   onOpenSecurity,
   onLogout,
 }: SidebarProps) {
@@ -180,7 +184,9 @@ export function Sidebar({
           profileEmail={profileEmail}
           profileUsername={profileUsername}
           userRole={userRole}
+          avatarUrl={avatarUrl}
           onOpenProfile={() => onNavigate('profile')}
+          onOpenKyc={onOpenKyc}
           onOpenSecurity={onOpenSecurity}
           onLogout={onLogout}
         />

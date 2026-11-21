@@ -264,6 +264,22 @@
       "saved": "Data KYC berhasil disimpan.",
       "saveFailed": "Gagal menyimpan data KYC.",
       "enabled": "Aktifkan"
+    },
+    "kolega": {
+      "title": "Kolega",
+      "subtitle": "Ngumpulin keuangan sama orang yang kamu percaya. Kolega bisa lihat dan mencatat di ruang bersama, keuangan pribadu tetap milikmu.",
+      "create": "Buat",
+      "created": "Ruang bersama dibuat.",
+      "groupName": "Nama ruang bersama",
+      "invite": "Undang",
+      "inviteEmail": "Email kolega (harus punya akun)",
+      "invited": "Kolega ditambahkan.",
+      "removed": "Kolega dikeluarkan.",
+      "owner": "Pemilik",
+      "remove": "Keluarkan",
+      "inflow": "Masuk",
+      "outflow": "Keluar",
+      "failed": "Ada yang gagal. Coba lagi."
     }
   },
   "users": {
@@ -322,7 +338,9 @@
     "date": "Tanggal",
     "save": "Simpan",
     "saved": "Transaksi dicatat.",
-    "failed": "Gagal menyimpan transaksi."
+    "failed": "Gagal menyimpan transaksi.",
+    "shared": "Ruang bersama",
+    "sharedPersonal": "Pribadi"
   },
   "command": {
     "placeholder": "Cari aksi atau navigasi...",

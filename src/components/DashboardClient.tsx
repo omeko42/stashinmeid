@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { useHotkey } from '@/hooks/useHotkey';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useBudgets } from '@/hooks/useBudgets';
+import { useKolega } from '@/hooks/useKolega';
 import { CommandPalette, type CommandAction } from '@/components/shell/CommandPalette';
 import { Sidebar, type NavTab } from '@/components/shell/Sidebar';
 import { MobileHeader } from '@/components/shell/MobileHeader';
@@ -23,6 +24,7 @@ import { BudgetTab } from '@/components/tabs/BudgetTab';
 import { SettingsTab } from '@/components/tabs/SettingsTab';
 import { ProfileTab } from '@/components/tabs/ProfileTab';
 import { SecuritySettings } from '@/components/profile/SecuritySettings';
+import { KycModal } from '@/components/profile/KycModal';
 import { UsersTab, type ManagedUser } from '@/components/tabs/UsersTab';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -48,6 +50,9 @@ interface DashboardClientProps {
   isDemoMode: boolean;
   isSuperadmin?: boolean;
   impersonatingEmail?: string | null;
+  initialBio?: string;
+  initialAvatarUrl?: string | null;
+  initialBannerUrl?: string | null;
 }
 
 interface DebtFormState {
@@ -84,6 +89,9 @@ export default function DashboardClient({
   isDemoMode,
   isSuperadmin = false,
   impersonatingEmail = null,
+  initialBio = '',
+  initialAvatarUrl = null,
+  initialBannerUrl = null,
 }: DashboardClientProps) {
   const t = useTranslations();
   const tNav = useTranslations('nav');
@@ -109,6 +117,7 @@ export default function DashboardClient({
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
+  const [kycOpen, setKycOpen] = useState(false);
 
   // Simulasi pelunasan
   const [simSelectedIds, setSimSelectedIds] = useState<string[]>([]);
@@ -139,8 +148,10 @@ export default function DashboardClient({
   );
   const [profileClient, setProfileClient] = useState(clientName);
   const [profileBio, setProfileBio] = useState(
-    'Pengelola keuangan pribadi & pemantauan cashflow di stashinmeid.'
+    initialBio || 'Pengelola keuangan pribadi & pemantauan cashflow di stashinmeid.'
   );
+  const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(initialAvatarUrl);
+  const [profileBannerUrl, setProfileBannerUrl] = useState<string | null>(initialBannerUrl);
 
   // Draft profil untuk modal edit
   const [draftUsername, setDraftUsername] = useState('');
@@ -164,6 +175,7 @@ export default function DashboardClient({
   const [debtForm, setDebtForm] = useState<DebtFormState>(EMPTY_DEBT_FORM);
 
   const budgets = useBudgets({ isDemoMode, isSuperadmin });
+  const kolega = useKolega();
 
   useEffect(() => {
     const savedPin =
@@ -329,6 +341,7 @@ export default function DashboardClient({
               description: newTx.description,
               transaction_date: newTx.transaction_date,
               source: newTx.source,
+              ...(quickAdd.groupId ? { group_id: quickAdd.groupId } : {}),
             })
             .select()
             .single();
@@ -662,6 +675,7 @@ export default function DashboardClient({
           table: 'profiles',
           updates: {
             client_name: draftClient,
+            bio: draftBio,
             ...(draftEmail && draftEmail.includes('@') ? { email: draftEmail } : {}),
           },
         }),
@@ -711,7 +725,7 @@ export default function DashboardClient({
     if (userData.user) {
       await supabase
         .from('profiles')
-        .update({ client_name: draftClient })
+        .update({ client_name: draftClient, bio: draftBio })
         .eq('id', userData.user.id);
     }
 
@@ -1012,6 +1026,8 @@ export default function DashboardClient({
         profileUsername={profileUsername}
         userRole={userRole}
         isSuperadmin={isSuperadmin}
+        avatarUrl={profileAvatarUrl}
+        onOpenKyc={() => setKycOpen(true)}
         onOpenSecurity={() => setSecurityOpen(true)}
         onLogout={handleLogout}
       />
@@ -1138,8 +1154,15 @@ export default function DashboardClient({
                   profileBio={profileBio}
                   userRole={userRole}
                   profileCompleteness={profileCompleteness}
+                  profileAvatarUrl={profileAvatarUrl}
+                  profileBannerUrl={profileBannerUrl}
                   canEdit={canEdit}
                   onEditProfile={openEditProfile}
+                  onProfileMediaChange={(avatar, banner) => {
+                    if (avatar !== undefined) setProfileAvatarUrl(avatar);
+                    if (banner !== undefined) setProfileBannerUrl(banner);
+                  }}
+                  kolega={kolega}
                 />
               )}
 
@@ -1169,6 +1192,9 @@ export default function DashboardClient({
                   onVerify2FA={handleVerify2FA}
                 />
               </Modal>
+
+              {/* KYC: modal dari menu profil di sidebar */}
+              <KycModal open={kycOpen} onClose={() => setKycOpen(false)} />
 
               {activeTab === 'users' && isSuperadmin && (
                 <UsersTab
@@ -1231,6 +1257,7 @@ export default function DashboardClient({
         state={quickAdd}
         scanMsg={scanMsg}
         saving={txLoading}
+        sharedGroups={!isDemoMode ? kolega.groups.map((g) => ({ id: g.id, name: g.name })) : []}
         onStateChange={setQuickAdd}
         onSubmit={handleAddTransaction}
       />

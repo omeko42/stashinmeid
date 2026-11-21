@@ -264,6 +264,22 @@
       "saved": "KYC data saved.",
       "saveFailed": "Could not save KYC data.",
       "enabled": "Enable"
+    },
+    "kolega": {
+      "title": "Colleagues",
+      "subtitle": "Pool finances with people you trust. Colleagues can see and record in the shared space; your personal finances stay yours.",
+      "create": "Create",
+      "created": "Shared space created.",
+      "groupName": "Shared space name",
+      "invite": "Invite",
+      "inviteEmail": "Colleague email (must have an account)",
+      "invited": "Colleague added.",
+      "removed": "Colleague removed.",
+      "owner": "Owner",
+      "remove": "Remove",
+      "inflow": "In",
+      "outflow": "Out",
+      "failed": "Something failed. Try again."
     }
   },
   "users": {
@@ -322,7 +338,9 @@
     "date": "Date",
     "save": "Save",
     "saved": "Transaction recorded.",
-    "failed": "Could not save the transaction."
+    "failed": "Could not save the transaction.",
+    "shared": "Shared space",
+    "sharedPersonal": "Personal"
   },
   "command": {
     "placeholder": "Search actions or pages...",
