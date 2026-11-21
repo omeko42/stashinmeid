@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { signSuperadminToken } from '@/lib/jwt';
 import { verifyPassword, safeEqual } from '@/lib/password';
 import { checkRateLimit, clientIp, rateLimitHeaders } from '@/lib/rateLimit';
+import { verifyTurnstile } from '@/lib/turnstile';
 
 // Batas percobaan login: 10x per 15 menit per IP.
 const LOGIN_LIMIT = 10;
@@ -23,11 +24,28 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  let body: { username?: unknown; password?: unknown };
+  let body: {
+    username?: unknown;
+    password?: unknown;
+    captchaToken?: unknown;
+  };
   try {
     body = await req.json();
   } catch {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
+  }
+
+  // Captcha diverifikasi sebelum kredensial dicek, supaya brute force
+  // sekecil mungkin dapet-E-mail juga harus lewat captcha.
+  const captcha = await verifyTurnstile(
+    typeof body.captchaToken === 'string' ? body.captchaToken : null,
+    ip
+  );
+  if (!captcha.ok) {
+    return NextResponse.json(
+      { error: captcha.error || 'Verifikasi captcha gagal.' },
+      { status: 403 }
+    );
   }
 
   try {

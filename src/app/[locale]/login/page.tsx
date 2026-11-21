@@ -8,6 +8,7 @@ import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { BrandLogo } from '@/components/BrandLogo';
 import { PasswordInput } from '@/components/ui/PasswordInput';
+import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
 import { Loader2, KeyRound, ArrowRight, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
@@ -25,6 +26,11 @@ export default function LoginPage() {
   const [signUpStep, setSignUpStep] = useState<1 | 2>(1);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  /** Token captcha Turnstile. Null = belum diselesaikan. */
+  const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
+  // Captcha hanya diperlukan kalau widget-nya benar-benar terpasang.
+  const captchaEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
 
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,8 +57,34 @@ export default function LoginPage() {
     setLoading(true);
     setMessage(null);
 
+    // Captcha wajib diselesaikan sebelum credentials dicek.
+    if (captchaEnabled && !captchaToken) {
+      setMessage({ type: 'error', text: t('auth.captchaRequired') });
+      setLoading(false);
+      return;
+    }
+
     // Superadmin username login (no '@' in input)
     if (!isSignUp && !email.includes('@')) {
+      // Jalur superadmin tidak lewat Supabase Auth, jadi captcha
+      // diverifikasi manual lewat endpoint khusus.
+      if (captchaEnabled) {
+        const capRes = await fetch('/api/auth/captcha', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: captchaToken }),
+        });
+        if (!capRes.ok) {
+          const capJson = await capRes.json().catch(() => ({}));
+          setMessage({
+            type: 'error',
+            text: capJson.error || 'Verifikasi captcha gagal.',
+          });
+          setLoading(false);
+          return;
+        }
+      }
+
       const res = await fetch('/api/auth/superadmin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -84,6 +116,8 @@ export default function LoginPage() {
         email,
         password,
         options: {
+          // GoTrue memverifikasi token captcha ini di sisi server.
+          captchaToken: captchaToken ?? undefined,
           data: {
             full_name: fullName,
             client_name: clientName || 'Personal',
@@ -103,7 +137,11 @@ export default function LoginPage() {
         setSignUpStep(1);
       }
     } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+        options: { captchaToken: captchaToken ?? undefined },
+      });
       if (error) {
         setMessage({ type: 'error', text: t('errors.generic') });
       } else {
@@ -313,6 +351,12 @@ export default function LoginPage() {
                   />
                 </div>
 
+                {captchaEnabled && (
+                  <div className="pt-1">
+                    <TurnstileWidget onToken={setCaptchaToken} theme="dark" />
+                  </div>
+                )}
+
                 <div className="flex gap-2">
                   <button
                     type="button"
@@ -329,8 +373,7 @@ export default function LoginPage() {
                     {loading && <Loader2 className="w-4 h-4 animate-spin" />}
                     Daftar Sekarang
                   </button>
-                </div>
-              </>
+                </div>              </>
             ) : (
               <>
                 <div>
@@ -367,6 +410,12 @@ export default function LoginPage() {
                     className="w-full px-3.5 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-sm focus:outline-none focus:border-emerald-500"
                   />
                 </div>
+
+                {captchaEnabled && (
+                  <div className="pt-1">
+                    <TurnstileWidget onToken={setCaptchaToken} theme="dark" />
+                  </div>
+                )}
 
                 <button
                   type="submit"

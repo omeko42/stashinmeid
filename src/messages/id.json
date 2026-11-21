@@ -469,7 +469,11 @@
     "resetTitle": "Buat password baru",
     "resetSuccess": "Password berhasil diperbarui.",
     "invalidCredentials": "Username atau password salah.",
-    "demoHint": "Supabase belum dikonfigurasi. Kamu bisa langsung pakai mode Demo di halaman utama."
+    "demoHint": "Supabase belum dikonfigurasi. Kamu bisa langsung pakai mode Demo di halaman utama.",
+    "captchaRequired": "Selesaikan captcha dulu.",
+    "captchaLoading": "Memuat captcha...",
+    "captchaFailed": "Captcha gagal dimuat. Coba muat ulang halaman.",
+    "captchaUnavailable": "Captcha tidak tersedia. Muat ulang halaman."
   },
   "errors": {
     "generic": "Terjadi kesalahan. Coba lagi.",
