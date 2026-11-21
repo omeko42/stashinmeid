@@ -67,7 +67,7 @@
   "overview": {
     "title": "Ringkasan",
     "balanceLabel": "Saldo",
-    "balanceHint": "Masuk dikurangi keluar",
+    "balanceHint": "Jumlah semua dompet",
     "assetTooltip": "Saldo dompet",
     "assetPhysical": "Fisik (kas)",
     "assetNonPhysical": "Non-fisik (bank/e-wallet/crypto)",

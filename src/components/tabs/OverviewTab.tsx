@@ -100,7 +100,14 @@ export function OverviewTab({
             <Label>{tOverview('balanceLabel')}</Label>
             <div className="mt-1.5">
               <div className="group relative inline-block">
-                <Amount value={formatRp(netCashflow)} size="hero" />
+                <Amount
+                  value={formatRp(
+                    assetTotals
+                      ? assetTotals.physical + assetTotals.nonPhysical
+                      : netCashflow
+                  )}
+                  size="hero"
+                />
                 {/* Hover saldo: detail dompet fisik vs non-fisik */}
                 {assetTotals && assetTotals.physical + assetTotals.nonPhysical > 0 && (
                   <div className="pointer-events-none invisible absolute left-0 top-full z-20 mt-1.5 w-64 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-3 opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100">

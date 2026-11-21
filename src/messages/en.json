@@ -67,7 +67,7 @@
   "overview": {
     "title": "Overview",
     "balanceLabel": "Balance",
-    "balanceHint": "Money in minus money out",
+    "balanceHint": "Across all wallets",
     "assetTooltip": "Wallet balance",
     "assetPhysical": "Physical (cash)",
     "assetNonPhysical": "Non-physical (bank/e-wallet/crypto)",
