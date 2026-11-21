@@ -5,7 +5,7 @@ import {
   Landmark,
   LayoutDashboard,
   Plus,
-  SlidersHorizontal,
+  Users,
   Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/cn';
@@ -23,7 +23,7 @@ interface BottomNavProps {
  * Bottom nav mobile.
  *
  * Lima slot sesuai spesifikasi: Ringkasan, Saldo, tanda "+" untuk mencatat,
- * Pinjaman, dan Pengaturan.
+ * Pinjaman, dan Sosial. Pengaturan dijangkau lewat menu gear di header mobile.
  */
 export function BottomNav({
   activeTab,
@@ -54,9 +54,9 @@ export function BottomNav({
       icon: <Landmark className="size-5" />,
     },
     {
-      id: 'settings',
-      label: tNav('settings'),
-      icon: <SlidersHorizontal className="size-5" />,
+      id: 'social',
+      label: tNav('sosial'),
+      icon: <Users className="size-5" />,
     },
   ];
 

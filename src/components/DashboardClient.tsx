@@ -27,6 +27,7 @@ import { ProfileTab } from '@/components/tabs/ProfileTab';
 import { SecuritySettings } from '@/components/profile/SecuritySettings';
 import { KycModal } from '@/components/profile/KycModal';
 import { UsersTab, type ManagedUser } from '@/components/tabs/UsersTab';
+import { SocialTab, type SocialSub } from '@/components/tabs/SocialTab';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Field';
@@ -116,6 +117,7 @@ export default function DashboardClient({
   const [debts, setDebts] = useState<Debt[]>(initialDebts);
   const [activeTab, setActiveTab] = useState<NavTab>('overview');
   const [saldoSub, setSaldoSub] = useState<SaldoSub>('cashflow');
+  const [sosialSub, setSosialSub] = useState<SocialSub>('kolega');
   const [addMenuOpen, setAddMenuOpen] = useState(false);
   const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
   const [searchQuery, setSearchQuery] = useState('');
@@ -1073,6 +1075,7 @@ export default function DashboardClient({
         avatarUrl={profileAvatarUrl}
         onOpenKyc={() => setKycOpen(true)}
         onOpenSecurity={() => setSecurityOpen(true)}
+        onOpenSettings={() => navigate('settings')}
         onLogout={handleLogout}
       />
 
@@ -1182,6 +1185,14 @@ export default function DashboardClient({
                   onSubmitForm={handleAddDebt}
                   onPay={handlePayDebt}
                   onDelete={handleDeleteDebt}
+                />
+              )}
+
+              {activeTab === 'social' && (
+                <SocialTab
+                  sub={sosialSub}
+                  onSubChange={setSosialSub}
+                  kolega={kolega}
                 />
               )}
 

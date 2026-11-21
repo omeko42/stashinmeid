@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { BadgeCheck, ChevronUp, LogOut, Shield, UserCircle, Users } from 'lucide-react';
+import { BadgeCheck, ChevronUp, LogOut, Shield, SlidersHorizontal, UserCircle, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { UserRole } from '@/types/finance';
 import { cn } from '@/lib/cn';
@@ -19,6 +19,8 @@ interface ProfileMenuProps {
   onOpenSecurity: () => void;
   /** Manajemen user - hanya muncul di role admin / superadmin. */
   onOpenUsers?: () => void;
+  /** Pengaturan - pindah dari item sidebar ke menu profil. */
+  onOpenSettings?: () => void;
   onLogout: () => void;
 }
 
@@ -39,6 +41,7 @@ export function ProfileMenu({
   onOpenKyc,
   onOpenSecurity,
   onOpenUsers,
+  onOpenSettings,
   onLogout,
 }: ProfileMenuProps) {
   const tNav = useTranslations('nav');
@@ -94,6 +97,17 @@ export function ProfileMenu({
             label: tNav('users'),
             icon: <Users className="size-4" aria-hidden />,
             action: onOpenUsers,
+          },
+        ]
+      : []),
+    // Pengaturan pindah ke sini dari item sidebar (slotnya diganti Sosial).
+    ...(onOpenSettings
+      ? [
+          {
+            id: 'settings',
+            label: tNav('settings'),
+            icon: <SlidersHorizontal className="size-4" aria-hidden />,
+            action: onOpenSettings,
           },
         ]
       : []),

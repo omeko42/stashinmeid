@@ -4,7 +4,7 @@ import { useTranslations } from 'next-intl';
 import {
   Landmark,
   LayoutDashboard,
-  SlidersHorizontal,
+  Users,
   Wallet,
 } from 'lucide-react';
 import type { UserRole } from '@/types/finance';
@@ -19,6 +19,7 @@ export type NavTab =
   | 'debts'
   | 'budget'
   | 'assets'
+  | 'social'
   | 'settings'
   | 'profile'
   | 'users';
@@ -34,6 +35,8 @@ interface SidebarProps {
   avatarUrl?: string | null;
   onOpenKyc: () => void;
   onOpenSecurity: () => void;
+  /** Pengaturan kini dari menu profil pojok kiri bawah, bukan item sidebar. */
+  onOpenSettings: () => void;
   onLogout: () => void;
 }
 
@@ -54,6 +57,7 @@ export function Sidebar({
   avatarUrl,
   onOpenKyc,
   onOpenSecurity,
+  onOpenSettings,
   onLogout,
 }: SidebarProps) {
   const t = useTranslations();
@@ -76,9 +80,9 @@ export function Sidebar({
       icon: <Landmark className="size-4" />,
     },
     {
-      id: 'settings',
-      label: tNav('settings'),
-      icon: <SlidersHorizontal className="size-4" />,
+      id: 'social',
+      label: tNav('sosial'),
+      icon: <Users className="size-4" />,
     },
   ];
 
@@ -137,6 +141,7 @@ export function Sidebar({
           onOpenKyc={onOpenKyc}
           onOpenSecurity={onOpenSecurity}
           onOpenUsers={isSuperadmin || userRole === 'admin' ? () => onNavigate('users') : undefined}
+          onOpenSettings={onOpenSettings}
           onLogout={onLogout}
         />
       </div>

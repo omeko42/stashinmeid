@@ -16,7 +16,14 @@
     "closeMenu": "Close menu",
     "more": "More",
     "assets": "Assets",
-    "saldo": "Balance"
+    "saldo": "Balance",
+    "sosial": "Social"
+  },
+  "sosial": {
+    "title": "Social",
+    "kolega": "Kolega",
+    "chat": "Chat",
+    "feed": "Feed"
   },
   "common": {
     "save": "Save",

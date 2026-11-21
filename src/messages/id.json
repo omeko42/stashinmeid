@@ -16,7 +16,14 @@
     "closeMenu": "Tutup menu",
     "more": "Lainnya",
     "assets": "Aset",
-    "saldo": "Saldo"
+    "saldo": "Saldo",
+    "sosial": "Sosial"
+  },
+  "sosial": {
+    "title": "Sosial",
+    "kolega": "Kolega",
+    "chat": "Obrolan",
+    "feed": "Feed"
   },
   "common": {
     "save": "Simpan",
