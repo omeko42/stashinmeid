@@ -56,7 +56,9 @@ declare
   tbls text[] := array[
     'profiles', 'transactions', 'debts', 'budgets', 'accounts', 'fx_rates',
     'kyc_profiles', 'finance_groups', 'finance_group_members',
-    'social_posts', 'social_messages'
+    'social_posts', 'social_messages',
+    'user_connections', 'notifications', 'notification_preferences',
+    'announcements', 'account_deletion_audit'
   ];
 begin
   foreach t in array tbls loop

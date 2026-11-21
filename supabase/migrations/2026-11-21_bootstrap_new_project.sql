@@ -603,6 +603,158 @@ create policy "messages insert sender" on public.social_messages
   for insert to authenticated with check (sender_id = auth.uid());
 
 -- ==========================================================
+-- BAGIAN 3B: Kolega 2-arah, notifikasi, pita pengumuman, audit hapus
+-- ==========================================================
+-- Dua konsep yang sebelumnya tercampur:
+--   - KOLEGA       : pertemanan 2-arah, murni sosial.
+--   - GRUP KEUANGAN: pooling transaksi (finance_groups di atas).
+--
+-- finance_groups tidak diubah - fitur lama tetap jalan sebagai "grup
+-- keuangan", sekarang berdiri sendiri dari daftar kolega.
+
+create table if not exists public.user_connections (
+  id uuid primary key default gen_random_uuid(),
+  requester_id uuid not null references auth.users (id) on delete cascade,
+  addressee_id uuid not null references auth.users (id) on delete cascade,
+  status text not null default 'pending'
+    check (status in ('pending', 'accepted', 'blocked')),
+  created_at timestamptz not null default now(),
+  responded_at timestamptz,
+  unique (requester_id, addressee_id),
+  check (requester_id <> addressee_id)
+);
+
+create table if not exists public.notifications (
+  id uuid primary key default gen_random_uuid(),
+  recipient_id uuid not null references auth.users (id) on delete cascade,
+  actor_id uuid references auth.users (id) on delete set null,
+  type text not null check (
+    type in (
+      'connection_requested',
+      'connection_accepted',
+      'group_member_joined',
+      'feed_post',
+      'chat_message'
+    )
+  ),
+  title text not null,
+  body text,
+  link text,
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.notification_preferences (
+  user_id uuid not null references auth.users (id) on delete cascade,
+  type text not null check (
+    type in (
+      'connection_requested',
+      'connection_accepted',
+      'group_member_joined',
+      'feed_post',
+      'chat_message'
+    )
+  ),
+  enabled boolean not null default true,
+  primary key (user_id, type)
+);
+
+create table if not exists public.announcements (
+  id uuid primary key default gen_random_uuid(),
+  text text not null check (char_length(text) between 1 and 500),
+  created_by uuid references auth.users (id) on delete set null,
+  active boolean not null default true,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- Audit penghapusan akun. Sengaja tanpa FK ke auth.users supaya bukti
+-- tetap ada setelah user dihapus.
+create table if not exists public.account_deletion_audit (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null,
+  email text,
+  client_name text,
+  actor_type text not null default 'self' check (actor_type in ('self', 'admin')),
+  actor_id uuid,
+  scope text not null default 'all' check (scope in ('all', 'profile', 'finance')),
+  deleted_counts jsonb not null default '{}'::jsonb,
+  reason text,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists idx_connections_requester
+  on public.user_connections (requester_id, status);
+create index if not exists idx_connections_addressee
+  on public.user_connections (addressee_id, status);
+create index if not exists idx_notifications_recipient
+  on public.notifications (recipient_id, created_at desc);
+create index if not exists idx_notifications_unread
+  on public.notifications (recipient_id) where read_at is null;
+create index if not exists idx_announcements_active
+  on public.announcements (active, created_at desc);
+create index if not exists idx_deletion_audit_user
+  on public.account_deletion_audit (user_id, created_at desc);
+create index if not exists idx_deletion_audit_created
+  on public.account_deletion_audit (created_at desc);
+
+alter table public.user_connections enable row level security;
+alter table public.notifications enable row level security;
+alter table public.notification_preferences enable row level security;
+alter table public.announcements enable row level security;
+alter table public.account_deletion_audit enable row level security;
+
+drop policy if exists "Users can view own connections" on public.user_connections;
+create policy "Users can view own connections" on public.user_connections
+  for select to authenticated
+  using (requester_id = auth.uid() or addressee_id = auth.uid());
+drop policy if exists "Users can create connections" on public.user_connections;
+create policy "Users can create connections" on public.user_connections
+  for insert to authenticated with check (requester_id = auth.uid());
+drop policy if exists "Users can update own connections" on public.user_connections;
+create policy "Users can update own connections" on public.user_connections
+  for update to authenticated
+  using (requester_id = auth.uid() or addressee_id = auth.uid())
+  with check (requester_id = auth.uid() or addressee_id = auth.uid());
+drop policy if exists "Users can delete own connections" on public.user_connections;
+create policy "Users can delete own connections" on public.user_connections
+  for delete to authenticated
+  using (requester_id = auth.uid() or addressee_id = auth.uid());
+
+drop policy if exists "Users can view own notifications" on public.notifications;
+create policy "Users can view own notifications" on public.notifications
+  for select to authenticated using (recipient_id = auth.uid());
+drop policy if exists "Users can update own notifications" on public.notifications;
+create policy "Users can update own notifications" on public.notifications
+  for update to authenticated
+  using (recipient_id = auth.uid()) with check (recipient_id = auth.uid());
+drop policy if exists "Users can delete own notifications" on public.notifications;
+create policy "Users can delete own notifications" on public.notifications
+  for delete to authenticated using (recipient_id = auth.uid());
+
+drop policy if exists "Users can view own notification preferences" on public.notification_preferences;
+create policy "Users can view own notification preferences" on public.notification_preferences
+  for select to authenticated using (user_id = auth.uid());
+drop policy if exists "Users can update own notification preferences" on public.notification_preferences;
+create policy "Users can update own notification preferences" on public.notification_preferences
+  for update to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+drop policy if exists "Users can insert own notification preferences" on public.notification_preferences;
+create policy "Users can insert own notification preferences" on public.notification_preferences
+  for insert to authenticated with check (user_id = auth.uid());
+drop policy if exists "Users can delete own notification preferences" on public.notification_preferences;
+create policy "Users can delete own notification preferences" on public.notification_preferences
+  for delete to authenticated using (user_id = auth.uid());
+
+drop policy if exists "Authenticated can view active announcements" on public.announcements;
+create policy "Authenticated can view active announcements" on public.announcements
+  for select to authenticated using (active = true);
+
+drop policy if exists "Users can view own deletion audit" on public.account_deletion_audit;
+create policy "Users can view own deletion audit" on public.account_deletion_audit
+  for select to authenticated using (user_id = auth.uid());
+
+-- ==========================================================
 -- BAGIAN 4: Privileges (GRANT) — WAJIB agar UI dapat baca/tulis
 -- ==========================================================
 -- Project Supabase ini tidak otomatis memberi GRANT ke tabel yang dibuat
@@ -625,6 +777,14 @@ grant select, insert, update, delete
   on public.social_posts, public.social_messages
   to authenticated, service_role;
 
+grant select, insert, update, delete
+  on public.user_connections,
+     public.notifications,
+     public.notification_preferences,
+     public.announcements,
+     public.account_deletion_audit
+  to authenticated, service_role;
+
 grant usage, select on all sequences in schema public to authenticated, service_role;
 
 -- Profiles: batasi update hanya ke kolom profil yang boleh diedit user.
@@ -632,4 +792,48 @@ grant usage, select on all sequences in schema public to authenticated, service_
 revoke update on public.profiles from authenticated;
 grant update (email, client_name, bio, avatar_url, banner_url, primary_currency)
   on public.profiles to authenticated;
+
+-- Helper: buat notifikasi sambil menghormati preferensi user.
+create or replace function public.create_notification(
+  p_recipient_id uuid,
+  p_actor_id uuid,
+  p_type text,
+  p_title text,
+  p_body text default null,
+  p_link text default null
+)
+returns uuid
+language plpgsql
+security definer
+set search_path = public
+as $$
+declare
+  v_id uuid;
+  v_enabled boolean;
+begin
+  if p_recipient_id = p_actor_id then
+    return null;
+  end if;
+
+  select enabled into v_enabled
+  from public.notification_preferences
+  where user_id = p_recipient_id and type = p_type;
+
+  if coalesce(v_enabled, true) = false then
+    return null;
+  end if;
+
+  insert into public.notifications
+    (recipient_id, actor_id, type, title, body, link)
+  values
+    (p_recipient_id, p_actor_id, p_type, p_title, p_body, p_link)
+  returning id into v_id;
+
+  return v_id;
+end;
+$$;
+
+revoke all on function public.create_notification(uuid, uuid, text, text, text, text) from public;
+grant execute on function public.create_notification(uuid, uuid, text, text, text, text)
+  to authenticated, service_role;
 

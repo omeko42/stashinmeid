@@ -4,7 +4,12 @@ import { forwardRef, useId } from 'react';
 import type { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
 import { cn } from '@/lib/cn';
 
-const FIELD_BASE =
+/**
+ * Gaya dasar untuk semua input.
+ * Diekspor supaya primitive lain (mis. PasswordInput) memakai gaya yang
+ * sama persis, bukan menyalin string-nya.
+ */
+export const FIELD_BASE =
   'w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] transition-colors hover:border-[var(--line-strong)] focus:border-[var(--brand)] focus:outline-none disabled:opacity-50';
 
 interface FieldShellProps {
