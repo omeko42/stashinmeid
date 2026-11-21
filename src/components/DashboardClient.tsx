@@ -8,6 +8,7 @@ import { useHotkey } from '@/hooks/useHotkey';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useBudgets } from '@/hooks/useBudgets';
 import { useKolega } from '@/hooks/useKolega';
+import { useAssets } from '@/hooks/useAssets';
 import { CommandPalette, type CommandAction } from '@/components/shell/CommandPalette';
 import { Sidebar, type NavTab } from '@/components/shell/Sidebar';
 import { MobileHeader } from '@/components/shell/MobileHeader';
@@ -22,6 +23,7 @@ import { CashflowTab } from '@/components/tabs/CashflowTab';
 import { DebtsTab } from '@/components/tabs/DebtsTab';
 import { BudgetTab } from '@/components/tabs/BudgetTab';
 import { SettingsTab } from '@/components/tabs/SettingsTab';
+import { AssetsTab } from '@/components/tabs/AssetsTab';
 import { ProfileTab } from '@/components/tabs/ProfileTab';
 import { SecuritySettings } from '@/components/profile/SecuritySettings';
 import { KycModal } from '@/components/profile/KycModal';
@@ -176,6 +178,7 @@ export default function DashboardClient({
 
   const budgets = useBudgets({ isDemoMode, isSuperadmin });
   const kolega = useKolega();
+  const assets = useAssets({ isDemoMode, isSuperadmin });
 
   useEffect(() => {
     const savedPin =
@@ -971,6 +974,12 @@ export default function DashboardClient({
       onSelect: () => navigate('budget'),
     },
     {
+      id: 'go-assets',
+      label: tNav('assets'),
+      group: 'navigate',
+      onSelect: () => navigate('assets'),
+    },
+    {
       id: 'go-settings',
       label: tNav('settings'),
       group: 'navigate',
@@ -1131,6 +1140,8 @@ export default function DashboardClient({
                   onRemove={budgets.removeBudget}
                 />
               )}
+
+              {activeTab === 'assets' && <AssetsTab assets={assets} />}
 
               {activeTab === 'settings' && (
                 <SettingsTab

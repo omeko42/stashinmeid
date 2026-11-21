@@ -14,7 +14,8 @@
     "openMenu": "Open navigation menu",
     "settingsMenu": "Settings menu",
     "closeMenu": "Close menu",
-    "more": "More"
+    "more": "More",
+    "assets": "Assets"
   },
   "common": {
     "save": "Save",
@@ -58,7 +59,9 @@
       "title": "No data yet",
       "description": "There is nothing to show here yet.",
       "action": "Get started"
-    }
+    },
+    "saved": "Saved",
+    "failed": "Something failed. Try again."
   },
   "overview": {
     "title": "Overview",
@@ -396,5 +399,36 @@
     "unauthorized": "You need to sign in first.",
     "rateLimit": "Too many requests. Try again shortly.",
     "notFound": "Page not found."
+  },
+  "assets": {
+    "title": "Assets",
+    "subtitle": "Separate wallets: specific banks, cash, crypto, even foreign currencies - valued in your primary currency.",
+    "totalIn": "Total assets (in {currency})",
+    "primaryCurrency": "Primary currency",
+    "ratesTitle": "Manual exchange rates",
+    "ratesHint": "Enter rates: 1 unit of a currency equals how much {currency}.",
+    "kind": {
+      "bank": "Bank",
+      "cash": "Cash",
+      "ewallet": "E-wallet",
+      "crypto": "Crypto",
+      "other": "Other"
+    },
+    "noRate": "no rate set",
+    "addTitle": "Add wallet",
+    "form": {
+      "name": "Wallet name",
+      "kind": "Type",
+      "institution": "Bank/e-wallet/location",
+      "currency": "Currency",
+      "balance": "Balance"
+    },
+    "empty": {
+      "title": "No wallets yet",
+      "description": "Add your first wallet below."
+    },
+    "ratePlaceholder": "1 unit = how much {currency}?",
+    "saved": "Wallet saved.",
+    "failed": "Could not save wallet."
   }
 }

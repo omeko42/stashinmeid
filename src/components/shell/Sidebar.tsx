@@ -83,6 +83,11 @@ export function Sidebar({
       icon: <Wallet className="size-4" />,
     },
     {
+      id: 'assets',
+      label: tNav('assets'),
+      icon: <Landmark className="size-4" />,
+    },
+    {
       id: 'settings',
       label: tNav('settings'),
       icon: <SlidersHorizontal className="size-4" />,

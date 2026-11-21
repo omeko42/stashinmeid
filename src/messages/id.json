@@ -14,7 +14,8 @@
     "openMenu": "Buka menu navigasi",
     "settingsMenu": "Menu pengaturan",
     "closeMenu": "Tutup menu",
-    "more": "Lainnya"
+    "more": "Lainnya",
+    "assets": "Aset"
   },
   "common": {
     "save": "Simpan",
@@ -58,7 +59,9 @@
       "title": "Belum ada data",
       "description": "Belum ada data untuk ditampilkan.",
       "action": "Mulai sekarang"
-    }
+    },
+    "saved": "Tersimpan",
+    "failed": "Ada yang gagal. Coba lagi."
   },
   "overview": {
     "title": "Ringkasan",
@@ -396,5 +399,36 @@
     "unauthorized": "Kamu harus masuk dulu.",
     "rateLimit": "Terlalu banyak permintaan. Coba lagi sebentar.",
     "notFound": "Halaman tidak ditemukan."
+  },
+  "assets": {
+    "title": "Aset",
+    "subtitle": "Dompet terpisah: bank, kas, crypto, hingga mata uang asing - semua dihitung dalam mata uang utamamu.",
+    "totalIn": "Total aset (dalam {currency})",
+    "primaryCurrency": "Mata uang utama",
+    "ratesTitle": "Kurs manual",
+    "ratesHint": "Masukkan kurs: 1 unit mata uang setara berapa {currency}..",
+    "kind": {
+      "bank": "Bank",
+      "cash": "Kas",
+      "ewallet": "E-wallet",
+      "crypto": "Crypto",
+      "other": "Lainnya"
+    },
+    "noRate": "kurs belum diisi",
+    "addTitle": "Tambah dompet",
+    "form": {
+      "name": "Nama dompet",
+      "kind": "Jenis",
+      "institution": "Bank/e-wallet/lokasi",
+      "currency": "Mata uang",
+      "balance": "Saldo"
+    },
+    "empty": {
+      "title": "Belum ada dompet",
+      "description": "Tambahkan dompet pertamamu di bawah."
+    },
+    "ratePlaceholder": "1 unit = berapa {currency}?",
+    "saved": "Dompet tersimpan.",
+    "failed": "Gagal menyimpan dompet."
   }
 }
