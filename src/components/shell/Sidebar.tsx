@@ -20,7 +20,8 @@ export type NavTab =
   | 'cashflow'
   | 'debts'
   | 'budget'
-  | 'tools'
+  | 'assets'
+  | 'settings'
   | 'profile'
   | 'users';
 
@@ -76,8 +77,8 @@ export function Sidebar({
       icon: <Wallet className="size-4" />,
     },
     {
-      id: 'tools',
-      label: t('tools.title'),
+      id: 'settings',
+      label: tNav('settings'),
       icon: <SlidersHorizontal className="size-4" />,
     },
   ];

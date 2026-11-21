@@ -11,7 +11,6 @@ import { CommandPalette, type CommandAction } from '@/components/shell/CommandPa
 import { Sidebar, type NavTab } from '@/components/shell/Sidebar';
 import { MobileHeader } from '@/components/shell/MobileHeader';
 import { BottomNav } from '@/components/shell/BottomNav';
-import { SettingsMenu } from '@/components/shell/SettingsMenu';
 import {
   QuickAddSheet,
   initialQuickAddState,
@@ -21,7 +20,7 @@ import { OverviewTab } from '@/components/tabs/OverviewTab';
 import { CashflowTab } from '@/components/tabs/CashflowTab';
 import { DebtsTab } from '@/components/tabs/DebtsTab';
 import { BudgetTab } from '@/components/tabs/BudgetTab';
-import { ToolsTab } from '@/components/tabs/ToolsTab';
+import { SettingsTab } from '@/components/tabs/SettingsTab';
 import { ProfileTab } from '@/components/tabs/ProfileTab';
 import { UsersTab, type ManagedUser } from '@/components/tabs/UsersTab';
 import { Modal } from '@/components/ui/Modal';
@@ -955,10 +954,10 @@ export default function DashboardClient({
       onSelect: () => navigate('budget'),
     },
     {
-      id: 'go-tools',
-      label: t('tools.title'),
+      id: 'go-settings',
+      label: tNav('settings'),
       group: 'navigate',
-      onSelect: () => navigate('tools'),
+      onSelect: () => navigate('settings'),
     },
     {
       id: 'go-profile',
@@ -1000,18 +999,6 @@ export default function DashboardClient({
   // Render
   // ------------------------------------------------------------------
 
-  const settingsMenuProps = {
-    canEdit,
-    showUsers: isSuperadmin,
-    onProfile: () => navigate('profile'),
-    onUsers: () => navigate('users'),
-    onScan: () => fileInputRef.current?.click(),
-    onImport: () => csvInputRef.current?.click(),
-    onExportPdf: handleExportPdf,
-    onExportWord: handleExportWord,
-    onExportCsv: handleExportCsv,
-  };
-
   return (
     <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--text)] lg:flex-row lg:pb-0">
       <Sidebar
@@ -1039,10 +1026,6 @@ export default function DashboardClient({
           onExportCsv={handleExportCsv}
           onLogout={handleLogout}
         />
-
-        <div className="hidden items-center justify-end gap-3 border-b border-[var(--line)] bg-[var(--bg)]/90 px-6 py-3 backdrop-blur-xl lg:sticky lg:top-0 lg:z-20 lg:flex">
-          <SettingsMenu {...settingsMenuProps} />
-        </div>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-5 lg:px-8 lg:pb-10">
           {impersonatingEmail && (
@@ -1129,8 +1112,8 @@ export default function DashboardClient({
                 />
               )}
 
-              {activeTab === 'tools' && (
-                <ToolsTab
+              {activeTab === 'settings' && (
+                <SettingsTab
                   canEdit={canEdit}
                   scanning={scanning}
                   hasTransactions={transactions.length > 0}

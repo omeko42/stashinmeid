@@ -4,6 +4,8 @@ import { useTranslations } from 'next-intl';
 import { Camera, FileDown, FileText, Table2, Upload } from 'lucide-react';
 
 interface ToolsTabProps {
+  /** true saat dirender di dalam halaman lain (Pengaturan): sembunyikan judulnya sendiri. */
+  embedded?: boolean;
   canEdit: boolean;
   scanning: boolean;
   hasTransactions: boolean;
@@ -22,6 +24,7 @@ interface ToolsTabProps {
  * penjelasan, dan aksi.
  */
 export function ToolsTab({
+  embedded = false,
   canEdit,
   scanning,
   hasTransactions,
@@ -84,15 +87,17 @@ export function ToolsTab({
   ];
 
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-[18px] font-semibold text-[var(--text)]">
-          {tTools('title')}
-        </h2>
-        <p className="text-[12px] text-[var(--text-muted)]">
-          {tTools('subtitle')}
-        </p>
-      </div>
+    <div className={embedded ? '' : 'space-y-4'}>
+      {!embedded && (
+        <div>
+          <h2 className="text-[18px] font-semibold text-[var(--text)]">
+            {tTools('title')}
+          </h2>
+          <p className="text-[12px] text-[var(--text-muted)]">
+            {tTools('subtitle')}
+          </p>
+        </div>
+      )}
 
       <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)]">
         {tools.map((tool, idx) => {
