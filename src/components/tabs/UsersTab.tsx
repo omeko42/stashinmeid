@@ -7,6 +7,7 @@ import { Label } from '@/components/ui/Surface';
 import { Modal } from '@/components/ui/Modal';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { APP_TIMEZONE } from '@/lib/format';
 
 export interface ManagedUser {
   id: string;
@@ -119,7 +120,12 @@ export function UsersTab({
                   </p>
                   <p className="truncate text-[11px] text-[var(--text-muted)]">
                     {u.client_name} ·{' '}
-                    {new Date(u.created_at).toLocaleDateString('id-ID')}
+                    {new Intl.DateTimeFormat('id-ID', {
+                      timeZone: APP_TIMEZONE,
+                      day: 'numeric',
+                      month: 'short',
+                      year: 'numeric',
+                    }).format(new Date(u.created_at))}
                   </p>
                 </div>
 

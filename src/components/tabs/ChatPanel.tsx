@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, MessageCircle, Search, Send } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
+import { APP_TIMEZONE, appNow } from '@/lib/format';
 
 interface ParsedProfile {
   id: string;
@@ -51,7 +52,10 @@ function Avatar({ name, url }: { name: string; url: string | null }) {
 }
 
 function timeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
+  // Dipakai saat render, jadi basis waktunya harus sama di server dan browser.
+  // `Date.now()` boleh berbeda beberapa detik antara keduanya - itu cukup untuk
+  // memicu hydration mismatch. `appNow()` menormalkan ke zona aplikasi.
+  const diff = appNow().getTime() - new Date(iso).getTime();
   const m = Math.floor(diff / 60000);
   if (m < 1) return 'now';
   if (m < 60) return `${m}m`;
@@ -329,10 +333,11 @@ export function ChatPanel() {
                           isMine ? 'text-[var(--brand-contrast)]/70' : 'text-[var(--text-faint)]'
                         )}
                       >
-                        {new Date(m.created_at).toLocaleTimeString([], {
+                        {new Intl.DateTimeFormat('id-ID', {
+                          timeZone: APP_TIMEZONE,
                           hour: '2-digit',
                           minute: '2-digit',
-                        })}
+                        }).format(new Date(m.created_at))}
                       </p>
                     </div>
                   </div>

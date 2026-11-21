@@ -11,7 +11,7 @@ import {
   YAxis,
 } from 'recharts';
 import type { Transaction } from '@/types/finance';
-import { formatRp, formatShortRp, parseIsoDate } from '@/lib/format';
+import { appNow, formatRp, formatShortRp, parseIsoDate } from '@/lib/format';
 
 export type ChartPeriod = 'week' | 'month' | 'year';
 
@@ -31,7 +31,7 @@ export interface ChartPoint {
 export function bucketTransactions(
   transactions: Transaction[],
   period: ChartPeriod,
-  now = new Date()
+  now = appNow()
 ): ChartPoint[] {
   const buckets = new Map<string, ChartPoint>();
 

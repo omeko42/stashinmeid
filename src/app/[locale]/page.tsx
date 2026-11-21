@@ -10,55 +10,7 @@ import { getOrCreateSuperadminUserId } from '@/lib/superadminUser';
 import { verifySuperadminToken } from '@/lib/jwt';
 import DashboardClient from '@/components/DashboardClient';
 import { DashboardSkeleton } from '@/components/shell/DashboardSkeleton';
-import { Transaction, Debt } from '@/types/finance';
-
-const DEMO_TRANSACTIONS: Transaction[] = [
-  {
-    id: 'demo-1',
-    type: 'inflow',
-    amount: 10000000,
-    category: 'Gaji',
-    description: 'Contoh Pemasukan Bulanan',
-    transaction_date: '2026-11-01',
-    source: 'manual',
-  },
-  {
-    id: 'demo-2',
-    type: 'outflow',
-    amount: 50000,
-    category: 'Makan & Minum',
-    description: 'Contoh Pengeluaran Harian',
-    transaction_date: '2026-11-19',
-    source: 'ai_scan',
-  },
-];
-
-const DEMO_DEBTS: Debt[] = [
-  {
-    id: 'debt-demo-1',
-    platform: 'Contoh Pinjaman A',
-    contract_no: 'DEMO-001',
-    total_tenor: 12,
-    remaining_tenor: 8,
-    due_day: 1,
-    remaining_balance: 4000000,
-    monthly_installment: 500000,
-    status: 'active',
-    notes: 'Data contoh untuk Demo Mode.',
-  },
-  {
-    id: 'debt-demo-2',
-    platform: 'Contoh PayLater B',
-    contract_no: 'DEMO-002',
-    total_tenor: 6,
-    remaining_tenor: 3,
-    due_day: 15,
-    remaining_balance: 900000,
-    monthly_installment: 300000,
-    status: 'active',
-    notes: 'Data contoh untuk Demo Mode.',
-  },
-];
+import type { Transaction, Debt } from '@/types/finance';
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -114,14 +66,17 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
       );
     }
 
+    // Superadmin tetap masuk dashboard meski data belum ada. Yang penting
+    // jangan jatuh ke mode demo: data contoh menyesatkan karena terlihat
+    // seperti data asli padahal tidak ada di database.
     return (
       <DashboardClient
-        initialTransactions={DEMO_TRANSACTIONS}
-        initialDebts={DEMO_DEBTS}
+        initialTransactions={[]}
+        initialDebts={[]}
         userEmail={superadminSession.sub}
         clientName="Superadmin Workspace"
         userRole="admin"
-        isDemoMode={true}
+        isDemoMode={false}
         isSuperadmin={true}
         impersonatingEmail={null}
       />
@@ -131,15 +86,18 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
   const supabase = await createClient();
 
   if (!supabase) {
+    // Env Supabase belum diset (mis. di Vercel). Tampilkan kondisi ini secara
+    // terbuka, bukan data contoh - data contoh terlihat seperti data asli.
     return (
-      <DashboardClient
-        initialTransactions={DEMO_TRANSACTIONS}
-        initialDebts={DEMO_DEBTS}
-        userEmail={null}
-        clientName="Personal (Demo)"
-        userRole="admin"
-        isDemoMode={true}
-      />
+      <div className="min-h-screen bg-[var(--bg)] px-4 py-16 text-center text-[var(--text-muted)]">
+        <p className="text-[13px] font-semibold text-[var(--text)]">
+          Database belum terhubung
+        </p>
+        <p className="mt-2 text-[12px]">
+          Variabel lingkungan Supabase (NEXT_PUBLIC_SUPABASE_URL dan
+          NEXT_PUBLIC_SUPABASE_ANON_KEY) belum diset untuk environment ini.
+        </p>
+      </div>
     );
   }
 

@@ -6,6 +6,7 @@ import { Loader2, Newspaper, SendHorizonal } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
+import { APP_TIMEZONE } from '@/lib/format';
 
 interface Post {
   id: string;
@@ -135,12 +136,13 @@ export function FeedTab() {
                     )}
                   </span>
                   <span className="block text-[11px] text-[var(--text-faint)]">
-                    {new Date(p.createdAt).toLocaleString([], {
+                    {new Intl.DateTimeFormat('id-ID', {
+                      timeZone: APP_TIMEZONE,
                       day: 'numeric',
                       month: 'short',
                       hour: '2-digit',
                       minute: '2-digit',
-                    })}
+                    }).format(new Date(p.createdAt))}
                   </span>
                 </span>
               </div>

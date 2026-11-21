@@ -1,8 +1,9 @@
 -- ==========================================================
--- BOOTSTRAP SUPABASE BARU (project zykqeucsrldzvzxmyplq - kosong)
--- Jalankan SELURUH isi file ini SEKALI di Supabase SQL Editor.
--- Gabungan: supabase/schema.sql + migrasi 2026-11-21 (accounts, fx, kyc, kolega, storage).
--- ==========================================================
+-- BOOTSTRAP SUPABASE BARU (project kosong)
+-- Jalankan SELURUH isi file ini di Supabase SQL Editor untuk setup dari nol.
+-- Gabungan lengkap: skema inti + profiles/media + accounts/fx + KYC + kolega
+-- + storage + Sosial + roles terkini + semua GRANT database.
+---- ==========================================================
 
 -- Stashinme Personal Finance Schema (Multi-Client + RBAC) for Supabase
 -- Run this in your Supabase SQL Editor
@@ -16,11 +17,15 @@ create table if not exists public.profiles (
   email text not null,
   client_name text not null default 'Personal',
   bio text,
-  role text check (role in ('admin', 'member', 'viewer')) not null default 'member',
-  created_at timestamptz default now() not null
+  role text check (role in ('admin', 'user')) not null default 'user',
+  created_at timestamptz default now() not null,
+  avatar_url text,
+  banner_url text,
+  primary_currency text not null default 'IDR'
 );
 
--- Auto-create profile on signup
+-- Role sekarang dua saja: admin / user. Value lama dari metadata signup
+-- jangan diterima supaya tak ada user yang dapat viewer/member buntu.
 create or replace function public.handle_new_user()
 returns trigger as $$
 begin
@@ -29,7 +34,11 @@ begin
     new.id,
     new.email,
     coalesce(new.raw_user_meta_data->>'client_name', 'Personal'),
-    coalesce(new.raw_user_meta_data->>'role', 'member')
+    case
+      when new.raw_user_meta_data->>'role' in ('admin', 'user')
+        then new.raw_user_meta_data->>'role'
+      else 'user'
+    end
   );
   return new;
 end;
@@ -95,13 +104,16 @@ returns text as $$
 $$ language sql security definer stable;
 
 -- Profiles Policies
+drop policy if exists "Users can view own profile" on public.profiles;
 create policy "Users can view own profile"
   on public.profiles for select using (auth.uid() = id);
+drop policy if exists "Admins can view all profiles" on public.profiles;
 create policy "Admins can view all profiles"
   on public.profiles for select using (public.get_my_role() = 'admin');
 
 -- Tanpa policy ini, pengguna biasa tidak bisa meng-update profilnya sendiri
 -- (hanya admin lewat service role yang bisa).
+drop policy if exists "Users can update own profile" on public.profiles;
 create policy "Users can update own profile"
   on public.profiles for update
   using (auth.uid() = id)
@@ -110,58 +122,71 @@ create policy "Users can update own profile"
 -- RLS membatasi baris, bukan kolom. Batasi kolom yang bisa diubah oleh
 -- role authenticated agar role/id/created_at tidak bisa dimodifikasi.
 revoke update on public.profiles from authenticated;
-grant update (email, client_name, bio) on public.profiles to authenticated;
+grant update (email, client_name, bio, avatar_url, banner_url, primary_currency)
+  on public.profiles to authenticated;
 
 -- Transactions Policies (Client-isolated + RBAC)
+drop policy if exists "Users can view own transactions" on public.transactions;
 create policy "Users can view own transactions"
   on public.transactions for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Members and Admins can insert own transactions" on public.transactions;
 create policy "Members and Admins can insert own transactions"
   on public.transactions for insert
-  with check (auth.uid() = user_id and public.get_my_role() in ('admin', 'member'));
+  with check (auth.uid() = user_id and public.get_my_role() in ('admin', 'user'));
 
+drop policy if exists "Members and Admins can update own transactions" on public.transactions;
 create policy "Members and Admins can update own transactions"
   on public.transactions for update
-  using (auth.uid() = user_id and public.get_my_role() in ('admin', 'member'));
+  using (auth.uid() = user_id and public.get_my_role() in ('admin', 'user'));
 
+drop policy if exists "Members and Admins can delete own transactions" on public.transactions;
 create policy "Members and Admins can delete own transactions"
   on public.transactions for delete
-  using (auth.uid() = user_id and public.get_my_role() in ('admin', 'member'));
+  using (auth.uid() = user_id and public.get_my_role() in ('admin', 'user'));
 
 -- Debts Policies (Client-isolated + RBAC)
+drop policy if exists "Users can view own debts" on public.debts;
 create policy "Users can view own debts"
   on public.debts for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Members and Admins can insert own debts" on public.debts;
 create policy "Members and Admins can insert own debts"
   on public.debts for insert
-  with check (auth.uid() = user_id and public.get_my_role() in ('admin', 'member'));
+  with check (auth.uid() = user_id and public.get_my_role() in ('admin', 'user'));
 
+drop policy if exists "Members and Admins can update own debts" on public.debts;
 create policy "Members and Admins can update own debts"
   on public.debts for update
-  using (auth.uid() = user_id and public.get_my_role() in ('admin', 'member'));
+  using (auth.uid() = user_id and public.get_my_role() in ('admin', 'user'));
 
+drop policy if exists "Members and Admins can delete own debts" on public.debts;
 create policy "Members and Admins can delete own debts"
   on public.debts for delete
-  using (auth.uid() = user_id and public.get_my_role() in ('admin', 'member'));
+  using (auth.uid() = user_id and public.get_my_role() in ('admin', 'user'));
 
 -- Budgets Policies (Client-isolated + RBAC)
+drop policy if exists "Users can view own budgets" on public.budgets;
 create policy "Users can view own budgets"
   on public.budgets for select
   using (auth.uid() = user_id);
 
+drop policy if exists "Members and Admins can insert own budgets" on public.budgets;
 create policy "Members and Admins can insert own budgets"
   on public.budgets for insert
-  with check (auth.uid() = user_id and public.get_my_role() in ('admin', 'member'));
+  with check (auth.uid() = user_id and public.get_my_role() in ('admin', 'user'));
 
+drop policy if exists "Members and Admins can update own budgets" on public.budgets;
 create policy "Members and Admins can update own budgets"
   on public.budgets for update
-  using (auth.uid() = user_id and public.get_my_role() in ('admin', 'member'));
+  using (auth.uid() = user_id and public.get_my_role() in ('admin', 'user'));
 
+drop policy if exists "Members and Admins can delete own budgets" on public.budgets;
 create policy "Members and Admins can delete own budgets"
   on public.budgets for delete
-  using (auth.uid() = user_id and public.get_my_role() in ('admin', 'member'));
+  using (auth.uid() = user_id and public.get_my_role() in ('admin', 'user'));
 
 -- 6. Indexes
 create index if not exists idx_transactions_user_date on public.transactions(user_id, transaction_date desc);
@@ -224,7 +249,7 @@ create policy "Users can view own accounts"
 drop policy if exists "Users can insert own accounts" on public.accounts;
 create policy "Users can insert own accounts"
   on public.accounts for insert
-  with check (auth.uid() = user_id and public.get_my_role() in ('admin', 'member'));
+  with check (auth.uid() = user_id and public.get_my_role() in ('admin', 'user'));
 
 drop policy if exists "Users can update own accounts" on public.accounts;
 create policy "Users can update own accounts"
@@ -526,3 +551,85 @@ drop policy if exists "Public read avatars and banners" on storage.objects;
 create policy "Public read avatars and banners"
   on storage.objects for select
   using (bucket_id in ('avatars', 'banners'));
+
+-- ==========================================================
+-- BAGIAN 3: Sosial (feed + pesan 1-on-1)
+-- ==========================================================
+
+create table if not exists public.social_posts (
+  id uuid primary key default gen_random_uuid(),
+  author_id uuid not null references auth.users (id) on delete cascade,
+  body text not null check (char_length(body) between 1 and 2000),
+  created_at timestamptz not null default now()
+);
+
+create table if not exists public.social_messages (
+  id uuid primary key default gen_random_uuid(),
+  sender_id uuid not null references auth.users (id) on delete cascade,
+  recipient_id uuid not null references auth.users (id) on delete cascade,
+  body text not null check (char_length(body) between 1 and 2000),
+  read_at timestamptz,
+  created_at timestamptz not null default now()
+);
+
+create index if not exists social_posts_created_at_idx
+  on public.social_posts (created_at desc);
+create index if not exists social_posts_author_idx
+  on public.social_posts (author_id);
+create index if not exists social_messages_sender_created_idx
+  on public.social_messages (sender_id, created_at desc);
+create index if not exists social_messages_recipient_created_idx
+  on public.social_messages (recipient_id, created_at desc);
+
+alter table public.social_posts enable row level security;
+alter table public.social_messages enable row level security;
+
+drop policy if exists "posts read authenticated" on public.social_posts;
+create policy "posts read authenticated" on public.social_posts
+  for select to authenticated using (true);
+drop policy if exists "posts insert own" on public.social_posts;
+create policy "posts insert own" on public.social_posts
+  for insert to authenticated with check (author_id = auth.uid());
+drop policy if exists "posts delete own" on public.social_posts;
+create policy "posts delete own" on public.social_posts
+  for delete to authenticated using (author_id = auth.uid());
+
+drop policy if exists "messages read participants" on public.social_messages;
+create policy "messages read participants" on public.social_messages
+  for select to authenticated
+  using (sender_id = auth.uid() or recipient_id = auth.uid());
+drop policy if exists "messages insert sender" on public.social_messages;
+create policy "messages insert sender" on public.social_messages
+  for insert to authenticated with check (sender_id = auth.uid());
+
+-- ==========================================================
+-- BAGIAN 4: Privileges (GRANT) — WAJIB agar UI dapat baca/tulis
+-- ==========================================================
+-- Project Supabase ini tidak otomatis memberi GRANT ke tabel yang dibuat
+-- lewat SQL Editor. RLS saja tidak cukup: perlu GRANT + policy.
+grant usage on schema public to anon, authenticated, service_role;
+
+grant select, insert, update, delete
+  on public.profiles,
+     public.transactions,
+     public.debts,
+     public.budgets,
+     public.accounts,
+     public.fx_rates,
+     public.kyc_profiles,
+     public.finance_groups,
+     public.finance_group_members
+  to authenticated, service_role;
+
+grant select, insert, update, delete
+  on public.social_posts, public.social_messages
+  to authenticated, service_role;
+
+grant usage, select on all sequences in schema public to authenticated, service_role;
+
+-- Profiles: batasi update hanya ke kolom profil yang boleh diedit user.
+-- Jangan grant UPDATE seluruh tabel karena kolom `role` adalah privilege boundary.
+revoke update on public.profiles from authenticated;
+grant update (email, client_name, bio, avatar_url, banner_url, primary_currency)
+  on public.profiles to authenticated;
+

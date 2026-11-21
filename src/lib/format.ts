@@ -1,6 +1,19 @@
 import type { Locale } from '@/i18n/routing';
 
 /**
+ * Zona waktu aplikasi.
+ *
+ * Server (Vercel) berjalan di UTC, sedangkan pengguna mostly di WIB (UTC+7).
+ * Kalau render memakai zona waktu lokal masing-masing mesin, HTML dari server
+ * dan dari browser berbeda - memicu hydration mismatch (React error #418) dan
+ * membuat "hari ini" bergeser satu hari.
+ *
+ * Jadi semua tanggal di app dikunci ke zona ini: server dan browser
+ * menghitung hari yang sama.
+ */
+export const APP_TIMEZONE = 'Asia/Jakarta';
+
+/**
  * Format angka rupiah.
  * Semua angka uang di app ini melewati fungsi ini supaya konsisten.
  */
@@ -48,12 +61,56 @@ export function formatFullDate(iso: string, locale: Locale = 'id'): string {
 }
 
 /**
- * Tanggal hari ini dalam zona waktu pengguna, format YYYY-MM-DD.
+ * Tanggal hari ini dalam zona waktu aplikasi, format YYYY-MM-DD.
+ *
+ * `Intl.DateTimeFormat` dengan `timeZone` memberi hasil yang sama di server
+ * dan browser, jadi aman dipakai saat render (tidak memicu hydration
+ * mismatch) - berbeda dengan `new Date()` yang memakai zona lokal mesin.
  */
 export function todayIso(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(new Date());
+}
+
+/**
+ * "Sekarang" dalam zona waktu aplikasi.
+ *
+ * Dipakai untuk membandingkan tanggal jatuh tempo, label sumbu chart, dan
+ * "x menit lalu" - semuanya harus memakai zona yang sama di server dan
+ * browser.
+ */
+export function appNow(): Date {
+  // Representasi "dinding jam lokal" pada zona aplikasi: Ambil waktu UTC,
+  // lalu geser sebesar offset zona aplikasi terhadap UTC pada tanggal itu.
   const now = new Date();
-  const offset = now.getTimezoneOffset();
-  return new Date(now.getTime() - offset * 60_000).toISOString().split('T')[0];
+  const iso = new Intl.DateTimeFormat('en-CA', {
+    timeZone: APP_TIMEZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  })
+    .formatToParts(now)
+    .reduce<Record<string, string>>((acc, p) => {
+      if (p.type !== 'literal') acc[p.type] = p.value;
+      return acc;
+    }, {});
+
+  return new Date(
+    Number(iso.year),
+    Number(iso.month) - 1,
+    Number(iso.day),
+    Number(iso.hour) % 24,
+    Number(iso.minute),
+    Number(iso.second)
+  );
 }
 
 /**
@@ -75,7 +132,7 @@ export function daysUntil(iso: string): number {
   const target = parseIsoDate(iso);
   if (!target) return Number.POSITIVE_INFINITY;
 
-  const now = new Date();
+  const now = appNow();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   return Math.round((target.getTime() - today.getTime()) / 86_400_000);
 }
@@ -83,7 +140,7 @@ export function daysUntil(iso: string): number {
 /**
  * Tanggal jatuh tempo berikutnya untuk debt dengan `due_day`.
  */
-export function nextDueDate(dueDay: number, from = new Date()): Date {
+export function nextDueDate(dueDay: number, from = appNow()): Date {
   const today = new Date(from.getFullYear(), from.getMonth(), from.getDate());
   const maxDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate();
   const clamped = Math.min(Math.max(dueDay, 1), maxDay);

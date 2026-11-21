@@ -11,7 +11,11 @@ create table if not exists public.profiles (
   client_name text not null default 'Personal',
   bio text,
   role text check (role in ('admin', 'member', 'viewer')) not null default 'member',
-  created_at timestamptz default now() not null
+  created_at timestamptz default now() not null,
+  -- Kolom profil "hidup": foto, banner, dan mata uang utama.
+  avatar_url text,
+  banner_url text,
+  primary_currency text not null default 'IDR'
 );
 
 -- Auto-create profile on signup
@@ -104,7 +108,27 @@ create policy "Users can update own profile"
 -- RLS membatasi baris, bukan kolom. Batasi kolom yang bisa diubah oleh
 -- role authenticated agar role/id/created_at tidak bisa dimodifikasi.
 revoke update on public.profiles from authenticated;
-grant update (email, client_name, bio) on public.profiles to authenticated;
+grant update (email, client_name, bio, avatar_url, banner_url, primary_currency)
+  on public.profiles to authenticated;
+
+-- ------------------------------------------------------------------
+-- Privileges (GRANT)
+--
+-- PENTING: di project ini default privileges Supabase tidak otomatis memberi
+-- hak akses ke tabel yang dibuat lewat SQL Editor. Tanpa GRANT di bawah, UI
+-- akan gagal dengan "permission denied for table X" - dan operasi tulis
+-- akan gagal diam-diam tanpa error yang terlihat.
+--
+-- Batas baris tetap dijaga RLS di atas; GRANT ini hanya memberi hak akses.
+-- ------------------------------------------------------------------
+grant usage on schema public to anon, authenticated, service_role;
+
+grant select, insert, update, delete
+  on public.profiles, public.transactions, public.debts, public.budgets
+  to authenticated, service_role;
+
+-- Sequence wajib untuk insert pada tabel ber- kolom id serial/default.
+grant usage, select on all sequences in schema public to authenticated, service_role;
 
 -- Transactions Policies (Client-isolated + RBAC)
 create policy "Users can view own transactions"

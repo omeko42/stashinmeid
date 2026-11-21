@@ -21,7 +21,7 @@ async function getTargetUserId() {
  * admin). Semua kolom yang di luar daftar ini diabaikan.
  */
 const ALLOWED_COLUMNS: Record<string, string[]> = {
-  profiles: ['client_name', 'email', 'bio'],
+  profiles: ['client_name', 'email', 'bio', 'primary_currency'],
   transactions: [
     'type',
     'amount',
@@ -42,6 +42,8 @@ const ALLOWED_COLUMNS: Record<string, string[]> = {
     'notes',
   ],
   budgets: ['category', 'amount', 'period'],
+  accounts: ['name', 'kind', 'institution', 'currency', 'balance', 'notes'],
+  fx_rates: ['currency', 'rate'],
 };
 
 /**
@@ -70,6 +72,15 @@ function sanitizeUpdates(
  * Baca data satu tabel milik user yang sedang aktif (superadmin atau target
  * impersonate). Hanya tabel yang memang dipakai dashboard yang diizinkan.
  */
+const READABLE_TABLES = [
+  'transactions',
+  'debts',
+  'budgets',
+  'profiles',
+  'accounts',
+  'fx_rates',
+];
+
 export async function GET(req: NextRequest) {
   const userId = await getTargetUserId();
   const admin = createAdminClient();
@@ -78,7 +89,7 @@ export async function GET(req: NextRequest) {
   }
 
   const table = req.nextUrl.searchParams.get('table');
-  if (!table || !['transactions', 'debts', 'budgets', 'profiles'].includes(table)) {
+  if (!table || !READABLE_TABLES.includes(table)) {
     return NextResponse.json({ error: 'Invalid table.' }, { status: 400 });
   }
 
@@ -138,6 +149,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data });
   }
 
+  if (table === 'accounts') {
+    const { data, error } = await admin
+      .from('accounts')
+      .insert({ ...payload, user_id: userId })
+      .select()
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ data });
+  }
+
+  if (table === 'fx_rates') {
+    // Kurs unik per (user, mata uang). Upsert supaya menyegarkan kurs
+    // memperbarui baris yang ada, bukan menambah duplikat.
+    const row = { ...payload, user_id: userId };
+    const { data, error } = await admin
+      .from('fx_rates')
+      .upsert(row, { onConflict: 'user_id,currency' })
+      .select()
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ data });
+  }
+
   return NextResponse.json({ error: 'Invalid table.' }, { status: 400 });
 }
 
@@ -152,7 +186,7 @@ export async function PATCH(req: NextRequest) {
 
   // Hanya tabel yang memang boleh diubah lewat superadmin. `profiles` ikut
   // bisa diubah supaya superadmin bisa impersonate lalu menyunting profil target.
-  if (table !== 'profiles' && table !== 'debts' && table !== 'budgets') {
+  if (table !== 'profiles' && table !== 'debts' && table !== 'budgets' && table !== 'accounts' && table !== 'fx_rates') {
     return NextResponse.json({ error: 'Invalid table.' }, { status: 400 });
   }
 
@@ -192,7 +226,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   const { table, id } = await req.json();
-  if (!['transactions', 'debts', 'budgets'].includes(table) || !id) {
+  if (!['transactions', 'debts', 'budgets', 'accounts', 'fx_rates'].includes(table) || !id) {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
 

@@ -200,7 +200,11 @@ export function useBudgets({
         .delete()
         .eq('id', id);
 
-      if (!sbError) setBudgets((prev) => prev.filter((b) => b.id !== id));
+      if (sbError) {
+        setError(sbError.message);
+        throw sbError;
+      }
+      setBudgets((prev) => prev.filter((b) => b.id !== id));
     },
     [isDemoMode, isSuperadmin]
   );

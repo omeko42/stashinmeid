@@ -40,7 +40,8 @@ import {
   parseCSVTransactions,
 } from '@/lib/exportUtils';
 import { budgetStatuses } from '@/lib/budget';
-import { nextDueDate, todayIso } from '@/lib/format';
+import { reportDbError } from '@/lib/dbErrors';
+import { appNow, nextDueDate, todayIso } from '@/lib/format';
 import { Bitcoin, Landmark, UserCheck, Wallet, ArrowLeftRight } from 'lucide-react';
 
 interface DashboardClientProps {
@@ -255,7 +256,10 @@ export default function DashboardClient({
   );
 
   const upcomingDueGroups = useMemo(() => {
-    const today = new Date();
+    // `appNow()` bukan `new Date()`: server (UTC) dan browser (WIB) harus
+    // menghitung hari yang sama, kalau tidak tanggal jatuh tempo bergeser
+    // dan memicu hydration mismatch.
+    const today = appNow();
     const groups = new Map<number, Debt[]>();
     for (const d of activeDebts) {
       if (d.due_day === null) continue;
@@ -413,18 +417,36 @@ export default function DashboardClient({
     const timer = setTimeout(async () => {
       try {
         if (!isDemoMode && isSuperadmin) {
-          await fetch('/api/superadmin/finance', {
+          const res = await fetch('/api/superadmin/finance', {
             method: 'DELETE',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ table: 'transactions', id }),
           });
+          if (!res.ok) {
+            const json = await res.json().catch(() => ({}));
+            throw new Error(json.error || t('errors.generic'));
+          }
         } else if (!isDemoMode && supabase) {
-          await supabase.from('transactions').delete().eq('id', id);
+          // Supabase tidak melempar exception - ia mengembalikan { error }.
+          // Kalau tidak dicek, baris hilang dari DB tapi user tidak diberi tahu.
+          const { error: deleteError } = await supabase
+            .from('transactions')
+            .delete()
+            .eq('id', id);
+
+          if (deleteError) {
+            // Kembalikan baris ke layar: penghapusan gagal, jadi data masih ada.
+            setTransactions((prev) =>
+              prev.some((x) => x.id === id) ? prev : [tx, ...prev]
+            );
+            reportDbError(deleteError, t('errors.generic'));
+          }
         }
-      } catch {
-        // Kegagalan di backend tidak bisa dipulihkan dari sisi client, tapi
-        // barisnya sudah hilang dari layar - beri tahu user agar mengecek.
-        toast.error(t('errors.generic'));
+      } catch (e) {
+        setTransactions((prev) =>
+          prev.some((x) => x.id === id) ? prev : [tx, ...prev]
+        );
+        reportDbError(e, t('errors.generic'));
       }
     }, 5000);
 
@@ -564,9 +586,12 @@ export default function DashboardClient({
           },
         }),
       });
-      const json = await res.json();
+      const json = await res.json().catch(() => ({}));
       if (res.ok && json.data) {
         setDebts((prev) => [json.data, ...prev]);
+      } else {
+        reportDbError(json.error, t('errors.generic'));
+        return;
       }
     } else if (!isDemoMode && supabase) {
       const { data: userData } = await supabase.auth.getUser();
@@ -587,7 +612,11 @@ export default function DashboardClient({
           .select()
           .single();
 
-        if (!error && data) setDebts((prev) => [data, ...prev]);
+        if (error) {
+          reportDbError(error, t('errors.generic'));
+          return;
+        }
+        if (data) setDebts((prev) => [data, ...prev]);
       }
     } else {
       setDebts((prev) => [newDebt, ...prev]);
@@ -610,8 +639,68 @@ export default function DashboardClient({
       : null;
     const newStatus = newBalance === 0 ? 'paid_off' : 'active';
 
-    if (!isDemoMode && supabase) {
-      await supabase
+    if (!isDemoMode && isSuperadmin) {
+      const debtRes = await fetch('/api/superadmin/finance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'debts',
+          id: debt.id,
+          updates: {
+            remaining_balance: newBalance,
+            remaining_tenor: newTenor,
+            status: newStatus,
+          },
+        }),
+      });
+      const debtJson = await debtRes.json().catch(() => ({}));
+      if (!debtRes.ok) {
+        toast.error(debtJson.error || t('errors.generic'));
+        return;
+      }
+
+      const txRes = await fetch('/api/superadmin/finance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'transactions',
+          payload: {
+            type: 'outflow',
+            amount: payAmount,
+            category: 'Tagihan & Cicilan',
+            description: `Bayar cicilan ${debt.platform}`,
+            transaction_date: todayIso(),
+            source: 'debt_payment',
+          },
+        }),
+      });
+      const txJson = await txRes.json().catch(() => ({}));
+      if (!txRes.ok || !txJson.data?.[0]) {
+        toast.error(txJson.error || t('errors.generic'));
+        // Kompensasi best-effort: kembalikan saldo utang kalau transaksi
+        // cicilan tidak berhasil dicatat.
+        const rollback = await fetch('/api/superadmin/finance', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            table: 'debts',
+            id: debt.id,
+            updates: {
+              remaining_balance: debt.remaining_balance,
+              remaining_tenor: debt.remaining_tenor,
+              status: debt.status,
+            },
+          }),
+        });
+        if (!rollback.ok) toast.error(t('errors.generic'));
+        return;
+      }
+      setTransactions((prev) => [txJson.data[0], ...prev]);
+    } else if (!isDemoMode && supabase) {
+      // Urutan penting: update utang dulu, baru catat transaksinya.
+      // Kalau dibalik, dan insert transaksi berhasil tapi update utang gagal,
+      // user sudah terbayar tapi sisa utangnya tidak berkurang.
+      const { error: debtError } = await supabase
         .from('debts')
         .update({
           remaining_balance: newBalance,
@@ -620,9 +709,14 @@ export default function DashboardClient({
         })
         .eq('id', debt.id);
 
+      if (debtError) {
+        reportDbError(debtError, t('errors.generic'));
+        return;
+      }
+
       const { data: userData } = await supabase.auth.getUser();
       if (userData.user) {
-        const { data: txData } = await supabase
+        const { data: txData, error: txError } = await supabase
           .from('transactions')
           .insert({
             user_id: userData.user.id,
@@ -635,6 +729,28 @@ export default function DashboardClient({
           })
           .select()
           .single();
+
+        if (txError) {
+          // Utang sudah berkurang tapi transaksi tidak tercatat. Kembalikan
+          // sisa utang supaya angka di layar dan di database tetap sama.
+          reportDbError(txError, t('errors.generic'));
+          const { error: rollbackError } = await supabase
+            .from('debts')
+            .update({
+              remaining_balance: debt.remaining_balance,
+              remaining_tenor: debt.remaining_tenor,
+              status: debt.status,
+            })
+            .eq('id', debt.id);
+
+          if (rollbackError) {
+            // Rollback juga gagal: sekarang angka di DB tidak sama dengan
+            // yang tampil. User perlu diberi tahu supaya mengecek kondisi data.
+            reportDbError(rollbackError, t('errors.generic'));
+          }
+          return;
+        }
+
         if (txData) setTransactions((prev) => [txData, ...prev]);
       }
     } else {
@@ -668,15 +784,33 @@ export default function DashboardClient({
   };
 
   const handleDeleteDebt = async (id: string) => {
-    if (!isDemoMode && isSuperadmin) {
-      await fetch('/api/superadmin/finance', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table: 'debts', id }),
-      });
-    } else if (!isDemoMode && supabase) {
-      await supabase.from('debts').delete().eq('id', id);
+    try {
+      if (!isDemoMode && isSuperadmin) {
+        const res = await fetch('/api/superadmin/finance', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ table: 'debts', id }),
+        });
+        if (!res.ok) {
+          const json = await res.json().catch(() => ({}));
+          throw new Error(json.error || t('errors.generic'));
+        }
+      } else if (!isDemoMode && supabase) {
+        const { error: deleteError } = await supabase
+          .from('debts')
+          .delete()
+          .eq('id', id);
+
+        if (deleteError) {
+          reportDbError(deleteError, t('errors.generic'));
+          return;
+        }
+      }
+    } catch (e) {
+      reportDbError(e, t('errors.generic'));
+      return;
     }
+
     setDebts((prev) => prev.filter((d) => d.id !== id));
     toast.success(tDebts('deleted'));
   };
@@ -754,10 +888,18 @@ export default function DashboardClient({
 
     const { data: userData } = await supabase.auth.getUser();
     if (userData.user) {
-      await supabase
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({ client_name: draftClient, bio: draftBio })
         .eq('id', userData.user.id);
+
+      // Tanpa pengecekan ini, update yang gagal diam-diam dan user tetap
+      // melihat "berhasil disimpan" padahal nama workspace tidak berubah.
+      if (profileError) {
+        reportDbError(profileError, tSettings('saveFailed'));
+        setProfileSaving(false);
+        return;
+      }
     }
 
     setProfileUsername(draftUsername);
@@ -871,7 +1013,7 @@ export default function DashboardClient({
         client_name: editUserClient,
       }),
     });
-    const json = await res.json();
+    const json = await res.json().catch(() => ({}));
     if (res.ok) {
       setManagedUsers((prev) =>
         prev.map((u) =>
@@ -893,9 +1035,14 @@ export default function DashboardClient({
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ userId, role }),
     });
+    const json = await res.json().catch(() => ({}));
     if (res.ok) {
       setManagedUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
       toast.success(tUsers('saved'));
+    } else {
+      // Tanpa cabang ini, perubahan role yang gagal diam-diam dan UI
+      // menampilkan role lama seolah sudah tersimpan.
+      toast.error(json.error || t('errors.generic'));
     }
   };
 
