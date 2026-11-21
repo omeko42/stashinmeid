@@ -10,7 +10,7 @@ import { Amount, Label, Progress, Rule, SectionTitle } from '@/components/ui/Sur
 import { Button } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Segmented } from '@/components/ui/Segmented';
-import { CashflowChart, Sparkline, type ChartPeriod } from '@/components/charts/CashflowChart';
+import { CashflowChart, type ChartPeriod } from '@/components/charts/CashflowChart';
 import { DebtDonut } from '@/components/charts/DebtDonut';
 import type { BudgetStatus } from '@/lib/budget';
 
@@ -76,20 +76,6 @@ export function OverviewTab({
   const t = useTranslations();
   const tOverview = useTranslations('overview');
   const [period, setPeriod] = useState<ChartPeriod>('month');
-
-  // Jejak saldo berjalan untuk sparkline di hero.
-  const balanceTrail = useMemo(() => {
-    const sorted = [...transactions].sort((a, b) =>
-      a.transaction_date.localeCompare(b.transaction_date)
-    );
-    let running = 0;
-    const trail: number[] = [];
-    for (const tx of sorted) {
-      running += tx.type === 'inflow' ? Number(tx.amount) : -Number(tx.amount);
-      trail.push(running);
-    }
-    return trail;
-  }, [transactions]);
 
   const recentTransactions = useMemo(
     () =>
@@ -198,12 +184,6 @@ export function OverviewTab({
             </div>
           </div>
         </div>
-
-        {balanceTrail.length > 1 && (
-          <div className="mt-5 max-w-xs">
-            <Sparkline points={balanceTrail} />
-          </div>
-        )}
       </section>
 
       {/* Tren + komposisi pinjaman */}
