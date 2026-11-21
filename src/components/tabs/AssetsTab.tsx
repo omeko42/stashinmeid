@@ -10,6 +10,7 @@ import {
   Landmark,
   Loader2,
   Plus,
+  RefreshCw,
   Trash2,
   Wallet,
 } from 'lucide-react';
@@ -252,7 +253,26 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
 
       {/* Kurs manual */}
       <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-5">
-        <h3 className="text-[14px] font-semibold text-[var(--text)]">{t('ratesTitle')}</h3>
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-[14px] font-semibold text-[var(--text)]">{t('ratesTitle')}</h3>
+          <Button
+            size="sm"
+            variant="ghost"
+            loading={assets.syncing}
+            onClick={async () => {
+              try {
+                const n = await assets.syncRates();
+                if (n > 0) toast.success(t('ratesSynced', { count: n }));
+                else toast.info(t('ratesSyncNone'));
+              } catch (e) {
+                toast.error(e instanceof Error ? e.message : tCommon('failed'));
+              }
+            }}
+          >
+            <RefreshCw className="size-3.5" aria-hidden />
+            {t('ratesSync')}
+          </Button>
+        </div>
         <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-muted)]">
           {t('ratesHint', { currency: primary })}
         </p>

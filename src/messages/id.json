@@ -410,8 +410,11 @@
     "subtitle": "Dompet terpisah: bank, kas, crypto, hingga mata uang asing - semua dihitung dalam mata uang utamamu.",
     "totalIn": "Total aset (dalam {currency})",
     "primaryCurrency": "Mata uang utama",
-    "ratesTitle": "Kurs manual",
-    "ratesHint": "Masukkan kurs: 1 unit mata uang setara berapa {currency}..",
+    "ratesTitle": "Kurs mata uang",
+    "ratesHint": "Kurs otomatis dari ECB/CoinGecko dengan tombol di atas, atau isi manual: 1 unit mata uang setara berapa {currency}..",
+    "ratesSync": "Update otomatis",
+    "ratesSynced": "Kurs {count, plural, other {# mata uang}} diperbarui dari internet.",
+    "ratesSyncNone": "Tidak ada kurs yang bisa diperbarui.",
     "kind": {
       "bank": "Bank",
       "cash": "Kas",

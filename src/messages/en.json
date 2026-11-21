@@ -410,8 +410,11 @@
     "subtitle": "Separate wallets: specific banks, cash, crypto, even foreign currencies - valued in your primary currency.",
     "totalIn": "Total assets (in {currency})",
     "primaryCurrency": "Primary currency",
-    "ratesTitle": "Manual exchange rates",
-    "ratesHint": "Enter rates: 1 unit of a currency equals how much {currency}.",
+    "ratesTitle": "Exchange rates",
+    "ratesHint": "Fetch rates automatically from ECB/CoinGecko with the button above, or enter manually: 1 unit of a currency equals how much {currency}.",
+    "ratesSync": "Auto update",
+    "ratesSynced": "Rates for {count, plural, other {# currencies}} updated from the internet.",
+    "ratesSyncNone": "No rates to update.",
     "kind": {
       "bank": "Bank",
       "cash": "Cash",
