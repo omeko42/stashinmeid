@@ -4,6 +4,7 @@ import { useTranslations } from 'next-intl';
 import { KeyRound, Loader2, Trash2, UserCheck } from 'lucide-react';
 import type { UserRole } from '@/types/finance';
 import { Label } from '@/components/ui/Surface';
+import { Modal } from '@/components/ui/Modal';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 
@@ -37,7 +38,8 @@ interface UsersTabProps {
  * Manajemen user (khusus superadmin).
  *
  * Daftar baris datar - tiap user adalah baris dengan email, workspace, dan
- * aksi. Form edit inline, bukan modal, supaya konteks user tetap terlihat.
+ * aksi. Edit memakai modal pop-up, dan perubahan disimpan ke DB lewat
+ * /api/admin/users.
  */
 export function UsersTab({
   users,
@@ -178,46 +180,57 @@ export function UsersTab({
                 </div>
               </div>
 
-              {editingUserId === u.id && (
-                <div className="mt-3 grid grid-cols-1 gap-2 border-t border-[var(--line)] pt-3 sm:grid-cols-3">
-                  <div>
-                    <Label>{tUsers('editTitle', { name: u.email })}</Label>
-                    <input
-                      type="email"
-                      value={editUserEmail}
-                      onChange={(e) => onEditFieldChange('email', e.target.value)}
-                      placeholder="Email tertaut"
-                      aria-label="Email tertaut"
-                      className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
-                    />
-                  </div>
-                  <div>
-                    <Label>{tUsers('edit')}</Label>
-                    <input
-                      type="text"
-                      value={editUserClient}
-                      onChange={(e) =>
-                        onEditFieldChange('client_name', e.target.value)
-                      }
-                      placeholder="Nama workspace"
-                      aria-label="Nama workspace"
-                      className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
-                    />
-                  </div>
-                  <div className="flex items-end gap-2">
-                    <Button size="sm" onClick={() => onSaveEdit(u.id)}>
-                      {tCommon('save')}
-                    </Button>
-                    <Button size="sm" variant="ghost" onClick={onCancelEdit}>
-                      {tCommon('cancel')}
-                    </Button>
-                  </div>
-                </div>
-              )}
+              {editingUserId === u.id && undefined}
             </div>
           ))}
         </div>
       )}
+
+      {/* Edit user: modal pop-up supaya fokus, dan tetap tersimpan ke DB. */}
+      <Modal
+        open={editingUserId !== null}
+        onClose={onCancelEdit}
+        title={tUsers('editTitle', { name: editUserEmail })}
+        size="md"
+        footer={
+          <>
+            <Button variant="secondary" size="sm" onClick={onCancelEdit}>
+              {tCommon('cancel')}
+            </Button>
+            <Button
+              size="sm"
+              onClick={() => editingUserId && onSaveEdit(editingUserId)}
+            >
+              {tCommon('save')}
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <div>
+            <Label>{tUsers('editTitle', { name: editUserEmail })}</Label>
+            <input
+              type="email"
+              value={editUserEmail}
+              onChange={(e) => onEditFieldChange('email', e.target.value)}
+              placeholder="Email tertaut"
+              aria-label="Email tertaut"
+              className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+            />
+          </div>
+          <div>
+            <Label>{tUsers('edit')}</Label>
+            <input
+              type="text"
+              value={editUserClient}
+              onChange={(e) => onEditFieldChange('client_name', e.target.value)}
+              placeholder="Nama workspace"
+              aria-label="Nama workspace"
+              className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+            />
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }
