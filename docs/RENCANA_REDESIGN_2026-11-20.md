@@ -216,9 +216,13 @@ Perlu dicek di billing Supabase.
 - [x] Audit UI
 - [x] Audit keamanan dependensi
 - [x] Rencana desain disusun
-- [ ] Persetujuan user
-- [ ] Batch 0
-- [ ] Batch 1
-- [ ] Batch 2
-- [ ] Batch 3
-- [ ] Batch 4 verifikasi
+- [x] Persetujuan user
+- [x] Batch 0
+- [x] Batch 1
+- [x] Batch 2
+- [x] Batch 3
+- [x] Batch 4 verifikasi (2026-11-21: lint 0 error, build sukses, push ke origin/main)
+
+Sisa manual: cek visual kedua tema di mobile + desktop. Catatan: migrasi
+`supabase/migrations/2026-11-20_profiles-bio_update-policy_budgets.sql`
+perlu dijalankan di Supabase, dan cek billing Supabase (lihat bagian 7).
