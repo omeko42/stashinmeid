@@ -28,6 +28,12 @@ create index if not exists social_messages_sender_created_idx
 create index if not exists social_messages_recipient_created_idx
   on public.social_messages (recipient_id, created_at desc);
 
+-- Privileges: di project ini default privileges tidak otomatis memberi grant
+-- ke tabel baru, jadi eksplisit di sini (idempotent).
+grant usage on schema public to anon, authenticated, service_role;
+grant all on public.social_posts, public.social_messages
+  to anon, authenticated, service_role;
+
 -- RLS: aplikasi berbicara lewat service role (API route), tapi policies
 -- ini tetap dipasang supaya akses langsung dari klien juga aman.
 alter table public.social_posts enable row level security;
