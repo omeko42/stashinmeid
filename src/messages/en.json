@@ -337,6 +337,10 @@
     "pdfHint": "Download a cashflow summary and installment list as a PDF.",
     "wordHint": "Download the full report as an editable Microsoft Word file."
   },
+  "announcement": {
+    "text": "Announcement: stashinmeid v3 is live - permanent storage, auto FX rates, and shared kolega finance are ready",
+    "dismiss": "Dismiss announcement"
+  },
   "saldo": {
     "totalLabel": "Total balance",
     "totalHint": "All wallets (in {currency})",

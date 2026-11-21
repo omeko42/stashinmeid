@@ -11,6 +11,7 @@ import { useKolega } from '@/hooks/useKolega';
 import { useAssets } from '@/hooks/useAssets';
 import { CommandPalette, type CommandAction } from '@/components/shell/CommandPalette';
 import { Sidebar, type NavTab } from '@/components/shell/Sidebar';
+import { AnnouncementBar } from '@/components/shell/AnnouncementBar';
 import { MobileHeader } from '@/components/shell/MobileHeader';
 import { BottomNav } from '@/components/shell/BottomNav';
 import {
@@ -1076,6 +1077,9 @@ export default function DashboardClient({
       />
 
       <div className="flex min-w-0 flex-1 flex-col lg:pl-60">
+        {/* Pita pengumuman: paling atas, aman dari notch/URL bar iPhone */}
+        <AnnouncementBar />
+
         <MobileHeader
           profileClient={profileClient}
           isSuperadmin={isSuperadmin}

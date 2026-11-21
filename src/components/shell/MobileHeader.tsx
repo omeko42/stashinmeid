@@ -37,7 +37,7 @@ export function MobileHeader({
   const tNav = useTranslations('nav');
 
   return (
-    <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-[var(--line)] bg-[var(--bg)]/90 px-3 py-2.5 backdrop-blur-xl lg:hidden">
+    <header className="sticky top-0 z-30 flex items-center justify-between gap-2 border-b border-[var(--line)] bg-[var(--bg)]/90 px-3 pb-2.5 pt-[max(0.625rem,env(safe-area-inset-top))] backdrop-blur-xl lg:hidden">
       <div className="flex min-w-0 items-center gap-2">
         <BrandLogo size={28} />
         <div className="min-w-0">

@@ -337,6 +337,10 @@
     "pdfHint": "Unduh ringkasan cashflow dan daftar cicilan dalam format PDF.",
     "wordHint": "Unduh laporan lengkap dalam format Microsoft Word yang bisa diedit."
   },
+  "announcement": {
+    "text": "Pengumuman: stashinmeid v3 sekarang live - data tersimpan permanen, kurs otomatis, dan kolega siap dipakai",
+    "dismiss": "Tutup pengumuman"
+  },
   "saldo": {
     "totalLabel": "Total saldo",
     "totalHint": "Semua dompet (dalam {currency})",

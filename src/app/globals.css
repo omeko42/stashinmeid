@@ -186,3 +186,17 @@ html[data-theme] body {
 .break-anywhere {
   overflow-wrap: anywhere;
 }
+
+/* Pita pengumuman: teks berjalan pelan. Duplicated span - geser 50% = loop mulus. */
+@keyframes ann-marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.ann-marquee {
+  animation: ann-marquee 24s linear infinite;
+}
