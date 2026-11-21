@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import { getCallerUserId } from '@/lib/currentUser';
 
 /**
  * Obrolan 1-on-1 antar pengguna (tabel social_messages).
@@ -25,11 +25,7 @@ async function getProfile(admin: NonNullable<ReturnType<typeof createAdminClient
 }
 
 async function requireUserId() {
-  const supabase = await createClient();
-  if (!supabase) return null;
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
-  return data.user.id;
+  return getCallerUserId();
 }
 
 export async function GET(request: NextRequest) {

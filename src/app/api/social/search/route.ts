@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import { getCallerUserId } from '@/lib/currentUser';
 
 /**
  * Pencarian akun untuk lapisan sosial (kolega, obrolan).
@@ -10,11 +10,7 @@ import { createClient } from '@/lib/supabase/server';
  * substring.
  */
 export async function GET(request: NextRequest) {
-  const supabase = await createClient();
-  const { data } = supabase
-    ? await supabase.auth.getUser()
-    : { data: { user: null } };
-  const userId = data?.user?.id;
+  const userId = await getCallerUserId();
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
   const admin = createAdminClient();

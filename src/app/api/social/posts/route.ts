@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
-import { createClient } from '@/lib/supabase/server';
+import { getCallerUserId } from '@/lib/currentUser';
 
 /**
  * Feed postingan (tabel social_posts). V1 terbuka: semua pengguna
@@ -10,11 +10,7 @@ import { createClient } from '@/lib/supabase/server';
  * POST { body } -> posting baru
  */
 async function requireUserId() {
-  const supabase = await createClient();
-  if (!supabase) return null;
-  const { data, error } = await supabase.auth.getUser();
-  if (error || !data.user) return null;
-  return data.user.id;
+  return getCallerUserId();
 }
 
 /** Profil penulis: embed FK ke auth.users tidak tersedia untuk profiles,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getCallerUserId } from '@/lib/currentUser';
 
 /**
  * Kolaborator keuangan.
@@ -12,19 +12,9 @@ import { createAdminClient } from '@/lib/supabase/admin';
  */
 
 async function getUserId(): Promise<string | null> {
-  const cookieStore = await cookies();
-  const token = cookieStore.get('stashinme_session')?.value;
-  if (token) {
-    // Superadmin impersonasi tidak boleh mengelola kolega pihak lain.
-    // Sesi superadmin ditolak; hanya user Supabase yang boleh.
-  }
-  const { createClient } = await import('@/lib/supabase/server');
-  const supabase = await createClient();
-  if (supabase) {
-    const { data, error } = await supabase.auth.getUser();
-    if (!error && data.user) return data.user.id;
-  }
-  return null;
+  // Sesi Supabase ATAU sesi superadmin (lihat lib/currentUser) - sebelumnya
+  // superadmin yang login via dashboard selalu ditolak 401 di sini.
+  return getCallerUserId();
 }
 
 export async function GET() {
