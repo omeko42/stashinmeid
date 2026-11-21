@@ -19,11 +19,9 @@ import {
   type QuickAddState,
 } from '@/components/shell/QuickAddSheet';
 import { OverviewTab } from '@/components/tabs/OverviewTab';
-import { CashflowTab } from '@/components/tabs/CashflowTab';
+import { SaldoTab, type SaldoSub } from '@/components/tabs/SaldoTab';
 import { DebtsTab } from '@/components/tabs/DebtsTab';
-import { BudgetTab } from '@/components/tabs/BudgetTab';
 import { SettingsTab } from '@/components/tabs/SettingsTab';
-import { AssetsTab } from '@/components/tabs/AssetsTab';
 import { ProfileTab } from '@/components/tabs/ProfileTab';
 import { SecuritySettings } from '@/components/profile/SecuritySettings';
 import { KycModal } from '@/components/profile/KycModal';
@@ -115,6 +113,7 @@ export default function DashboardClient({
     useState<Transaction[]>(initialTransactions);
   const [debts, setDebts] = useState<Debt[]>(initialDebts);
   const [activeTab, setActiveTab] = useState<NavTab>('overview');
+  const [saldoSub, setSaldoSub] = useState<SaldoSub>('cashflow');
   const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
@@ -180,6 +179,15 @@ export default function DashboardClient({
   const budgets = useBudgets({ isDemoMode, isSuperadmin });
   const kolega = useKolega();
   const assets = useAssets({ isDemoMode, isSuperadmin });
+
+  // Split dompet fisik (kas) vs non-fisik (bank/e-wallet/crypto) - dipakai
+  // Ringkasan (tooltip hover saldo) dan tab Saldo.
+  const assetPhysicalTotal = assets.accounts
+    .filter((a) => a.kind === 'cash' || a.kind === 'other')
+    .reduce((s, a) => s + (assets.convert(a.balance, a.currency) ?? 0), 0);
+  const assetNonPhysicalTotal = assets.accounts
+    .filter((a) => a.kind === 'bank' || a.kind === 'ewallet' || a.kind === 'crypto')
+    .reduce((s, a) => s + (assets.convert(a.balance, a.currency) ?? 0), 0);
 
   useEffect(() => {
     const savedPin =
@@ -974,7 +982,10 @@ export default function DashboardClient({
       id: 'go-cashflow',
       label: tNav('cashflow'),
       group: 'navigate',
-      onSelect: () => navigate('cashflow'),
+      onSelect: () => {
+        setSaldoSub('cashflow');
+        navigate('saldo');
+      },
     },
     {
       id: 'go-debts',
@@ -986,13 +997,19 @@ export default function DashboardClient({
       id: 'go-budget',
       label: tBudget('title'),
       group: 'navigate',
-      onSelect: () => navigate('budget'),
+      onSelect: () => {
+        setSaldoSub('budget');
+        navigate('saldo');
+      },
     },
     {
       id: 'go-assets',
       label: tNav('assets'),
       group: 'navigate',
-      onSelect: () => navigate('assets'),
+      onSelect: () => {
+        setSaldoSub('assets');
+        navigate('saldo');
+      },
     },
     {
       id: 'go-settings',
@@ -1088,6 +1105,10 @@ export default function DashboardClient({
                 <OverviewTab
                   transactions={transactions}
                   debts={debts}
+                  assetTotals={{
+                    physical: assetPhysicalTotal,
+                    nonPhysical: assetNonPhysicalTotal,
+                  }}
                   totalInflow={totalInflow}
                   totalOutflow={totalOutflow}
                   netCashflow={animatedBalance}
@@ -1102,21 +1123,33 @@ export default function DashboardClient({
                   onQuickAdd={() => setShowQuickAdd(true)}
                   onScan={() => fileInputRef.current?.click()}
                   onOpenDebts={() => navigate('debts')}
-                  onOpenCashflow={() => navigate('cashflow')}
-                  onOpenBudget={() => navigate('budget')}
+                  onOpenCashflow={() => {
+                    setSaldoSub('cashflow');
+                    navigate('saldo');
+                  }}
+                  onOpenBudget={() => {
+                    setSaldoSub('budget');
+                    navigate('saldo');
+                  }}
                 />
               )}
 
-              {activeTab === 'cashflow' && (
-                <CashflowTab
+              {activeTab === 'saldo' && (
+                <SaldoTab
+                  assets={assets}
+                  sub={saldoSub}
+                  onSubChange={setSaldoSub}
+                  canEdit={canEdit}
+                  budgets={budgets.budgets}
                   transactions={transactions}
+                  onBudgetSave={budgets.saveBudget}
+                  onBudgetRemove={budgets.removeBudget}
                   filteredTransactions={filteredTransactions}
                   filterType={filterType}
                   searchQuery={searchQuery}
-                  canEdit={canEdit}
                   onFilterTypeChange={setFilterType}
                   onSearchChange={setSearchQuery}
-                  onDelete={handleDeleteTransaction}
+                  onDeleteTransaction={handleDeleteTransaction}
                   onQuickAdd={() => setShowQuickAdd(true)}
                   onExportCsv={handleExportCsv}
                 />
@@ -1145,18 +1178,6 @@ export default function DashboardClient({
                   onDelete={handleDeleteDebt}
                 />
               )}
-
-              {activeTab === 'budget' && (
-                <BudgetTab
-                  budgets={budgets.budgets}
-                  transactions={transactions}
-                  canEdit={canEdit}
-                  onSave={budgets.saveBudget}
-                  onRemove={budgets.removeBudget}
-                />
-              )}
-
-              {activeTab === 'assets' && <AssetsTab assets={assets} />}
 
               {activeTab === 'settings' && (
                 <SettingsTab

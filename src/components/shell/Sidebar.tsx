@@ -2,7 +2,6 @@
 
 import { useTranslations } from 'next-intl';
 import {
-  ArrowLeftRight,
   Landmark,
   LayoutDashboard,
   SlidersHorizontal,
@@ -15,6 +14,7 @@ import { cn } from '@/lib/cn';
 
 export type NavTab =
   | 'overview'
+  | 'saldo'
   | 'cashflow'
   | 'debts'
   | 'budget'
@@ -66,23 +66,13 @@ export function Sidebar({
       icon: <LayoutDashboard className="size-4" />,
     },
     {
-      id: 'cashflow',
-      label: tNav('cashflow'),
-      icon: <ArrowLeftRight className="size-4" />,
+      id: 'saldo',
+      label: tNav('saldo'),
+      icon: <Wallet className="size-4" />,
     },
     {
       id: 'debts',
       label: tNav('debts'),
-      icon: <Landmark className="size-4" />,
-    },
-    {
-      id: 'budget',
-      label: t('budget.title'),
-      icon: <Wallet className="size-4" />,
-    },
-    {
-      id: 'assets',
-      label: tNav('assets'),
       icon: <Landmark className="size-4" />,
     },
     {

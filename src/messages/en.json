@@ -15,7 +15,8 @@
     "settingsMenu": "Settings menu",
     "closeMenu": "Close menu",
     "more": "More",
-    "assets": "Assets"
+    "assets": "Assets",
+    "saldo": "Balance"
   },
   "common": {
     "save": "Save",
@@ -67,6 +68,10 @@
     "title": "Overview",
     "balanceLabel": "Balance",
     "balanceHint": "Money in minus money out",
+    "assetTooltip": "Wallet balance",
+    "assetPhysical": "Physical (cash)",
+    "assetNonPhysical": "Non-physical (bank/e-wallet/crypto)",
+    "assetTotal": "Total",
     "savingsRate": "Savings rate",
     "inflow": "Money in",
     "outflow": "Money out",
@@ -331,6 +336,20 @@
     "csvHint": "Download transactions and loans as a CSV that can be imported back.",
     "pdfHint": "Download a cashflow summary and installment list as a PDF.",
     "wordHint": "Download the full report as an editable Microsoft Word file."
+  },
+  "saldo": {
+    "totalLabel": "Total balance",
+    "totalHint": "All wallets (in {currency})",
+    "physical": "Physical balance",
+    "physicalHint": "Cash & other · {count} wallets",
+    "nonPhysical": "Non-physical",
+    "nonPhysicalHint": "Bank/e-wallet/crypto · {count} wallets",
+    "subLabel": "Balance sections",
+    "sub": {
+      "cashflow": "Cash Flow",
+      "budget": "Budget",
+      "assets": "Assets"
+    }
   },
   "quickAdd": {
     "title": "Add transaction",

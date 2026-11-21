@@ -34,6 +34,8 @@ interface OverviewTabProps {
   activeDebtCount: number;
   upcomingDueGroups: UpcomingDueGroup[];
   budgetStatuses: BudgetStatus[];
+  /** Aset dompet: fisik vs non-fisik, untuk tooltip di hero saldo. */
+  assetTotals?: { physical: number; nonPhysical: number };
   canEdit: boolean;
   scanning: boolean;
   onQuickAdd: () => void;
@@ -62,6 +64,7 @@ export function OverviewTab({
   activeDebtCount,
   upcomingDueGroups,
   budgetStatuses,
+  assetTotals,
   canEdit,
   scanning,
   onQuickAdd,
@@ -109,8 +112,42 @@ export function OverviewTab({
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <Label>{tOverview('balanceLabel')}</Label>
-            <div className="mt-1.5">
+            <div className="group relative inline-block">
               <Amount value={formatRp(netCashflow)} size="hero" />
+              {/* Hover saldo: detail dompet fisik vs non-fisik */}
+              {assetTotals && assetTotals.physical + assetTotals.nonPhysical > 0 && (
+                <div className="pointer-events-none invisible absolute left-0 top-full z-20 mt-1.5 w-64 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-3 opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100">
+                  <span className="text-[11px] font-semibold text-[var(--text-muted)]">
+                    {tOverview('assetTooltip')}
+                  </span>
+                  <div className="mt-2 space-y-1.5 text-[12px]">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[var(--text-muted)]">
+                        {tOverview('assetPhysical')}
+                      </span>
+                      <span className="tnum font-semibold text-[var(--text)]">
+                        {formatRp(assetTotals.physical)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-[var(--text-muted)]">
+                        {tOverview('assetNonPhysical')}
+                      </span>
+                      <span className="tnum font-semibold text-[var(--text)]">
+                        {formatRp(assetTotals.nonPhysical)}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-3 border-t border-[var(--line)] pt-1.5">
+                      <span className="font-semibold text-[var(--text-muted)]">
+                        {tOverview('assetTotal')}
+                      </span>
+                      <span className="tnum font-semibold text-[var(--brand)]">
+                        {formatRp(assetTotals.physical + assetTotals.nonPhysical)}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
             <p className="mt-1.5 text-[12px] text-[var(--text-muted)]">
               {tOverview('balanceHint')} · {tOverview('savingsRate')}{' '}

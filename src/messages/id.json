@@ -15,7 +15,8 @@
     "settingsMenu": "Menu pengaturan",
     "closeMenu": "Tutup menu",
     "more": "Lainnya",
-    "assets": "Aset"
+    "assets": "Aset",
+    "saldo": "Saldo"
   },
   "common": {
     "save": "Simpan",
@@ -67,6 +68,10 @@
     "title": "Ringkasan",
     "balanceLabel": "Saldo",
     "balanceHint": "Masuk dikurangi keluar",
+    "assetTooltip": "Saldo dompet",
+    "assetPhysical": "Fisik (kas)",
+    "assetNonPhysical": "Non-fisik (bank/e-wallet/crypto)",
+    "assetTotal": "Total",
     "savingsRate": "Tingkat tabung",
     "inflow": "Masuk",
     "outflow": "Keluar",
@@ -331,6 +336,20 @@
     "csvHint": "Unduh transaksi dan pinjaman sebagai CSV yang bisa diimpor balik.",
     "pdfHint": "Unduh ringkasan cashflow dan daftar cicilan dalam format PDF.",
     "wordHint": "Unduh laporan lengkap dalam format Microsoft Word yang bisa diedit."
+  },
+  "saldo": {
+    "totalLabel": "Total saldo",
+    "totalHint": "Semua dompet (dalam {currency})",
+    "physical": "Saldo fisik",
+    "physicalHint": "Kas & lainnya · {count} dompet",
+    "nonPhysical": "Non-fisik",
+    "nonPhysicalHint": "Bank/e-wallet/crypto · {count} dompet",
+    "subLabel": "Bagian saldo",
+    "sub": {
+      "cashflow": "Arus Kas",
+      "budget": "Anggaran",
+      "assets": "Aset"
+    }
   },
   "quickAdd": {
     "title": "Catat transaksi",
