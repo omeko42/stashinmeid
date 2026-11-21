@@ -92,7 +92,12 @@
       "all": "Semua"
     },
     "quickAdd": "Catat",
-    "quickAddHint": "Catat transaksi baru"
+    "quickAddHint": "Catat transaksi baru",
+    "dueMerged": "{count} pinjaman tgl sama",
+    "dueDetailTitle": "Detail",
+    "dueDetailCount": "pinjaman",
+    "dueOthers": "{count} lainnya",
+    "dueTotal": "Total"
   },
   "cashflow": {
     "title": "Arus Kas",

@@ -40,7 +40,7 @@ import {
   parseCSVTransactions,
 } from '@/lib/exportUtils';
 import { budgetStatuses } from '@/lib/budget';
-import { todayIso } from '@/lib/format';
+import { nextDueDate, todayIso } from '@/lib/format';
 import { UserCheck } from 'lucide-react';
 
 interface DashboardClientProps {
@@ -240,14 +240,28 @@ export default function DashboardClient({
     [activeDebts]
   );
 
-  const upcomingDebts = useMemo(
-    () =>
-      [...activeDebts]
-        .filter((d) => d.due_day !== null)
-        .sort((a, b) => (a.due_day || 31) - (b.due_day || 31))
-        .slice(0, 4),
-    [activeDebts]
-  );
+  const upcomingDueGroups = useMemo(() => {
+    const today = new Date();
+    const groups = new Map<number, Debt[]>();
+    for (const d of activeDebts) {
+      if (d.due_day === null) continue;
+      const list = groups.get(d.due_day) ?? [];
+      list.push(d);
+      groups.set(d.due_day, list);
+    }
+    return [...groups.entries()]
+      .map(([dueDay, items]) => ({
+        dueDay,
+        // Urutkan jatuh tempo terdekat: tgl >= hari ini dulu, sisanya bulan depan.
+        nextDue: nextDueDate(dueDay, today),
+        items: items.sort(
+          (a, b) => Number(b.monthly_installment) - Number(a.monthly_installment)
+        ),
+        total: items.reduce((s, d) => s + Number(d.monthly_installment), 0),
+      }))
+      .sort((a, b) => a.nextDue.getTime() - b.nextDue.getTime())
+      .slice(0, 5);
+  }, [activeDebts]);
 
   const simStats = useMemo(() => {
     const selected = activeDebts.filter((d) => simSelectedIds.includes(d.id));
@@ -1080,7 +1094,7 @@ export default function DashboardClient({
                   totalDebt={totalDebt}
                   monthlyDebtBurden={monthlyDebtBurden}
                   activeDebtCount={activeDebts.length}
-                  upcomingDebts={upcomingDebts}
+                  upcomingDueGroups={upcomingDueGroups}
                   budgetStatuses={budgetList}
                   canEdit={canEdit}
                   scanning={scanning}

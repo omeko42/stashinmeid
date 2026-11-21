@@ -92,7 +92,12 @@
       "all": "All"
     },
     "quickAdd": "Add",
-    "quickAddHint": "Record a new transaction"
+    "quickAddHint": "Record a new transaction",
+    "dueMerged": "{count} loans same due date",
+    "dueDetailTitle": "Detail",
+    "dueDetailCount": "loans",
+    "dueOthers": "{count} others",
+    "dueTotal": "Total"
   },
   "cashflow": {
     "title": "Cash Flow",

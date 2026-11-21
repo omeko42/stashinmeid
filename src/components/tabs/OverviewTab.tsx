@@ -14,6 +14,14 @@ import { CashflowChart, Sparkline, type ChartPeriod } from '@/components/charts/
 import { DebtDonut } from '@/components/charts/DebtDonut';
 import type { BudgetStatus } from '@/lib/budget';
 
+/** Satu gugus jatuh tempo: beberapa pinjaman dengan tanggal tagih sama. */
+export interface UpcomingDueGroup {
+  dueDay: number;
+  nextDue: Date;
+  items: Debt[];
+  total: number;
+}
+
 interface OverviewTabProps {
   transactions: Transaction[];
   debts: Debt[];
@@ -24,7 +32,7 @@ interface OverviewTabProps {
   totalDebt: number;
   monthlyDebtBurden: number;
   activeDebtCount: number;
-  upcomingDebts: Debt[];
+  upcomingDueGroups: UpcomingDueGroup[];
   budgetStatuses: BudgetStatus[];
   canEdit: boolean;
   scanning: boolean;
@@ -52,7 +60,7 @@ export function OverviewTab({
   totalDebt,
   monthlyDebtBurden,
   activeDebtCount,
-  upcomingDebts,
+  upcomingDueGroups,
   budgetStatuses,
   canEdit,
   scanning,
@@ -217,28 +225,70 @@ export function OverviewTab({
             </span>
           </SectionTitle>
 
-          {upcomingDebts.length === 0 ? (
+          {upcomingDueGroups.length === 0 ? (
             <p className="py-6 text-center text-[12px] text-[var(--text-muted)]">
               {tOverview('upcomingEmpty')}
             </p>
           ) : (
             <div className="mt-2">
-              {upcomingDebts.map((d) => (
-                <div
-                  key={d.id}
-                  className="flex items-center justify-between gap-3 border-b border-[var(--line)] py-2.5 last:border-b-0"
-                >
-                  <div className="min-w-0">
-                    <p className="truncate text-[13px] font-medium text-[var(--text)]">
-                      {d.platform}
-                    </p>
-                    <p className="text-[11px] text-[var(--text-faint)]">
-                      Setiap tgl {d.due_day ?? '-'}
-                    </p>
+              {upcomingDueGroups.map((g) => {
+                // Kalo total pinjaman dalam gugus <= 10, tampilkan semua;
+                // kalau lebih, 9 tertinggi + 1 baris "N lainnya".
+                const shown = g.items.length <= 10 ? g.items : g.items.slice(0, 9);
+                const hidden = g.items.length - shown.length;
+                return (
+                  <div
+                    key={g.dueDay}
+                    className="group relative flex items-center justify-between gap-3 border-b border-[var(--line)] py-2.5 last:border-b-0"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-medium text-[var(--text)]">
+                        {tOverview('dueMerged', { count: g.items.length })}
+                      </p>
+                      <p className="text-[11px] text-[var(--text-faint)]">
+                        {formatDate(g.nextDue.toISOString().slice(0, 10))} ·{' '}
+                        {g.items.map((d) => d.platform).join(', ')}
+                      </p>
+                    </div>
+                    <Amount value={formatRp(g.total)} tone="due" size="sm" />
+
+                    {/* Detail muncul saat hover */}
+                    <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-1 hidden w-80 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] p-3 shadow-lg group-hover:block">
+                      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                        {tOverview('dueDetailTitle')} · {g.items.length}{' '}
+                        {tOverview('dueDetailCount')}
+                      </p>
+                      <div className="max-h-56 overflow-y-auto">
+                        {shown.map((d) => (
+                          <div
+                            key={d.id}
+                            className="tnum flex items-center justify-between gap-3 py-1 text-[12px]"
+                          >
+                            <span className="truncate text-[var(--text)]">
+                              {d.platform}
+                            </span>
+                            <span className="shrink-0 text-[var(--text-muted)]">
+                              {formatRp(d.monthly_installment)}
+                            </span>
+                          </div>
+                        ))}
+                        {hidden > 0 && (
+                          <div className="tnum flex items-center justify-between gap-3 border-t border-[var(--line)] py-1 text-[12px] font-semibold text-[var(--text-muted)]">
+                            <span>
+                              {tOverview('dueOthers', { count: hidden })}
+                            </span>
+                            <span>{formatRp(g.total - shown.reduce((s, d) => s + Number(d.monthly_installment), 0))}</span>
+                          </div>
+                        )}
+                      </div>
+                      <div className="tnum mt-1.5 flex items-center justify-between gap-3 border-t border-[var(--line)] pt-1.5 text-[12px] font-semibold text-[var(--text)]">
+                        <span>{tOverview('dueTotal')}</span>
+                        <span>{formatRp(g.total)}</span>
+                      </div>
+                    </div>
                   </div>
-                  <Amount value={formatRp(d.monthly_installment)} tone="due" size="sm" />
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </section>
