@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase/client';
 import { BrandLogo } from '@/components/BrandLogo';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
+import { GoogleButton } from '@/components/auth/GoogleButton';
 import { Loader2, KeyRound, ArrowRight, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
@@ -182,30 +183,47 @@ export default function LoginPage() {
     setLoading(false);
   };
 
-  const handleGoogleLogin = async () => {
+  /**
+   * Login dengan passkey.
+   *
+   * Alurnya: browser melakukan ceremony WebAuthn, hasilnya dikirim ke
+   * Supabase untuk diverifikasi. Kalau passkey-nya memang terdaftar,
+   * session langsung dibuat tanpa perlu password.
+   */
+  const handlePasskeyLogin = async () => {
+    if (typeof window === 'undefined' || !window.PublicKeyCredential) {
+      setMessage({ type: 'error', text: t('auth.passkeyUnsupported') });
+      return;
+    }
     const supabase = createClient();
     if (!supabase) {
       setMessage({ type: 'error', text: 'Supabase belum dikonfigurasi.' });
       return;
     }
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    });
-    if (error) setMessage({ type: 'error', text: error.message });
-  };
 
-  const handlePasskeyLogin = async () => {
-    if (typeof window === 'undefined' || !window.PublicKeyCredential) {
-      setMessage({ type: 'error', text: 'Browser ini belum mendukung Passkeys (WebAuthn).' });
-      return;
+    setLoading(true);
+    setMessage(null);
+    try {
+      const { error } = await supabase.auth.signInWithPasskey();
+      if (error) {
+        // User menekan cancel - bukan error yang perlu ditampilkan.
+        if (error.message?.toLowerCase().includes('abort')) {
+          setLoading(false);
+          return;
+        }
+        setMessage({ type: 'error', text: error.message });
+      } else {
+        router.push('/');
+        router.refresh();
+      }
+    } catch (e) {
+      setMessage({
+        type: 'error',
+        text: e instanceof Error ? e.message : t('auth.passkeyFailed'),
+      });
+    } finally {
+      setLoading(false);
     }
-    setMessage({
-      type: 'error',
-      text: 'Passkey WebAuthn siap di browser. Aktifkan WebAuthn/Passkeys di Supabase Auth untuk menghubungkan ke akun.',
-    });
   };
 
   return (
@@ -305,6 +323,19 @@ export default function LoginPage() {
             >
               Lanjut Lengkapi Bio <ArrowRight className="w-4 h-4" />
             </button>
+
+            <div className="relative flex py-1 items-center">
+              <div className="flex-grow border-t border-slate-800" />
+              <span className="shrink mx-3 text-xs text-slate-500">atau</span>
+              <div className="flex-grow border-t border-slate-800" />
+            </div>
+
+            {/* Signup via Google: akun dibuat otomatis kalau email-nya belum
+                terdaftar. Profil tetap bisa dilengkapi nanti dari menu Profil. */}
+            <GoogleButton
+              label="Daftar dengan Google"
+              onError={(msg) => setMessage({ type: 'error', text: msg })}
+            />
           </form>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -438,20 +469,21 @@ export default function LoginPage() {
               <div className="flex-grow border-t border-slate-800" />
             </div>
 
-            <button
-              type="button"
-              onClick={handleGoogleLogin}
-              className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 font-medium rounded-xl text-sm transition flex items-center justify-center gap-2"
-            >
-              Lanjutkan dengan Google
-            </button>
+            <GoogleButton
+              onError={(msg) => setMessage({ type: 'error', text: msg })}
+            />
 
             <button
               type="button"
               onClick={handlePasskeyLogin}
-              className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 font-medium rounded-xl text-sm transition flex items-center justify-center gap-2"
+              disabled={loading}
+              className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 border border-slate-800 text-slate-200 font-medium rounded-xl text-sm transition flex items-center justify-center gap-2 disabled:opacity-50"
             >
-              <KeyRound className="w-4 h-4 text-emerald-400" />
+              {loading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <KeyRound className="w-4 h-4 text-emerald-400" />
+              )}
               Login dengan Passkey
             </button>
           </div>

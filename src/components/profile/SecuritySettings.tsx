@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { KeyRound, Lock, Smartphone } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PasskeyManager } from './PasskeyManager';
 
 interface SecuritySettingsProps {
   appPin: string;
@@ -162,6 +163,11 @@ export function SecuritySettings({
             </div>
           </div>
         )}
+      </section>
+
+      {/* Passkey - metode login tanpa password */}
+      <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-5 md:col-span-2">
+        <PasskeyManager />
       </section>
     </div>
   );

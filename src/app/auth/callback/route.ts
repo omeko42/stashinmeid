@@ -11,7 +11,13 @@ export async function GET(request: Request) {
     if (supabase) {
       const { error } = await supabase.auth.exchangeCodeForSession(code);
       if (!error) {
-        return NextResponse.redirect(`${origin}${next}`);
+        // `next` datang dari query string yang bisa dimanipulasi user.
+        // Hanya izinkan path internal - kalau tidak, attacker bisa
+        // mengarahkan user ke domain lain lewat ?next=https://jahat.com
+        const safeNext = next.startsWith('/') && !next.startsWith('//')
+          ? next
+          : '/';
+        return NextResponse.redirect(`${origin}${safeNext}`);
       }
     }
   }

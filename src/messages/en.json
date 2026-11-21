@@ -289,7 +289,20 @@
       "twofaNeedLogin": "Sign in with an email account first to enable 2FA.",
       "locked": "App is locked",
       "unlock": "Enter your PIN to unlock",
-      "lock": "Lock now"
+      "lock": "Lock now",
+      "passkey": {
+        "title": "Passkeys",
+        "hint": "Sign in without a password using your fingerprint, Face ID, or device PIN. Safer than a password because it cannot be guessed.",
+        "add": "Register passkey",
+        "remove": "Remove passkey",
+        "registered": "Passkey registered.",
+        "removed": "Passkey removed.",
+        "failed": "Could not process the passkey.",
+        "emptyTitle": "No passkeys yet",
+        "emptyHint": "Register a passkey so you can sign in without a password.",
+        "unnamed": "Passkey",
+        "unsupported": "This browser does not support passkeys (WebAuthn) yet."
+      }
     },
     "appearance": {
       "title": "Appearance",
@@ -473,7 +486,9 @@
     "captchaRequired": "Please complete the captcha first.",
     "captchaLoading": "Loading captcha...",
     "captchaFailed": "Captcha failed to load. Reload the page.",
-    "captchaUnavailable": "Captcha is unavailable. Reload the page."
+    "captchaUnavailable": "Captcha is unavailable. Reload the page.",
+    "passkeyUnsupported": "This browser does not support passkeys (WebAuthn) yet.",
+    "passkeyFailed": "Passkey sign-in failed."
   },
   "errors": {
     "generic": "Something went wrong. Try again.",

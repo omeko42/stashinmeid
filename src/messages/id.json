@@ -289,7 +289,20 @@
       "twofaNeedLogin": "Login dengan akun email dulu untuk mengaktifkan 2FA.",
       "locked": "Aplikasi terkunci",
       "unlock": "Masukkan PIN untuk membuka",
-      "lock": "Kunci sekarang"
+      "lock": "Kunci sekarang",
+      "passkey": {
+        "title": "Passkey",
+        "hint": "Masuk tanpa password pakai sidik jari, Face ID, atau PIN perangkat. Lebih aman dari password karena tidak bisa ditebak.",
+        "add": "Daftarkan passkey",
+        "remove": "Hapus passkey",
+        "registered": "Passkey didaftarkan.",
+        "removed": "Passkey dihapus.",
+        "failed": "Gagal memproses passkey.",
+        "emptyTitle": "Belum ada passkey",
+        "emptyHint": "Daftarkan passkey supaya bisa masuk tanpa password.",
+        "unnamed": "Passkey",
+        "unsupported": "Browser ini belum mendukung passkey (WebAuthn)."
+      }
     },
     "appearance": {
       "title": "Tampilan",
@@ -473,7 +486,9 @@
     "captchaRequired": "Selesaikan captcha dulu.",
     "captchaLoading": "Memuat captcha...",
     "captchaFailed": "Captcha gagal dimuat. Coba muat ulang halaman.",
-    "captchaUnavailable": "Captcha tidak tersedia. Muat ulang halaman."
+    "captchaUnavailable": "Captcha tidak tersedia. Muat ulang halaman.",
+    "passkeyUnsupported": "Browser ini belum mendukung passkey (WebAuthn).",
+    "passkeyFailed": "Gagal masuk dengan passkey."
   },
   "errors": {
     "generic": "Terjadi kesalahan. Coba lagi.",
