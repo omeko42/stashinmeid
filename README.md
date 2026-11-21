@@ -1,36 +1,95 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# stashinmeid
 
-## Getting Started
+Aplikasi manajemen keuangan pribadi - Next.js, TypeScript, Supabase.
 
-First, run the development server:
+## Setup dari nol
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+### 1. Database
+
+Buat project Supabase baru, lalu jalankan **satu file** ini di SQL Editor
+(Supabase > SQL Editor > New query):
+
+```
+supabase/migrations/2026-11-21_bootstrap_new_project.sql
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+File itu sudah berisi seluruh skema (profil, transaksi, pinjaman, pagu
+anggaran, dompet, kurs, KYC, kolega, storage, sosial), RLS + policy, role
+`admin`/`user`, dan semua GRANT yang dibutuhkan.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Aman dijalankan ulang: setiap `CREATE POLICY` didahului `DROP POLICY IF
+EXISTS`, jadi kalau gagal di tengah dan dijalankan lagi, sisanya tetap
+terisi.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Kalau tabelnya sudah ada dan cuma hak akses yang hilang, jalankan yang lebih
+kecil:
 
-## Learn More
+```
+supabase/migrations/2026-11-23_fix_missing_grants.sql
+```
 
-To learn more about Next.js, take a look at the following resources:
+Untuk memastikan semuanya beres, jalankan query read-only:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```
+supabase/verify_grants.sql
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 2. Environment variable
 
-## Deploy on Vercel
+Salin `.env.example` jadi `.env.local` dan isi. Yang wajib:
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+| Variable | Keterangan |
+| --- | --- |
+| `SUPABASE_SERVICE_ROLE_KEY` | Bypass RLS. **Jangan pernah di-commit.** |
+| `SUPERADMIN_USERNAME` | Username login superadmin (tanpa `@`). |
+| `SUPERADMIN_PASSWORD` | Password superadmin (atau pakai `_HASH`). |
+| `JWT_SECRET` | Kunci session, minimal 32 karakter. |
+| `VERCEL_TOKEN` | Token personal Vercel, untuk auto-sync env. |
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+`NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY` **tidak perlu
+diset** - nilainya sudah ada di `src/lib/supabase/project.ts`. Keduanya bukan
+rahasia (memang dikirim ke browser), jadi aman di-commit dan otomatis ikut
+deploy. Env var tetap dipakai sebagai override kalau lu punya project lain.
+
+### 3. Deploy
+
+```bash
+bash scripts/push.sh
+```
+
+Script itu commit, push ke GitHub (Vercel auto-deploy), lalu menyinkronkan
+environment variable Vercel dari `.env.local`. Setelah itu redeploy sekali di
+Vercel supaya env baru terpakai.
+
+Kalau `VERCEL_TOKEN` belum diisi, langkah sync env dilewati dan env harus diset
+manual. Template nilainya ada di `.env.vercel.example`.
+
+## Command
+
+```bash
+npm run dev              # server pengembangan
+npm run build            # build production
+npm run lint             # eslint
+npm run typecheck        # tsc --noEmit
+npm run hash-password -- "password"   # hash untuk SUPERADMIN_PASSWORD_HASH
+npm run sync:vercel-env  # sinkron env Vercel (dry-run tanpa --yes)
+```
+
+## Catatan arsitektur
+
+Tiga aturan yang dijaga di codebase ini:
+
+**Semua operasi tulis ke database mengecek error.** Supabase tidak melempar
+exception, ia mengembalikan `{ error }`. Kalau tidak dicek, baris hilang dari
+database tapi user tetap melihat toast "berhasil disimpan". Semua titik tulis
+sudah diaudit dan dicek.
+
+**Superadmin punya jalur data sendiri.** Superadmin (dan mode impersonate)
+tidak punya sesi Supabase milik user target, jadi datanya dibaca dan ditulis
+lewat `/api/superadmin/finance` yang memakai service role. Hook `useAssets` dan
+`useBudgets` otomatis memakai jalur itu kalau `isSuperadmin` aktif.
+
+**Tanggal dikunci ke zona waktu aplikasi** (`Asia/Jakarta`). Server berjalan di
+UTC, browser pengguna di WIB. Kalau render memakai zona waktu lokal mesin,
+HTML server dan browser berbeda dan memicu hydration mismatch (React #418).
+Semua tanggal lewat `Intl.DateTimeFormat` dengan `timeZone` eksplisit.
