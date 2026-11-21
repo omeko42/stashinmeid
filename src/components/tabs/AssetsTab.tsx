@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
@@ -50,6 +50,32 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
     currency: 'USD',
     rate: '',
   });
+
+  /**
+   * Kurs otomatis: setiap tab Aset dibuka, segarkan kurs yang sudah
+   * lebih tua dari 24 jam (atau mata uang dompet yang belum punya kurs)
+   * - tanpa toast, diam-diam di belakang. Isi manual tetap bisa.
+   */
+  useEffect(() => {
+    if (assets.loading) return;
+    const ids = assets.accounts.map((a) => a.currency).filter((c) => c !== assets.primaryCurrency);
+    const wanted = new Set([...ids, ...assets.rates.map((r) => r.currency)]);
+    wanted.delete(assets.primaryCurrency);
+    if (wanted.size === 0) return;
+    const now = Date.now();
+    const DAY = 24 * 3600 * 1000;
+    const stale = [...wanted].some((c) => {
+      const row = assets.rates.find((r) => r.currency === c);
+      if (!row) return true;
+      return !row.updated_at || now - new Date(row.updated_at).getTime() > DAY;
+    });
+    if (!stale) return;
+    assets.syncRates().catch(() => {
+      /* auto-sync gagal diam saja; kurs lama tetap kepakai */
+    });
+    // Jalankan sekali per buka tab; syncRates ikut berubah saat data berubah.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [assets.loading]);
 
   const handleAdd = async () => {
     const bal = Number(form.balance);
