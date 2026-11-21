@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { BadgeCheck, ChevronUp, LogOut, Shield, UserCircle } from 'lucide-react';
+import { BadgeCheck, ChevronUp, LogOut, Shield, UserCircle, Users } from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { UserRole } from '@/types/finance';
 import { cn } from '@/lib/cn';
@@ -11,11 +11,14 @@ interface ProfileMenuProps {
   profileEmail: string;
   profileUsername: string;
   userRole: UserRole;
+  isSuperadmin: boolean;
   avatarUrl?: string | null;
   onOpenProfile: () => void;
   /** Diauditkan bila KYC modal siap (patch 4); item KYC muncul bila handler ada. */
   onOpenKyc?: () => void;
   onOpenSecurity: () => void;
+  /** Manajemen user - hanya muncul di role admin / superadmin. */
+  onOpenUsers?: () => void;
   onLogout: () => void;
 }
 
@@ -30,10 +33,12 @@ export function ProfileMenu({
   profileEmail,
   profileUsername,
   userRole,
+  isSuperadmin,
   avatarUrl,
   onOpenProfile,
   onOpenKyc,
   onOpenSecurity,
+  onOpenUsers,
   onLogout,
 }: ProfileMenuProps) {
   const tNav = useTranslations('nav');
@@ -81,6 +86,17 @@ export function ProfileMenu({
       icon: <Shield className="size-4" aria-hidden />,
       action: onOpenSecurity,
     },
+    // Manajemen user di bawah keamanan; hanya role admin / superadmin.
+    ...(onOpenUsers && (userRole === 'admin' || isSuperadmin)
+      ? [
+          {
+            id: 'users',
+            label: tNav('users'),
+            icon: <Users className="size-4" aria-hidden />,
+            action: onOpenUsers,
+          },
+        ]
+      : []),
   ];
 
   return (

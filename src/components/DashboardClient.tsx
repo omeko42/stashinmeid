@@ -843,7 +843,7 @@ export default function DashboardClient({
   }, [isSuperadmin, t]);
 
   useEffect(() => {
-    if (activeTab === 'users' && isSuperadmin) {
+    if (activeTab === 'users' && (isSuperadmin || userRole === 'admin')) {
       void loadManagedUsers();
     }
   }, [activeTab, isSuperadmin, loadManagedUsers]);
@@ -1222,7 +1222,7 @@ export default function DashboardClient({
               {/* KYC: modal dari menu profil di sidebar */}
               <KycModal open={kycOpen} onClose={() => setKycOpen(false)} />
 
-              {activeTab === 'users' && isSuperadmin && (
+              {activeTab === 'users' && (isSuperadmin || userRole === 'admin') && (
                 <UsersTab
                   users={managedUsers}
                   loading={usersLoading}

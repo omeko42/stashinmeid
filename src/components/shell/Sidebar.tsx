@@ -6,8 +6,6 @@ import {
   Landmark,
   LayoutDashboard,
   SlidersHorizontal,
-  UserCircle,
-  Users,
   Wallet,
 } from 'lucide-react';
 import type { UserRole } from '@/types/finance';
@@ -135,52 +133,6 @@ export function Sidebar({
             </button>
           );
         })}
-
-        <div className="my-3 border-t border-[var(--line)]" />
-
-        <button
-          type="button"
-          onClick={() => onNavigate('profile')}
-          aria-current={activeTab === 'profile' ? 'page' : undefined}
-          className={cn(
-            'relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors',
-            activeTab === 'profile'
-              ? 'bg-[var(--surface-2)] text-[var(--text)]'
-              : 'text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
-          )}
-        >
-          {activeTab === 'profile' && (
-            <span
-              className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-full bg-[var(--brand)]"
-              aria-hidden
-            />
-          )}
-          <UserCircle className="size-4" />
-          {tNav('profile')}
-        </button>
-
-        {isSuperadmin && (
-          <button
-            type="button"
-            onClick={() => onNavigate('users')}
-            aria-current={activeTab === 'users' ? 'page' : undefined}
-            className={cn(
-              'relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors',
-              activeTab === 'users'
-                ? 'bg-[var(--surface-2)] text-[var(--text)]'
-                : 'text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
-            )}
-          >
-            {activeTab === 'users' && (
-              <span
-                className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-full bg-[var(--brand)]"
-                aria-hidden
-              />
-            )}
-            <Users className="size-4" />
-            {tNav('users')}
-          </button>
-        )}
       </nav>
 
       <div className="border-t border-[var(--line)] pt-3">
@@ -189,10 +141,12 @@ export function Sidebar({
           profileEmail={profileEmail}
           profileUsername={profileUsername}
           userRole={userRole}
+          isSuperadmin={isSuperadmin}
           avatarUrl={avatarUrl}
           onOpenProfile={() => onNavigate('profile')}
           onOpenKyc={onOpenKyc}
           onOpenSecurity={onOpenSecurity}
+          onOpenUsers={isSuperadmin || userRole === 'admin' ? () => onNavigate('users') : undefined}
           onLogout={onLogout}
         />
       </div>
