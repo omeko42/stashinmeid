@@ -170,19 +170,89 @@ function blobFromDoc(doc: Document) {
   return doc;
 }
 
-export function parseCSVTransactions(csvText: string): Omit<Transaction, 'id'>[] {
-  const lines = csvText
-    .split(/\r?\n/)
-    .map((l) => l.trim())
-    .filter(Boolean);
+/**
+ * Pecah satu baris CSV menjadi kolom-kolomnya.
+ *
+ * Ini parser yang hormati tanda kutip, bukan `split(',')` biasa. Tanpa itu,
+ * keterangan yang mengandung koma ("Kopi, 2 cup") akan pecah jadi dua kolom
+ * dan merusak data saat impor.
+ */
+function splitCsvLine(line: string): string[] {
+  const cols: string[] = [];
+  let current = '';
+  let inQuotes = false;
 
-  if (lines.length < 2) return [];
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i];
+
+    if (inQuotes) {
+      if (char === '"') {
+        // Dua tanda kutip berturut-turut = satu tanda kutip literal.
+        if (line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        current += char;
+      }
+      continue;
+    }
+
+    if (char === '"') {
+      inQuotes = true;
+    } else if (char === ',') {
+      cols.push(current.trim());
+      current = '';
+    } else {
+      current += char;
+    }
+  }
+
+  cols.push(current.trim());
+  return cols;
+}
+
+/**
+ * Parse CSV transaksi.
+ *
+ * Format yang dikenali:
+ * - baris diawali `#` diabaikan (komentar / metadata)
+ * - baris pertama yang bukan komentar adalah header dan dilewati
+ * - setelah baris header tabel pinjaman (`platform,...`), parsing berhenti
+ *
+ * Aturan terakhir itu yang bikin hasil `exportToCSV` bisa diimpor balik tanpa
+ * baris pinjaman ikut jadi transaksi.
+ */
+export function parseCSVTransactions(csvText: string): Omit<Transaction, 'id'>[] {
+  const lines = csvText.split(/\r?\n/);
 
   const today = new Date().toISOString().split('T')[0];
   const results: Omit<Transaction, 'id'>[] = [];
 
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(',').map((c) => c.trim().replace(/^"|"$/g, ''));
+  let headerSkipped = false;
+  let debtSection = false;
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (!line) continue;
+    if (line.startsWith('#')) continue;
+
+    // Awal bagian tabel pinjaman - berhenti di sini.
+    if (/^platform\s*,/i.test(line)) {
+      debtSection = true;
+      continue;
+    }
+    if (debtSection) continue;
+
+    // Header kolom transaksi - dilewati sekali.
+    if (!headerSkipped) {
+      headerSkipped = true;
+      continue;
+    }
+
+    const cols = splitCsvLine(line);
     if (cols.length < 2) continue;
 
     const rawType = cols[0]?.toLowerCase();
@@ -201,4 +271,88 @@ export function parseCSVTransactions(csvText: string): Omit<Transaction, 'id'>[]
   }
 
   return results;
+}
+
+/**
+ * Escape satu sel CSV.
+ *
+ * Koma dan baris baru di dalam nilai harus diapit tanda kutip, dan tanda kutip
+ * sendiri digandakan. Tanpa ini, keterangan seperti "Kopi, 2 cup" merusak
+ * kolom saat file dibuka di Excel.
+ */
+function csvCell(value: string | number | null | undefined): string {
+  const raw = value === null || value === undefined ? '' : String(value);
+  if (/[",\n\r]/.test(raw)) {
+    return `"${raw.replace(/"/g, '""')}"`;
+  }
+  return raw;
+}
+
+/**
+ * Ekspor transaksi dan pinjaman ke CSV.
+ *
+ * Format kolom dibuat kompatibel dengan `parseCSVTransactions`, jadi file
+ * hasil ekspor bisa diimpor balik tanpa ubah format.
+ */
+export function exportToCSV(
+  transactions: Transaction[],
+  debts: Debt[],
+  clientName: string
+) {
+  const header = ['type', 'amount', 'category', 'description', 'transaction_date'];
+
+  const txRows = transactions.map((t) =>
+    [
+      csvCell(t.type),
+      csvCell(Number(t.amount)),
+      csvCell(t.category),
+      csvCell(t.description),
+      csvCell(t.transaction_date),
+    ].join(',')
+  );
+
+  const debtHeader = [
+    'platform',
+    'contract_no',
+    'remaining_balance',
+    'monthly_installment',
+    'remaining_tenor',
+    'due_day',
+    'status',
+  ];
+  const debtRows = debts.map((d) =>
+    [
+      csvCell(d.platform),
+      csvCell(d.contract_no),
+      csvCell(Number(d.remaining_balance)),
+      csvCell(Number(d.monthly_installment)),
+      csvCell(d.remaining_tenor),
+      csvCell(d.due_day),
+      csvCell(d.status),
+    ].join(',')
+  );
+
+  const lines = [
+    `# stashinmeid - ${clientName}`,
+    `# dibuat ${new Date().toISOString().slice(0, 10)}`,
+    '',
+    header.join(','),
+    ...txRows,
+    '',
+    '# Pinjaman',
+    debtHeader.join(','),
+    ...debtRows,
+  ];
+
+  // BOM (U+FEFF) supaya Excel di Windows baca UTF-8 dengan benar (karakter
+  // Indonesia seperti "P battled" dan tanda hubung tidak jadi rusak).
+  const blob = new Blob(['﻿' + lines.join('\r\n')], {
+    type: 'text/csv;charset=utf-8;',
+  });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `stashinmeid-${clientName.replace(/\s+/g, '_') || 'laporan'}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
 }

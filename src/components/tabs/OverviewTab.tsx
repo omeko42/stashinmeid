@@ -1,0 +1,363 @@
+'use client';
+
+import { useMemo, useState } from 'react';
+import { useTranslations } from 'next-intl';
+import { ArrowDownRight, ArrowUpRight, CalendarClock, Camera, Plus } from 'lucide-react';
+import type { Debt, Transaction } from '@/types/finance';
+import { formatDate, formatRp } from '@/lib/format';
+import { getCategory } from '@/lib/categories';
+import { Amount, Label, Progress, Rule, SectionTitle } from '@/components/ui/Surface';
+import { Button } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+import { Segmented } from '@/components/ui/Segmented';
+import { CashflowChart, Sparkline, type ChartPeriod } from '@/components/charts/CashflowChart';
+import { DebtDonut } from '@/components/charts/DebtDonut';
+import type { BudgetStatus } from '@/lib/budget';
+
+interface OverviewTabProps {
+  transactions: Transaction[];
+  debts: Debt[];
+  totalInflow: number;
+  totalOutflow: number;
+  netCashflow: number;
+  savingsRate: number;
+  totalDebt: number;
+  monthlyDebtBurden: number;
+  activeDebtCount: number;
+  upcomingDebts: Debt[];
+  budgetStatuses: BudgetStatus[];
+  canEdit: boolean;
+  scanning: boolean;
+  onQuickAdd: () => void;
+  onScan: () => void;
+  onOpenDebts: () => void;
+  onOpenCashflow: () => void;
+  onOpenBudget: () => void;
+}
+
+/**
+ * Ringkasan.
+ *
+ * Hero-nya bukan kartu gradien - dia pita full-width dengan angka saldo besar
+ * di kiri dan dua kolom masuk/keluar yang dipisah garis vertikal. Angka adalah
+ * pahlawan; sisanya dirapatkan.
+ */
+export function OverviewTab({
+  transactions,
+  debts,
+  totalInflow,
+  totalOutflow,
+  netCashflow,
+  savingsRate,
+  totalDebt,
+  monthlyDebtBurden,
+  activeDebtCount,
+  upcomingDebts,
+  budgetStatuses,
+  canEdit,
+  scanning,
+  onQuickAdd,
+  onScan,
+  onOpenDebts,
+  onOpenCashflow,
+  onOpenBudget,
+}: OverviewTabProps) {
+  const t = useTranslations();
+  const tOverview = useTranslations('overview');
+  const [period, setPeriod] = useState<ChartPeriod>('month');
+
+  // Jejak saldo berjalan untuk sparkline di hero.
+  const balanceTrail = useMemo(() => {
+    const sorted = [...transactions].sort((a, b) =>
+      a.transaction_date.localeCompare(b.transaction_date)
+    );
+    let running = 0;
+    const trail: number[] = [];
+    for (const tx of sorted) {
+      running += tx.type === 'inflow' ? Number(tx.amount) : -Number(tx.amount);
+      trail.push(running);
+    }
+    return trail;
+  }, [transactions]);
+
+  const recentTransactions = useMemo(
+    () =>
+      [...transactions]
+        .sort((a, b) => b.transaction_date.localeCompare(a.transaction_date))
+        .slice(0, 5),
+    [transactions]
+  );
+
+  const periodOptions = [
+    { value: 'week' as const, label: tOverview('period.week') },
+    { value: 'month' as const, label: tOverview('period.month') },
+    { value: 'year' as const, label: tOverview('period.year') },
+  ];
+
+  return (
+    <div className="space-y-5">
+      {/* HERO - pita saldo */}
+      <section className="border-b border-[var(--line)] pb-5">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div className="min-w-0">
+            <Label>{tOverview('balanceLabel')}</Label>
+            <div className="mt-1.5">
+              <Amount value={formatRp(netCashflow)} size="hero" />
+            </div>
+            <p className="mt-1.5 text-[12px] text-[var(--text-muted)]">
+              {tOverview('balanceHint')} · {tOverview('savingsRate')}{' '}
+              <span className="tnum font-semibold text-[var(--brand)]">
+                {savingsRate}%
+              </span>
+            </p>
+          </div>
+
+          {canEdit && (
+            <div className="flex flex-wrap gap-2">
+              <Button icon={<Plus className="size-4" />} onClick={onQuickAdd}>
+                {tOverview('quickAdd')}
+              </Button>
+              <Button
+                variant="secondary"
+                icon={<Camera className="size-4" />}
+                onClick={onScan}
+                loading={scanning}
+              >
+                <span className="hidden sm:inline">{t('settings.data.scan')}</span>
+                <span className="sm:hidden">{t('tools.scanShort')}</span>
+              </Button>
+            </div>
+          )}
+        </div>
+
+        {/* Debit / kredit dipisah garis vertikal, bukan kartu terpisah */}
+        <div className="mt-5 grid grid-cols-2 divide-x divide-[var(--line)]">
+          <div className="pr-4">
+            <div className="flex items-center gap-1.5">
+              <ArrowDownRight className="size-3.5 text-[var(--brand)]" aria-hidden />
+              <Label>{tOverview('inflow')}</Label>
+            </div>
+            <div className="mt-1">
+              <Amount value={formatRp(totalInflow)} tone="brand" size="lg" />
+            </div>
+          </div>
+          <div className="pl-4">
+            <div className="flex items-center gap-1.5">
+              <ArrowUpRight className="size-3.5 text-[var(--out)]" aria-hidden />
+              <Label>{tOverview('outflow')}</Label>
+            </div>
+            <div className="mt-1">
+              <Amount value={formatRp(totalOutflow)} tone="out" size="lg" />
+            </div>
+          </div>
+        </div>
+
+        {balanceTrail.length > 1 && (
+          <div className="mt-5 max-w-xs">
+            <Sparkline points={balanceTrail} />
+          </div>
+        )}
+      </section>
+
+      {/* Tren + komposisi pinjaman */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <section className="lg:col-span-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+            <SectionTitle>{tOverview('trendTitle')}</SectionTitle>
+            <Segmented
+              options={periodOptions}
+              value={period}
+              onChange={setPeriod}
+              size="sm"
+              ariaLabel={tOverview('period.label')}
+            />
+          </div>
+          <CashflowChart transactions={transactions} period={period} />
+        </section>
+
+        <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+          <SectionTitle action={
+            <button
+              type="button"
+              onClick={onOpenDebts}
+              className="shrink-0 text-[11px] font-semibold text-[var(--brand)] hover:underline"
+            >
+              {t('overview.openDebtsShort')}
+            </button>
+          }>
+            {tOverview('debtComposition')}
+          </SectionTitle>
+          <div className="mt-2">
+            <DebtDonut debts={debts} />
+          </div>
+          <Rule className="my-3" />
+          <div className="space-y-1.5">
+            <div className="flex items-baseline justify-between gap-2">
+              <Label>{tOverview('totalDebt')}</Label>
+              <Amount value={formatRp(totalDebt)} tone="due" size="sm" />
+            </div>
+            <div className="flex items-baseline justify-between gap-2">
+              <Label>{tOverview('monthlyInstallment')}</Label>
+              <Amount value={formatRp(monthlyDebtBurden)} size="sm" />
+            </div>
+            <p className="text-[11px] text-[var(--text-faint)]">
+              {activeDebtCount} {tOverview('activeDebts')}
+            </p>
+          </div>
+        </section>
+      </div>
+
+      {/* Jatuh tempo + transaksi terbaru */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+          <SectionTitle>
+            <span className="inline-flex items-center gap-2">
+              <CalendarClock className="size-4 text-[var(--due)]" aria-hidden />
+              {tOverview('upcoming')}
+            </span>
+          </SectionTitle>
+
+          {upcomingDebts.length === 0 ? (
+            <p className="py-6 text-center text-[12px] text-[var(--text-muted)]">
+              {tOverview('upcomingEmpty')}
+            </p>
+          ) : (
+            <div className="mt-2">
+              {upcomingDebts.map((d) => (
+                <div
+                  key={d.id}
+                  className="flex items-center justify-between gap-3 border-b border-[var(--line)] py-2.5 last:border-b-0"
+                >
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-medium text-[var(--text)]">
+                      {d.platform}
+                    </p>
+                    <p className="text-[11px] text-[var(--text-faint)]">
+                      Setiap tgl {d.due_day ?? '-'}
+                    </p>
+                  </div>
+                  <Amount value={formatRp(d.monthly_installment)} tone="due" size="sm" />
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+          <SectionTitle
+            action={
+              <button
+                type="button"
+                onClick={onOpenCashflow}
+                className="text-[12px] font-semibold text-[var(--brand)] hover:underline"
+              >
+                {tOverview('viewAll')}
+              </button>
+            }
+          >
+            {tOverview('recent')}
+          </SectionTitle>
+
+          {recentTransactions.length === 0 ? (
+            <p className="py-6 text-center text-[12px] text-[var(--text-muted)]">
+              {tOverview('recentEmpty')}
+            </p>
+          ) : (
+            <div className="mt-2">
+              {recentTransactions.map((tx) => {
+                const meta = getCategory(tx.category);
+                const Icon = meta.icon;
+                return (
+                  <div
+                    key={tx.id}
+                    className="flex items-center justify-between gap-3 border-b border-[var(--line)] py-2.5 last:border-b-0"
+                  >
+                    <div className="flex min-w-0 items-center gap-2.5">
+                      <Icon
+                        className="size-4 shrink-0 text-[var(--text-faint)]"
+                        aria-hidden
+                      />
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-medium text-[var(--text)]">
+                          {tx.description || tx.category}
+                        </p>
+                        <p className="text-[11px] text-[var(--text-faint)]">
+                          {formatDate(tx.transaction_date)} · {tx.category}
+                        </p>
+                      </div>
+                    </div>
+                    <Amount
+                      value={`${tx.type === 'inflow' ? '+' : '-'}${formatRp(tx.amount)}`}
+                      tone={tx.type === 'inflow' ? 'brand' : 'out'}
+                      size="sm"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      </div>
+
+      {/* Anggaran per kategori */}
+      <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+        <SectionTitle
+          action={
+            <button
+              type="button"
+              onClick={onOpenBudget}
+              className="text-[12px] font-semibold text-[var(--brand)] hover:underline"
+            >
+              {t('budget.set')}
+            </button>
+          }
+        >
+          {t('budget.title')}
+        </SectionTitle>
+
+        {budgetStatuses.length === 0 ? (
+          <EmptyState
+            icon={<CalendarClock className="size-5" />}
+            title={t('budget.empty.title')}
+            description={t('budget.empty.description')}
+            action={
+              canEdit ? (
+                <Button size="sm" onClick={onOpenBudget}>
+                  {t('budget.empty.action')}
+                </Button>
+              ) : undefined
+            }
+          />
+        ) : (
+          <div className="mt-3 grid grid-cols-1 gap-x-6 gap-y-3 sm:grid-cols-2">
+            {budgetStatuses.map((status) => (
+              <div key={status.budget.id} className="space-y-1.5">
+                <div className="flex items-baseline justify-between gap-2">
+                  <span className="truncate text-[13px] font-medium text-[var(--text)]">
+                    {status.budget.category}
+                  </span>
+                  <span className="tnum shrink-0 text-[12px] text-[var(--text-muted)]">
+                    {formatRp(status.spent)} / {formatRp(status.budget.amount)}
+                  </span>
+                </div>
+                <Progress
+                  value={status.percent}
+                  tone={status.over ? 'out' : status.percent >= 80 ? 'due' : 'brand'}
+                />
+                <p
+                  className={`text-[11px] ${
+                    status.over ? 'text-[var(--out)]' : 'text-[var(--text-faint)]'
+                  }`}
+                >
+                  {status.over
+                    ? `${t('budget.over')} · ${formatRp(Math.abs(status.remaining))}`
+                    : `${t('budget.remaining')} ${formatRp(status.remaining)}`}
+                </p>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}

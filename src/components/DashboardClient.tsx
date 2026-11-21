@@ -1,49 +1,43 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
 import { useTranslations } from 'next-intl';
+import { toast } from 'sonner';
 import { useHotkey } from '@/hooks/useHotkey';
-import { SettingsMenu } from '@/components/shell/SettingsMenu';
+import { useCountUp } from '@/hooks/useCountUp';
+import { useBudgets } from '@/hooks/useBudgets';
 import { CommandPalette, type CommandAction } from '@/components/shell/CommandPalette';
-import { motion, AnimatePresence } from 'framer-motion';
-import { createClient } from '@/lib/supabase/client';
-import { Transaction, Debt, TransactionType, UserRole } from '@/types/finance';
-import { exportToPDF, exportToWord, parseCSVTransactions } from '@/lib/exportUtils';
-import { CashflowAreaChart, DebtDonutChart } from '@/components/AnalyticsCharts';
-import { BrandLogo } from '@/components/BrandLogo';
+import { Sidebar, type NavTab } from '@/components/shell/Sidebar';
+import { MobileHeader } from '@/components/shell/MobileHeader';
+import { BottomNav } from '@/components/shell/BottomNav';
+import { SettingsMenu } from '@/components/shell/SettingsMenu';
 import {
-  Wallet,
-  TrendingUp,
-  TrendingDown,
-  Camera,
-  Plus,
-  Trash2,
-  CheckCircle2,
-  LogOut,
-  Loader2,
-  Sparkles,
-  FileDown,
-  FileText,
-  Upload,
-  Shield,
-  LayoutDashboard,
-  ArrowLeftRight,
-  Landmark,
-  SlidersHorizontal,
-  Search,
-  X,
-  CalendarClock,
-  Calculator,
-  ArrowUpRight,
-  ArrowDownRight,
-  Users,
-  UserCheck,
-  KeyRound,
-  Lock,
-  Smartphone,
-  UserCircle,
-} from 'lucide-react';
+  QuickAddSheet,
+  initialQuickAddState,
+  type QuickAddState,
+} from '@/components/shell/QuickAddSheet';
+import { OverviewTab } from '@/components/tabs/OverviewTab';
+import { CashflowTab } from '@/components/tabs/CashflowTab';
+import { DebtsTab } from '@/components/tabs/DebtsTab';
+import { BudgetTab } from '@/components/tabs/BudgetTab';
+import { ToolsTab } from '@/components/tabs/ToolsTab';
+import { ProfileTab } from '@/components/tabs/ProfileTab';
+import { UsersTab, type ManagedUser } from '@/components/tabs/UsersTab';
+import { Modal } from '@/components/ui/Modal';
+import { Button } from '@/components/ui/Button';
+import { Input } from '@/components/ui/Field';
+import { createClient } from '@/lib/supabase/client';
+import type { Debt, Transaction, TransactionType, UserRole } from '@/types/finance';
+import {
+  exportToCSV,
+  exportToPDF,
+  exportToWord,
+  parseCSVTransactions,
+} from '@/lib/exportUtils';
+import { budgetStatuses } from '@/lib/budget';
+import { todayIso } from '@/lib/format';
+import { UserCheck } from 'lucide-react';
 
 interface DashboardClientProps {
   initialTransactions: Transaction[];
@@ -56,37 +50,31 @@ interface DashboardClientProps {
   impersonatingEmail?: string | null;
 }
 
-interface ManagedUser {
-  id: string;
-  email: string;
-  client_name: string;
-  role: UserRole;
-  created_at: string;
+interface DebtFormState {
+  platform: string;
+  contract: string;
+  balance: string;
+  installment: string;
+  tenor: string;
+  dueDay: string;
 }
 
-const formatRp = (amount: number) =>
-  new Intl.NumberFormat('id-ID', {
-    style: 'currency',
-    currency: 'IDR',
-    maximumFractionDigits: 0,
-  }).format(amount);
-
-const CATEGORIES = {
-  inflow: ['Gaji', 'Freelance', 'Bonus', 'Refund', 'Investasi', 'Lainnya'],
-  outflow: [
-    'Makan & Minum',
-    'Belanja',
-    'Transport',
-    'Tagihan & Cicilan',
-    'Hiburan',
-    'Kesehatan',
-    'Transfer',
-    'Lainnya',
-  ],
+const EMPTY_DEBT_FORM: DebtFormState = {
+  platform: '',
+  contract: '',
+  balance: '',
+  installment: '',
+  tenor: '',
+  dueDay: '',
 };
 
-type NavTab = 'overview' | 'cashflow' | 'debts' | 'tools' | 'profile' | 'users';
-
+/**
+ * Orquestrator dashboard.
+ *
+ * File ini hanya memegang state dan memanggil handler. Tampilan tiap tab
+ * ada di `components/tabs/`, dan bagian kerangka ada di `components/shell/`.
+ * Logic pengambilan data di `app/[locale]/page.tsx` tidak disentuh.
+ */
 export default function DashboardClient({
   initialTransactions,
   initialDebts,
@@ -99,13 +87,20 @@ export default function DashboardClient({
 }: DashboardClientProps) {
   const t = useTranslations();
   const tNav = useTranslations('nav');
+  const tCashflow = useTranslations('cashflow');
+  const tDebts = useTranslations('debts');
+  const tBudget = useTranslations('budget');
+  const tUsers = useTranslations('users');
+  const tSettings = useTranslations('settings.profile');
   const router = useRouter();
+
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
   const canEdit = userRole !== 'viewer';
 
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
+  const [transactions, setTransactions] =
+    useState<Transaction[]>(initialTransactions);
   const [debts, setDebts] = useState<Debt[]>(initialDebts);
   const [activeTab, setActiveTab] = useState<NavTab>('overview');
   const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
@@ -113,52 +108,29 @@ export default function DashboardClient({
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
 
-  // Debt Payoff Simulator Selection
+  // Simulasi pelunasan
   const [simSelectedIds, setSimSelectedIds] = useState<string[]>([]);
 
-  // Superadmin User Management State
+  // Manajemen user (superadmin)
   const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
-  const [adminToast, setAdminToast] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editUserEmail, setEditUserEmail] = useState('');
   const [editUserClient, setEditUserClient] = useState('');
 
-  const handleSaveUserEdit = async (userId: string) => {
-    setAdminToast(null);
-    const res = await fetch('/api/admin/users', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, email: editUserEmail, client_name: editUserClient }),
-    });
-    const json = await res.json();
-    if (res.ok) {
-      setManagedUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId ? { ...u, email: editUserEmail, client_name: editUserClient } : u
-        )
-      );
-      setEditingUserId(null);
-      setAdminToast('Data login user berhasil diperbarui.');
-    } else {
-      setAdminToast(json.error || 'Gagal memperbarui user.');
-    }
-  };
-
-  // Security: PIN Lock & 2FA Authenticator State
-  const [appPin, setAppPin] = useState<string>('');
+  // Keamanan: PIN & 2FA
+  const [appPin, setAppPin] = useState('');
   const [pinLocked, setPinLocked] = useState(false);
   const [pinInput, setPinInput] = useState('');
   const [newPinInput, setNewPinInput] = useState('');
   const [mfaQr, setMfaQr] = useState<string | null>(null);
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState('');
-  const [securityMsg, setSecurityMsg] = useState<string | null>(null);
 
-  // Profile Live State
+  // Profil
   const [profileUsername, setProfileUsername] = useState(
-    userEmail && !userEmail.includes('@') ? userEmail : (userEmail?.split('@')[0] || 'user')
+    userEmail && !userEmail.includes('@') ? userEmail : userEmail?.split('@')[0] || 'user'
   );
   const [profileEmail, setProfileEmail] = useState(
     userEmail && userEmail.includes('@') ? userEmail : ''
@@ -168,7 +140,7 @@ export default function DashboardClient({
     'Pengelola keuangan pribadi & pemantauan cashflow di stashinmeid.'
   );
 
-  // Profile Draft State (for Popup Modal so typing doesn't mutate background)
+  // Draft profil untuk modal edit
   const [draftUsername, setDraftUsername] = useState('');
   const [draftEmail, setDraftEmail] = useState('');
   const [draftClient, setDraftClient] = useState('');
@@ -176,16 +148,118 @@ export default function DashboardClient({
   const [profileNewPassword, setProfileNewPassword] = useState('');
   const [editingProfile, setEditingProfile] = useState(false);
   const [profileSaving, setProfileSaving] = useState(false);
-  const [saveConfirmMsg, setSaveConfirmMsg] = useState<string | null>(null);
 
-  const openEditProfile = () => {
-    setDraftUsername(profileUsername);
-    setDraftEmail(profileEmail);
-    setDraftClient(profileClient);
-    setDraftBio(profileBio);
-    setProfileNewPassword('');
-    setEditingProfile(true);
-  };
+  // Form transaksi
+  const [quickAdd, setQuickAdd] = useState<QuickAddState>(initialQuickAddState);
+  const [txLoading, setTxLoading] = useState(false);
+
+  // Pindai struk AI
+  const [scanning, setScanning] = useState(false);
+  const [scanMsg, setScanMsg] = useState<string | null>(null);
+
+  // Form pinjaman
+  const [showDebtForm, setShowDebtForm] = useState(false);
+  const [debtForm, setDebtForm] = useState<DebtFormState>(EMPTY_DEBT_FORM);
+
+  const budgets = useBudgets({ isDemoMode, isSuperadmin });
+
+  useEffect(() => {
+    const savedPin =
+      typeof window !== 'undefined' ? localStorage.getItem('stashinme_pin') : null;
+    if (savedPin) setAppPin(savedPin);
+  }, []);
+
+  // Sinkronkan state lokal dengan data dari server.
+  //
+  // Tanpa ini, `router.refresh()` (mis. setelah impersonate) tidak mengubah
+  // apa pun yang tampil: state di sini diinisialisasi sekali dari props.
+  // Identitas array props berubah setiap server render, jadi ini aman -
+  // pengubahan lokal (tambah/hapus transaksi) tidak memicu effect.
+  useEffect(() => {
+    setTransactions(initialTransactions);
+  }, [initialTransactions]);
+
+  useEffect(() => {
+    setDebts(initialDebts);
+  }, [initialDebts]);
+
+  // ------------------------------------------------------------------
+  // Metrik
+  // ------------------------------------------------------------------
+
+  const totalInflow = useMemo(
+    () =>
+      transactions
+        .filter((tx) => tx.type === 'inflow')
+        .reduce((sum, tx) => sum + Number(tx.amount), 0),
+    [transactions]
+  );
+
+  const totalOutflow = useMemo(
+    () =>
+      transactions
+        .filter((tx) => tx.type === 'outflow')
+        .reduce((sum, tx) => sum + Number(tx.amount), 0),
+    [transactions]
+  );
+
+  const netCashflow = totalInflow - totalOutflow;
+  const savingsRate =
+    totalInflow > 0 ? Math.max(0, Math.round((netCashflow / totalInflow) * 100)) : 0;
+
+  // Angka hero menghitung naik saat berubah - motion menjawab aksi.
+  const animatedBalance = useCountUp(netCashflow);
+
+  const activeDebts = useMemo(
+    () => debts.filter((d) => d.status === 'active'),
+    [debts]
+  );
+  const totalDebt = useMemo(
+    () => activeDebts.reduce((sum, d) => sum + Number(d.remaining_balance), 0),
+    [activeDebts]
+  );
+  const monthlyDebtBurden = useMemo(
+    () => activeDebts.reduce((sum, d) => sum + Number(d.monthly_installment || 0), 0),
+    [activeDebts]
+  );
+
+  const upcomingDebts = useMemo(
+    () =>
+      [...activeDebts]
+        .filter((d) => d.due_day !== null)
+        .sort((a, b) => (a.due_day || 31) - (b.due_day || 31))
+        .slice(0, 4),
+    [activeDebts]
+  );
+
+  const simStats = useMemo(() => {
+    const selected = activeDebts.filter((d) => simSelectedIds.includes(d.id));
+    return {
+      count: selected.length,
+      payoffNeeded: selected.reduce((s, d) => s + Number(d.remaining_balance), 0),
+      monthlySaved: selected.reduce(
+        (s, d) => s + Number(d.monthly_installment || 0),
+        0
+      ),
+    };
+  }, [activeDebts, simSelectedIds]);
+
+  const filteredTransactions = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return transactions.filter((tx) => {
+      const matchType = filterType === 'all' || tx.type === filterType;
+      const matchQuery =
+        !q ||
+        (tx.description || '').toLowerCase().includes(q) ||
+        tx.category.toLowerCase().includes(q);
+      return matchType && matchQuery;
+    });
+  }, [transactions, filterType, searchQuery]);
+
+  const budgetList = useMemo(
+    () => budgetStatuses(budgets.budgets, transactions),
+    [budgets.budgets, transactions]
+  );
 
   const profileCompleteness = useMemo(() => {
     let score = 40;
@@ -196,317 +270,131 @@ export default function DashboardClient({
     return Math.min(100, score);
   }, [profileUsername, profileEmail, profileClient, appPin]);
 
-  const handleSaveProfile = async (e: React.FormEvent) => {
+  // ------------------------------------------------------------------
+  // Transaksi
+  // ------------------------------------------------------------------
+
+  const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSecurityMsg(null);
-    setProfileSaving(true);
+    const amountNum = Number(quickAdd.amount);
+    if (!amountNum || amountNum <= 0) return;
 
-    if (isSuperadmin) {
-      const res = await fetch('/api/superadmin/finance', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          table: 'profiles',
-          updates: {
-            client_name: draftClient,
-            ...(draftEmail && draftEmail.includes('@') ? { email: draftEmail } : {}),
-          },
-        }),
-      });
-      if (!res.ok) {
-        const j = await res.json();
-        setSecurityMsg(j.error || 'Gagal menyimpan ke database.');
-        setProfileSaving(false);
-        return;
-      }
-      setProfileUsername(draftUsername);
-      setProfileEmail(draftEmail);
-      setProfileClient(draftClient);
-      setProfileBio(draftBio);
-      setProfileNewPassword('');
-      setEditingProfile(false);
-      setSaveConfirmMsg('Perubahan profil berhasil disimpan permanen ke database!');
-      setProfileSaving(false);
-      return;
-    }
-
-    if (!supabase || isDemoMode) {
-      setProfileUsername(draftUsername);
-      setProfileEmail(draftEmail);
-      setProfileClient(draftClient);
-      setProfileBio(draftBio);
-      setEditingProfile(false);
-      setSaveConfirmMsg('Profil tersimpan di sesi lokal.');
-      setProfileSaving(false);
-      return;
-    }
-
-    const updates: { email?: string; password?: string } = {};
-    if (draftEmail && draftEmail !== profileEmail) updates.email = draftEmail;
-    if (profileNewPassword.length >= 8) updates.password = profileNewPassword;
-
-    if (Object.keys(updates).length > 0) {
-      const { error } = await supabase.auth.updateUser(updates);
-      if (error) {
-        setSecurityMsg(error.message);
-        setProfileSaving(false);
-        return;
-      }
-    }
-
-    const { data: userData } = await supabase.auth.getUser();
-    if (userData.user) {
-      await supabase
-        .from('profiles')
-        .update({ client_name: draftClient })
-        .eq('id', userData.user.id);
-    }
-
-    setProfileUsername(draftUsername);
-    setProfileEmail(draftEmail);
-    setProfileClient(draftClient);
-    setProfileBio(draftBio);
-    setProfileNewPassword('');
-    setEditingProfile(false);
-    setSaveConfirmMsg('Perubahan profil & akun berhasil disimpan!');
-    setProfileSaving(false);
-  };
-
-  useEffect(() => {
-    const savedPin = typeof window !== 'undefined' ? localStorage.getItem('stashinme_pin') : null;
-    if (savedPin) {
-      setAppPin(savedPin);
-    }
-  }, []);
-
-  const handleSavePin = () => {
-    if (!/^\d{6}$/.test(newPinInput)) {
-      setSecurityMsg('PIN harus tepat 6 digit angka.');
-      return;
-    }
-    localStorage.setItem('stashinme_pin', newPinInput);
-    setAppPin(newPinInput);
-    setNewPinInput('');
-    setSecurityMsg('PIN 6-digit berhasil diaktifkan!');
-  };
-
-  const handleRemovePin = () => {
-    localStorage.removeItem('stashinme_pin');
-    setAppPin('');
-    setPinLocked(false);
-    setSecurityMsg('PIN dinonaktifkan.');
-  };
-
-  const handleEnroll2FA = async () => {
-    setSecurityMsg(null);
-    if (!supabase || isDemoMode) {
-      setSecurityMsg('Login dengan akun Supabase (email) untuk mengaktifkan 2FA Authenticator.');
-      return;
-    }
-    const { data, error } = await supabase.auth.mfa.enroll({
-      factorType: 'totp',
-      friendlyName: 'stashinmeid Authenticator',
-    });
-    if (error) {
-      setSecurityMsg(error.message);
-      return;
-    }
-    setMfaFactorId(data.id);
-    setMfaQr(data.totp.qr_code);
-    setSecurityMsg('Scan QR Code ini di Google Authenticator / Authy lalu masukkan kode 6 digit.');
-  };
-
-  const handleVerify2FA = async () => {
-    if (!supabase || !mfaFactorId || !mfaCode) return;
-    const { data: challenge, error: chErr } = await supabase.auth.mfa.challenge({
-      factorId: mfaFactorId,
-    });
-    if (chErr) {
-      setSecurityMsg(chErr.message);
-      return;
-    }
-    const { error } = await supabase.auth.mfa.verify({
-      factorId: mfaFactorId,
-      challengeId: challenge.id,
-      code: mfaCode,
-    });
-    if (error) {
-      setSecurityMsg(error.message);
-    } else {
-      setMfaQr(null);
-      setMfaCode('');
-      setSecurityMsg('2FA Authenticator berhasil diaktifkan!');
-    }
-  };
-
-  const handleAdminResetPassword = async (email: string) => {
-    setAdminToast(null);
-    const res = await fetch('/api/admin/reset-password', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
-    });
-    const json = await res.json();
-    setAdminToast(res.ok ? json.message : json.error || 'Gagal kirim reset password.');
-  };
-
-  const loadManagedUsers = async () => {
-    if (!isSuperadmin) return;
-    setUsersLoading(true);
-    setUsersError(null);
-    try {
-      const res = await fetch('/api/admin/users');
-      const json = await res.json();
-      if (json.error) setUsersError(json.error);
-      setManagedUsers(json.users || []);
-    } catch {
-      setUsersError('Gagal memuat daftar user.');
-    } finally {
-      setUsersLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab === 'users' && isSuperadmin) {
-      loadManagedUsers();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, isSuperadmin]);
-
-  const handleImpersonate = async (u: ManagedUser) => {
-    const res = await fetch('/api/admin/impersonate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId: u.id, email: u.email, clientName: u.client_name }),
-    });
-    if (res.ok) {
-      router.refresh();
-      window.location.href = '/';
-    }
-  };
-
-  const handleStopImpersonate = async () => {
-    const res = await fetch('/api/admin/impersonate', { method: 'DELETE' });
-    if (res.ok) {
-      router.refresh();
-      window.location.href = '/';
-    }
-  };
-
-  const handleChangeUserRole = async (userId: string, role: UserRole) => {
-    const res = await fetch('/api/admin/users', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, role }),
-    });
-    if (res.ok) {
-      setManagedUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
-    }
-  };
-
-  const handleDeleteUser = async (userId: string) => {
-    const res = await fetch('/api/admin/users', {
-      method: 'DELETE',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId }),
-    });
-    if (res.ok) {
-      setManagedUsers((prev) => prev.filter((u) => u.id !== userId));
-    }
-  };
-
-  // Transaction Form State
-  const [txType, setTxType] = useState<TransactionType>('outflow');
-  const [txAmount, setTxAmount] = useState('');
-  const [txCategory, setTxCategory] = useState('Makan & Minum');
-  const [txDesc, setTxDesc] = useState('');
-  const [txDate, setTxDate] = useState('');
-  const [txLoading, setTxLoading] = useState(false);
-
-  useEffect(() => {
-    setTxDate(new Date().toISOString().split('T')[0]);
-  }, []);
-
-  // AI Scan State
-  const [scanning, setScanning] = useState(false);
-  const [scanMsg, setScanMsg] = useState<string | null>(null);
-
-  // Debt Form State
-  const [showDebtForm, setShowDebtForm] = useState(false);
-  const [debtPlatform, setDebtPlatform] = useState('');
-  const [debtContract, setDebtContract] = useState('');
-  const [debtBalance, setDebtBalance] = useState('');
-  const [debtInstallment, setDebtInstallment] = useState('');
-  const [debtTenor, setDebtTenor] = useState('');
-  const [debtDueDay, setDebtDueDay] = useState('');
-
-  // Metrics
-  const totalInflow = useMemo(
-    () =>
-      transactions
-        .filter((t) => t.type === 'inflow')
-        .reduce((sum, t) => sum + Number(t.amount), 0),
-    [transactions]
-  );
-
-  const totalOutflow = useMemo(
-    () =>
-      transactions
-        .filter((t) => t.type === 'outflow')
-        .reduce((sum, t) => sum + Number(t.amount), 0),
-    [transactions]
-  );
-
-  const netCashflow = totalInflow - totalOutflow;
-  const savingsRate = totalInflow > 0 ? Math.max(0, Math.round((netCashflow / totalInflow) * 100)) : 0;
-
-  const activeDebts = useMemo(() => debts.filter((d) => d.status === 'active'), [debts]);
-  const totalDebt = useMemo(
-    () => activeDebts.reduce((sum, d) => sum + Number(d.remaining_balance), 0),
-    [activeDebts]
-  );
-  const monthlyDebtBurden = useMemo(
-    () => activeDebts.reduce((sum, d) => sum + Number(d.monthly_installment || 0), 0),
-    [activeDebts]
-  );
-
-  // Upcoming bills sorted by due_day
-  const upcomingDebts = useMemo(() => {
-    return [...activeDebts]
-      .filter((d) => d.due_day !== null)
-      .sort((a, b) => (a.due_day || 31) - (b.due_day || 31))
-      .slice(0, 4);
-  }, [activeDebts]);
-
-  // Payoff Simulator Calculation
-  const simStats = useMemo(() => {
-    const selected = activeDebts.filter((d) => simSelectedIds.includes(d.id));
-    return {
-      count: selected.length,
-      payoffNeeded: selected.reduce((s, d) => s + Number(d.remaining_balance), 0),
-      monthlySaved: selected.reduce((s, d) => s + Number(d.monthly_installment || 0), 0),
+    setTxLoading(true);
+    const newTx: Transaction = {
+      id: crypto.randomUUID(),
+      type: quickAdd.type,
+      amount: amountNum,
+      category: quickAdd.category,
+      description: quickAdd.description || null,
+      transaction_date: quickAdd.date || todayIso(),
+      source: scanMsg ? 'ai_scan' : 'manual',
     };
-  }, [activeDebts, simSelectedIds]);
 
-  const toggleSimDebt = (id: string) => {
-    setSimSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
+    try {
+      if (!isDemoMode && isSuperadmin) {
+        const res = await fetch('/api/superadmin/finance', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            table: 'transactions',
+            payload: {
+              type: newTx.type,
+              amount: newTx.amount,
+              category: newTx.category,
+              description: newTx.description,
+              transaction_date: newTx.transaction_date,
+              source: newTx.source,
+            },
+          }),
+        });
+        const json = await res.json();
+        if (res.ok && json.data?.[0]) {
+          setTransactions((prev) => [json.data[0], ...prev]);
+        } else {
+          toast.error(json.error || t('quickAdd.failed'));
+          return;
+        }
+      } else if (!isDemoMode && supabase) {
+        const { data: userData } = await supabase.auth.getUser();
+        if (userData.user) {
+          const { data, error } = await supabase
+            .from('transactions')
+            .insert({
+              user_id: userData.user.id,
+              type: newTx.type,
+              amount: newTx.amount,
+              category: newTx.category,
+              description: newTx.description,
+              transaction_date: newTx.transaction_date,
+              source: newTx.source,
+            })
+            .select()
+            .single();
+
+          if (error) {
+            toast.error(error.message);
+            return;
+          }
+          if (data) setTransactions((prev) => [data, ...prev]);
+        }
+      } else {
+        setTransactions((prev) => [newTx, ...prev]);
+      }
+
+      setQuickAdd(initialQuickAddState());
+      setScanMsg(null);
+      setShowQuickAdd(false);
+      toast.success(t('quickAdd.saved'));
+    } finally {
+      setTxLoading(false);
+    }
   };
 
-  const filteredTransactions = useMemo(() => {
-    return transactions.filter((t) => {
-      const matchType = filterType === 'all' || t.type === filterType;
-      const q = searchQuery.trim().toLowerCase();
-      const matchQuery =
-        !q ||
-        (t.description || '').toLowerCase().includes(q) ||
-        t.category.toLowerCase().includes(q);
-      return matchType && matchQuery;
-    });
-  }, [transactions, filterType, searchQuery]);
+  /**
+   * Hapus transaksi dengan jeda 5 detik.
+   *
+   * Baris langsung hilang dari layar supaya feels-nya responsif, tapi datanya
+   * masih ada di state sampai:jeda habis. Kalau user menekan Batal, transaksi
+   * dikembalikan tanpa perlu query ulang.
+   */
+  const handleDeleteTransaction = async (id: string) => {
+    const tx = transactions.find((x) => x.id === id);
+    if (!tx) return;
 
-  // AI Image Scan Handler
+    setTransactions((prev) => prev.filter((x) => x.id !== id));
+
+    // Hapus permanen setelah jeda undo habis.
+    const timer = setTimeout(async () => {
+      try {
+        if (!isDemoMode && isSuperadmin) {
+          await fetch('/api/superadmin/finance', {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ table: 'transactions', id }),
+          });
+        } else if (!isDemoMode && supabase) {
+          await supabase.from('transactions').delete().eq('id', id);
+        }
+      } catch {
+        // Kegagalan di backend tidak bisa dipulihkan dari sisi client, tapi
+        // barisnya sudah hilang dari layar - beri tahu user agar mengecek.
+        toast.error(t('errors.generic'));
+      }
+    }, 5000);
+
+    toast(tCashflow('deleted'), {
+      action: {
+        label: t('common.undo'),
+        onClick: () => {
+          clearTimeout(timer);
+          setTransactions((prev) => [tx, ...prev]);
+          toast.success(tCashflow('restored'));
+        },
+      },
+      duration: 5000,
+    });
+  };
+
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -526,119 +414,83 @@ export default function DashboardClient({
 
       const json = await res.json();
       if (!res.ok) {
-        setScanMsg(json.error || 'Gagal membaca gambar.');
+        setScanMsg(json.error || t('tools.scanFailed'));
       } else if (json.data) {
         const d = json.data;
-        setTxType(d.type === 'inflow' ? 'inflow' : 'outflow');
-        setTxAmount(String(d.amount || ''));
-        setTxCategory(d.category || 'Lainnya');
-        setTxDesc(d.description || '');
-        if (d.transaction_date) setTxDate(d.transaction_date);
-        setScanMsg('Berhasil dibaca AI! Cek datanya lalu klik Simpan.');
+        setQuickAdd((prev) => ({
+          ...prev,
+          type: d.type === 'inflow' ? 'inflow' : 'outflow',
+          amount: String(d.amount || ''),
+          category: d.category || 'Lainnya',
+          description: d.description || '',
+          date: d.transaction_date || prev.date,
+        }));
+        setScanMsg(t('tools.scanSuccess'));
       }
     } catch {
-      setScanMsg('Terjadi kesalahan saat menghubungi AI.');
+      setScanMsg(t('tools.scanFailed'));
     } finally {
       setScanning(false);
       if (fileInputRef.current) fileInputRef.current.value = '';
     }
   };
 
-  // Add Transaction
-  const handleAddTransaction = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const amountNum = Number(txAmount);
-    if (!amountNum || amountNum <= 0) return;
+  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !canEdit) return;
 
-    setTxLoading(true);
-    const newTx: Transaction = {
-      id: crypto.randomUUID(),
-      type: txType,
-      amount: amountNum,
-      category: txCategory,
-      description: txDesc || null,
-      transaction_date: txDate || new Date().toISOString().split('T')[0],
-      source: scanMsg ? 'ai_scan' : 'manual',
-    };
+    const text = await file.text();
+    const parsed = parseCSVTransactions(text);
+    if (parsed.length === 0) {
+      toast.error(t('tools.importFailed'));
+      if (csvInputRef.current) csvInputRef.current.value = '';
+      return;
+    }
 
-    if (!isDemoMode && isSuperadmin) {
-      const res = await fetch('/api/superadmin/finance', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          table: 'transactions',
-          payload: {
-            type: newTx.type,
-            amount: newTx.amount,
-            category: newTx.category,
-            description: newTx.description,
-            transaction_date: newTx.transaction_date,
-            source: newTx.source,
-          },
-        }),
-      });
-      const json = await res.json();
-      if (res.ok && json.data?.[0]) {
-        setTransactions((prev) => [json.data[0], ...prev]);
-      }
-    } else if (!isDemoMode && supabase) {
+    if (!isDemoMode && supabase) {
       const { data: userData } = await supabase.auth.getUser();
       if (userData.user) {
+        const rows = parsed.map((p) => ({ ...p, user_id: userData.user!.id }));
         const { data, error } = await supabase
           .from('transactions')
-          .insert({
-            user_id: userData.user.id,
-            type: newTx.type,
-            amount: newTx.amount,
-            category: newTx.category,
-            description: newTx.description,
-            transaction_date: newTx.transaction_date,
-            source: newTx.source,
-          })
-          .select()
-          .single();
-
-        if (!error && data) {
-          setTransactions((prev) => [data, ...prev]);
+          .insert(rows)
+          .select();
+        if (error) {
+          toast.error(t('tools.importFailed'));
+        } else if (data) {
+          setTransactions((prev) => [...(data as Transaction[]), ...prev]);
+          toast.success(t('tools.importSuccess', { count: data.length }));
         }
       }
     } else {
-      setTransactions((prev) => [newTx, ...prev]);
+      const withIds: Transaction[] = parsed.map((p) => ({
+        ...p,
+        id: crypto.randomUUID(),
+      }));
+      setTransactions((prev) => [...withIds, ...prev]);
+      toast.success(t('tools.importSuccess', { count: withIds.length }));
     }
 
-    setTxAmount('');
-    setTxDesc('');
-    setScanMsg(null);
-    setTxLoading(false);
-    setShowQuickAdd(false);
+    if (csvInputRef.current) csvInputRef.current.value = '';
   };
 
-  const handleDeleteTransaction = async (id: string) => {
-    if (!isDemoMode && isSuperadmin) {
-      await fetch('/api/superadmin/finance', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ table: 'transactions', id }),
-      });
-    } else if (!isDemoMode && supabase) {
-      await supabase.from('transactions').delete().eq('id', id);
-    }
-    setTransactions((prev) => prev.filter((t) => t.id !== id));
-  };
+  // ------------------------------------------------------------------
+  // Pinjaman
+  // ------------------------------------------------------------------
 
   const handleAddDebt = async (e: React.FormEvent) => {
     e.preventDefault();
-    const balanceNum = Number(debtBalance);
-    const installmentNum = Number(debtInstallment) || 0;
-    const tenorNum = Number(debtTenor) || null;
-    const dueNum = Number(debtDueDay) || null;
+    const balanceNum = Number(debtForm.balance);
+    const installmentNum = Number(debtForm.installment) || 0;
+    const tenorNum = Number(debtForm.tenor) || null;
+    const dueNum = Number(debtForm.dueDay) || null;
 
-    if (!debtPlatform || !balanceNum) return;
+    if (!debtForm.platform || !balanceNum) return;
 
     const newDebt: Debt = {
       id: crypto.randomUUID(),
-      platform: debtPlatform,
-      contract_no: debtContract || null,
+      platform: debtForm.platform,
+      contract_no: debtForm.contract || null,
       total_tenor: tenorNum,
       remaining_tenor: tenorNum,
       due_day: dueNum,
@@ -689,21 +541,15 @@ export default function DashboardClient({
           .select()
           .single();
 
-        if (!error && data) {
-          setDebts((prev) => [data, ...prev]);
-        }
+        if (!error && data) setDebts((prev) => [data, ...prev]);
       }
     } else {
       setDebts((prev) => [newDebt, ...prev]);
     }
 
-    setDebtPlatform('');
-    setDebtContract('');
-    setDebtBalance('');
-    setDebtInstallment('');
-    setDebtTenor('');
-    setDebtDueDay('');
+    setDebtForm(EMPTY_DEBT_FORM);
     setShowDebtForm(false);
+    toast.success(tDebts('added'));
   };
 
   const handlePayDebt = async (debt: Debt) => {
@@ -713,7 +559,9 @@ export default function DashboardClient({
         : debt.remaining_balance;
 
     const newBalance = Math.max(0, debt.remaining_balance - payAmount);
-    const newTenor = debt.remaining_tenor ? Math.max(0, debt.remaining_tenor - 1) : null;
+    const newTenor = debt.remaining_tenor
+      ? Math.max(0, debt.remaining_tenor - 1)
+      : null;
     const newStatus = newBalance === 0 ? 'paid_off' : 'active';
 
     if (!isDemoMode && supabase) {
@@ -736,7 +584,7 @@ export default function DashboardClient({
             amount: payAmount,
             category: 'Tagihan & Cicilan',
             description: `Bayar cicilan ${debt.platform}`,
-            transaction_date: new Date().toISOString().split('T')[0],
+            transaction_date: todayIso(),
             source: 'debt_payment',
           })
           .select()
@@ -751,7 +599,7 @@ export default function DashboardClient({
           amount: payAmount,
           category: 'Tagihan & Cicilan',
           description: `Bayar cicilan ${debt.platform}`,
-          transaction_date: new Date().toISOString().split('T')[0],
+          transaction_date: todayIso(),
           source: 'debt_payment',
         },
         ...prev,
@@ -770,6 +618,7 @@ export default function DashboardClient({
           : d
       )
     );
+    toast.success(tDebts('card.paidToast'));
   };
 
   const handleDeleteDebt = async (id: string) => {
@@ -783,61 +632,347 @@ export default function DashboardClient({
       await supabase.from('debts').delete().eq('id', id);
     }
     setDebts((prev) => prev.filter((d) => d.id !== id));
+    toast.success(tDebts('deleted'));
+  };
+
+  // ------------------------------------------------------------------
+  // Profil & keamanan
+  // ------------------------------------------------------------------
+
+  const openEditProfile = () => {
+    setDraftUsername(profileUsername);
+    setDraftEmail(profileEmail);
+    setDraftClient(profileClient);
+    setDraftBio(profileBio);
+    setProfileNewPassword('');
+    setEditingProfile(true);
+  };
+
+  const handleSaveProfile = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setProfileSaving(true);
+
+    if (isSuperadmin) {
+      const res = await fetch('/api/superadmin/finance', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'profiles',
+          updates: {
+            client_name: draftClient,
+            ...(draftEmail && draftEmail.includes('@') ? { email: draftEmail } : {}),
+          },
+        }),
+      });
+      if (!res.ok) {
+        const j = await res.json();
+        toast.error(j.error || tSettings('saveFailed'));
+        setProfileSaving(false);
+        return;
+      }
+      setProfileUsername(draftUsername);
+      setProfileEmail(draftEmail);
+      setProfileClient(draftClient);
+      setProfileBio(draftBio);
+      setProfileNewPassword('');
+      setEditingProfile(false);
+      toast.success(tSettings('saved'));
+      setProfileSaving(false);
+      return;
+    }
+
+    if (!supabase || isDemoMode) {
+      setProfileUsername(draftUsername);
+      setProfileEmail(draftEmail);
+      setProfileClient(draftClient);
+      setProfileBio(draftBio);
+      setEditingProfile(false);
+      toast.success(tSettings('saved'));
+      setProfileSaving(false);
+      return;
+    }
+
+    const updates: { email?: string; password?: string } = {};
+    if (draftEmail && draftEmail !== profileEmail) updates.email = draftEmail;
+    if (profileNewPassword.length >= 8) updates.password = profileNewPassword;
+
+    if (Object.keys(updates).length > 0) {
+      const { error } = await supabase.auth.updateUser(updates);
+      if (error) {
+        toast.error(error.message);
+        setProfileSaving(false);
+        return;
+      }
+    }
+
+    const { data: userData } = await supabase.auth.getUser();
+    if (userData.user) {
+      await supabase
+        .from('profiles')
+        .update({ client_name: draftClient })
+        .eq('id', userData.user.id);
+    }
+
+    setProfileUsername(draftUsername);
+    setProfileEmail(draftEmail);
+    setProfileClient(draftClient);
+    setProfileBio(draftBio);
+    setProfileNewPassword('');
+    setEditingProfile(false);
+    toast.success(tSettings('saved'));
+    setProfileSaving(false);
+  };
+
+  const handleSavePin = () => {
+    if (!/^\d{6}$/.test(newPinInput)) {
+      toast.error(t('settings.security.pinInvalid'));
+      return;
+    }
+    localStorage.setItem('stashinme_pin', newPinInput);
+    setAppPin(newPinInput);
+    setNewPinInput('');
+    toast.success(t('settings.security.pinSaved'));
+  };
+
+  const handleRemovePin = () => {
+    localStorage.removeItem('stashinme_pin');
+    setAppPin('');
+    setPinLocked(false);
+    toast.success(t('settings.security.pinRemoved'));
+  };
+
+  const handleEnroll2FA = async () => {
+    if (!supabase || isDemoMode) {
+      toast.error(t('settings.security.twofaNeedLogin'));
+      return;
+    }
+    const { data, error } = await supabase.auth.mfa.enroll({
+      factorType: 'totp',
+      friendlyName: 'stashinmeid Authenticator',
+    });
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setMfaFactorId(data.id);
+    setMfaQr(data.totp.qr_code);
+  };
+
+  const handleVerify2FA = async () => {
+    if (!supabase || !mfaFactorId || !mfaCode) return;
+    const { data: challenge, error: chErr } = await supabase.auth.mfa.challenge({
+      factorId: mfaFactorId,
+    });
+    if (chErr) {
+      toast.error(chErr.message);
+      return;
+    }
+    const { error } = await supabase.auth.mfa.verify({
+      factorId: mfaFactorId,
+      challengeId: challenge.id,
+      code: mfaCode,
+    });
+    if (error) {
+      toast.error(error.message);
+    } else {
+      setMfaQr(null);
+      setMfaCode('');
+      toast.success(t('settings.security.twofaActive'));
+    }
   };
 
   const handleLogout = async () => {
     await fetch('/api/auth/superadmin', { method: 'DELETE' });
-    if (supabase) {
-      await supabase.auth.signOut();
-    }
+    if (supabase) await supabase.auth.signOut();
     router.push('/login');
     router.refresh();
   };
 
-  const handleCSVImport = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file || !canEdit) return;
+  // ------------------------------------------------------------------
+  // Manajemen user (superadmin)
+  // ------------------------------------------------------------------
 
-    const text = await file.text();
-    const parsed = parseCSVTransactions(text);
-    if (parsed.length === 0) return;
-
-    if (!isDemoMode && supabase) {
-      const { data: userData } = await supabase.auth.getUser();
-      if (userData.user) {
-        const rows = parsed.map((p) => ({ ...p, user_id: userData.user!.id }));
-        const { data, error } = await supabase.from('transactions').insert(rows).select();
-        if (!error && data) {
-          setTransactions((prev) => [...(data as Transaction[]), ...prev]);
-        }
-      }
-    } else {
-      const withIds: Transaction[] = parsed.map((p) => ({ ...p, id: crypto.randomUUID() }));
-      setTransactions((prev) => [...withIds, ...prev]);
+  const loadManagedUsers = useCallback(async () => {
+    if (!isSuperadmin) return;
+    setUsersLoading(true);
+    setUsersError(null);
+    try {
+      const res = await fetch('/api/admin/users');
+      const json = await res.json();
+      if (json.error) setUsersError(json.error);
+      setManagedUsers(json.users || []);
+    } catch {
+      setUsersError(t('errors.generic'));
+    } finally {
+      setUsersLoading(false);
     }
+  }, [isSuperadmin, t]);
 
-    if (csvInputRef.current) csvInputRef.current.value = '';
+  useEffect(() => {
+    if (activeTab === 'users' && isSuperadmin) {
+      void loadManagedUsers();
+    }
+  }, [activeTab, isSuperadmin, loadManagedUsers]);
+
+  const handleSaveUserEdit = async (userId: string) => {
+    const res = await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId,
+        email: editUserEmail,
+        client_name: editUserClient,
+      }),
+    });
+    const json = await res.json();
+    if (res.ok) {
+      setManagedUsers((prev) =>
+        prev.map((u) =>
+          u.id === userId
+            ? { ...u, email: editUserEmail, client_name: editUserClient }
+            : u
+        )
+      );
+      setEditingUserId(null);
+      toast.success(tUsers('saved'));
+    } else {
+      toast.error(json.error || t('errors.generic'));
+    }
   };
 
-  const navItems: { id: NavTab; label: string; icon: React.ReactNode }[] = [
-    { id: 'overview', label: tNav('overview'), icon: <LayoutDashboard className="w-5 h-5" /> },
-    { id: 'cashflow', label: tNav('cashflow'), icon: <ArrowLeftRight className="w-5 h-5" /> },
-    { id: 'debts', label: tNav('debts'), icon: <Landmark className="w-5 h-5" /> },
-    { id: 'tools', label: tNav('more'), icon: <SlidersHorizontal className="w-5 h-5" /> },
-  ];
+  const handleChangeUserRole = async (userId: string, role: UserRole) => {
+    const res = await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, role }),
+    });
+    if (res.ok) {
+      setManagedUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
+      toast.success(tUsers('saved'));
+    }
+  };
+
+  const handleAdminResetPassword = async (email: string) => {
+    const res = await fetch('/api/admin/reset-password', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const json = await res.json();
+    if (res.ok) {
+      toast.success(tUsers('resetSent', { email }));
+    } else {
+      toast.error(json.error || t('errors.generic'));
+    }
+  };
+
+  const handleImpersonate = async (u: ManagedUser) => {
+    const res = await fetch('/api/admin/impersonate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId: u.id,
+        email: u.email,
+        clientName: u.client_name,
+      }),
+    });
+    if (res.ok) {
+      // Muat ulang dari server supaya session impersonate langsung berlaku.
+      router.refresh();
+    }
+  };
+
+  const handleStopImpersonate = async () => {
+    const res = await fetch('/api/admin/impersonate', { method: 'DELETE' });
+    if (res.ok) {
+      router.refresh();
+    }
+  };
+
+  const handleDeleteUser = async (userId: string) => {
+    const res = await fetch('/api/admin/users', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId }),
+    });
+    if (res.ok) {
+      setManagedUsers((prev) => prev.filter((u) => u.id !== userId));
+      toast.success(tUsers('deleteUserDone'));
+    }
+  };
+
+  // ------------------------------------------------------------------
+  // Ekspor
+  // ------------------------------------------------------------------
+
+  const handleExportCsv = () => {
+    exportToCSV(transactions, debts, profileClient || clientName);
+    toast.success(t('tools.exported'));
+  };
+
+  const handleExportPdf = () => {
+    exportToPDF(transactions, debts, profileClient || clientName);
+    toast.success(t('tools.exported'));
+  };
+
+  const handleExportWord = () => {
+    void exportToWord(transactions, debts, profileClient || clientName);
+    toast.success(t('tools.exported'));
+  };
+
+  // ------------------------------------------------------------------
+  // Navigasi
+  // ------------------------------------------------------------------
+
+  const navigate = useCallback((tab: NavTab) => {
+    setActiveTab(tab);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, []);
 
   const paletteActions: CommandAction[] = [
-    { id: 'go-overview', label: tNav('overview'), group: 'navigate', onSelect: () => setActiveTab('overview') },
-    { id: 'go-cashflow', label: tNav('cashflow'), group: 'navigate', onSelect: () => setActiveTab('cashflow') },
-    { id: 'go-debts', label: tNav('debts'), group: 'navigate', onSelect: () => setActiveTab('debts') },
-    { id: 'go-profile', label: tNav('profile'), group: 'navigate', onSelect: () => setActiveTab('profile') },
+    {
+      id: 'go-overview',
+      label: tNav('overview'),
+      group: 'navigate',
+      onSelect: () => navigate('overview'),
+    },
+    {
+      id: 'go-cashflow',
+      label: tNav('cashflow'),
+      group: 'navigate',
+      onSelect: () => navigate('cashflow'),
+    },
+    {
+      id: 'go-debts',
+      label: tNav('debts'),
+      group: 'navigate',
+      onSelect: () => navigate('debts'),
+    },
+    {
+      id: 'go-budget',
+      label: tBudget('title'),
+      group: 'navigate',
+      onSelect: () => navigate('budget'),
+    },
+    {
+      id: 'go-tools',
+      label: t('tools.title'),
+      group: 'navigate',
+      onSelect: () => navigate('tools'),
+    },
+    {
+      id: 'go-profile',
+      label: tNav('profile'),
+      group: 'navigate',
+      onSelect: () => navigate('profile'),
+    },
     ...(isSuperadmin
       ? [
           {
             id: 'go-users',
             label: tNav('users'),
             group: 'navigate' as const,
-            onSelect: () => setActiveTab('users'),
+            onSelect: () => navigate('users'),
           },
         ]
       : []),
@@ -861,13 +996,214 @@ export default function DashboardClient({
 
   useHotkey('mod+k', () => setCommandOpen(true));
 
-  return (
-    <div className="relative min-h-screen bg-[var(--bg)] text-[var(--text)] flex flex-col lg:flex-row pb-20 lg:pb-0 overflow-x-hidden">
-      {/* Ambient Coral & Indigo Mesh Glows */}
-      <div className="pointer-events-none fixed top-0 left-1/4 w-[500px] h-[500px] rounded-full bg-rose-500/10 blur-[120px]" />
-      <div className="pointer-events-none fixed bottom-0 right-1/4 w-[500px] h-[500px] rounded-full bg-indigo-500/10 blur-[120px]" />
+  // ------------------------------------------------------------------
+  // Render
+  // ------------------------------------------------------------------
 
-      {/* Hidden Inputs */}
+  const settingsMenuProps = {
+    canEdit,
+    showUsers: isSuperadmin,
+    onProfile: () => navigate('profile'),
+    onUsers: () => navigate('users'),
+    onScan: () => fileInputRef.current?.click(),
+    onImport: () => csvInputRef.current?.click(),
+    onExportPdf: handleExportPdf,
+    onExportWord: handleExportWord,
+    onExportCsv: handleExportCsv,
+  };
+
+  return (
+    <div className="flex min-h-screen flex-col bg-[var(--bg)] text-[var(--text)] lg:flex-row lg:pb-0">
+      <Sidebar
+        activeTab={activeTab}
+        onNavigate={navigate}
+        profileClient={profileClient}
+        profileEmail={profileEmail}
+        profileUsername={profileUsername}
+        userRole={userRole}
+        isSuperadmin={isSuperadmin}
+        onLogout={handleLogout}
+      />
+
+      <div className="flex min-w-0 flex-1 flex-col lg:pl-60">
+        <MobileHeader
+          profileClient={profileClient}
+          isSuperadmin={isSuperadmin}
+          canEdit={canEdit}
+          onProfile={() => navigate('profile')}
+          onUsers={() => navigate('users')}
+          onScan={() => fileInputRef.current?.click()}
+          onImport={() => csvInputRef.current?.click()}
+          onExportPdf={handleExportPdf}
+          onExportWord={handleExportWord}
+          onExportCsv={handleExportCsv}
+          onLogout={handleLogout}
+        />
+
+        <div className="hidden items-center justify-end gap-3 border-b border-[var(--line)] bg-[var(--bg)]/90 px-6 py-3 backdrop-blur-xl lg:sticky lg:top-0 lg:z-20 lg:flex">
+          <SettingsMenu {...settingsMenuProps} />
+        </div>
+
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-5 lg:px-8 lg:pb-10">
+          {impersonatingEmail && (
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--info)]/30 bg-[var(--info-soft)] px-4 py-3 text-[12px] text-[var(--info)]">
+              <span className="inline-flex items-center gap-2">
+                <UserCheck className="size-4 shrink-0" aria-hidden />
+                {tUsers('impersonating', { email: impersonatingEmail })}
+              </span>
+              <Button size="sm" onClick={handleStopImpersonate}>
+                {tUsers('stopImpersonate')}
+              </Button>
+            </div>
+          )}
+
+              {activeTab === 'overview' && (
+                <OverviewTab
+                  transactions={transactions}
+                  debts={debts}
+                  totalInflow={totalInflow}
+                  totalOutflow={totalOutflow}
+                  netCashflow={animatedBalance}
+                  savingsRate={savingsRate}
+                  totalDebt={totalDebt}
+                  monthlyDebtBurden={monthlyDebtBurden}
+                  activeDebtCount={activeDebts.length}
+                  upcomingDebts={upcomingDebts}
+                  budgetStatuses={budgetList}
+                  canEdit={canEdit}
+                  scanning={scanning}
+                  onQuickAdd={() => setShowQuickAdd(true)}
+                  onScan={() => fileInputRef.current?.click()}
+                  onOpenDebts={() => navigate('debts')}
+                  onOpenCashflow={() => navigate('cashflow')}
+                  onOpenBudget={() => navigate('budget')}
+                />
+              )}
+
+              {activeTab === 'cashflow' && (
+                <CashflowTab
+                  transactions={transactions}
+                  filteredTransactions={filteredTransactions}
+                  filterType={filterType}
+                  searchQuery={searchQuery}
+                  canEdit={canEdit}
+                  onFilterTypeChange={setFilterType}
+                  onSearchChange={setSearchQuery}
+                  onDelete={handleDeleteTransaction}
+                  onQuickAdd={() => setShowQuickAdd(true)}
+                  onExportCsv={handleExportCsv}
+                />
+              )}
+
+              {activeTab === 'debts' && (
+                <DebtsTab
+                  debts={debts}
+                  showDebtForm={showDebtForm}
+                  debtForm={debtForm}
+                  canEdit={canEdit}
+                  simSelectedIds={simSelectedIds}
+                  simStats={simStats}
+                  onToggleSim={(id) =>
+                    setSimSelectedIds((prev) =>
+                      prev.includes(id)
+                        ? prev.filter((x) => x !== id)
+                        : [...prev, id]
+                    )
+                  }
+                  onClearSim={() => setSimSelectedIds([])}
+                  onFormChange={setDebtForm}
+                  onToggleForm={() => setShowDebtForm((v) => !v)}
+                  onSubmitForm={handleAddDebt}
+                  onPay={handlePayDebt}
+                  onDelete={handleDeleteDebt}
+                />
+              )}
+
+              {activeTab === 'budget' && (
+                <BudgetTab
+                  budgets={budgets.budgets}
+                  transactions={transactions}
+                  canEdit={canEdit}
+                  onSave={budgets.saveBudget}
+                  onRemove={budgets.removeBudget}
+                />
+              )}
+
+              {activeTab === 'tools' && (
+                <ToolsTab
+                  canEdit={canEdit}
+                  scanning={scanning}
+                  hasTransactions={transactions.length > 0}
+                  hasDebts={debts.length > 0}
+                  onScan={() => fileInputRef.current?.click()}
+                  onImport={() => csvInputRef.current?.click()}
+                  onExportCsv={handleExportCsv}
+                  onExportPdf={handleExportPdf}
+                  onExportWord={handleExportWord}
+                />
+              )}
+
+              {activeTab === 'profile' && (
+                <ProfileTab
+                  profileUsername={profileUsername}
+                  profileEmail={profileEmail}
+                  profileClient={profileClient}
+                  profileBio={profileBio}
+                  userRole={userRole}
+                  profileCompleteness={profileCompleteness}
+                  appPin={appPin}
+                  newPinInput={newPinInput}
+                  mfaQr={mfaQr}
+                  mfaCode={mfaCode}
+                  canEdit={canEdit}
+                  onEditProfile={openEditProfile}
+                  onNewPinChange={setNewPinInput}
+                  onSavePin={handleSavePin}
+                  onRemovePin={handleRemovePin}
+                  onLockNow={() => setPinLocked(true)}
+                  onEnroll2FA={handleEnroll2FA}
+                  onMfaCodeChange={setMfaCode}
+                  onVerify2FA={handleVerify2FA}
+                />
+              )}
+
+              {activeTab === 'users' && isSuperadmin && (
+                <UsersTab
+                  users={managedUsers}
+                  loading={usersLoading}
+                  error={usersError}
+                  editingUserId={editingUserId}
+                  editUserEmail={editUserEmail}
+                  editUserClient={editUserClient}
+                  onRefresh={loadManagedUsers}
+                  onChangeRole={handleChangeUserRole}
+                  onResetPassword={handleAdminResetPassword}
+                  onImpersonate={handleImpersonate}
+                  onDelete={handleDeleteUser}
+                  onToggleEdit={(u) => {
+                    setEditingUserId(editingUserId === u.id ? null : u.id);
+                    setEditUserEmail(u.email);
+                    setEditUserClient(u.client_name);
+                  }}
+                  onEditFieldChange={(field, value) => {
+                    if (field === 'email') setEditUserEmail(value);
+                    else setEditUserClient(value);
+                  }}
+                  onSaveEdit={handleSaveUserEdit}
+                  onCancelEdit={() => setEditingUserId(null)}
+                />
+              )}
+        </main>
+      </div>
+
+      <BottomNav
+        activeTab={activeTab}
+        onNavigate={navigate}
+        canEdit={canEdit}
+        onQuickAdd={() => setShowQuickAdd(true)}
+      />
+
+      {/* Input tersembunyi */}
       <input
         ref={fileInputRef}
         type="file"
@@ -875,6 +1211,7 @@ export default function DashboardClient({
         capture="environment"
         onChange={handleImageUpload}
         className="hidden"
+        aria-hidden
       />
       <input
         ref={csvInputRef}
@@ -882,1275 +1219,106 @@ export default function DashboardClient({
         accept=".csv"
         onChange={handleCSVImport}
         className="hidden"
+        aria-hidden
       />
 
-      {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 border-r border-white/[0.06] bg-zinc-950/80 backdrop-blur-xl p-5 justify-between z-20">
-        <div className="space-y-8">
-          <div className="flex items-center gap-3 px-1">
-            <BrandLogo size={38} />
-            <div>
-              <h1 className="font-bold text-lg tracking-tight leading-none lowercase">stashinmeid</h1>
-              <span className="text-[11px] text-zinc-500 font-medium">manajemen keuanganmu</span>
-            </div>
-          </div>
+      <QuickAddSheet
+        open={showQuickAdd}
+        onClose={() => setShowQuickAdd(false)}
+        state={quickAdd}
+        scanMsg={scanMsg}
+        saving={txLoading}
+        onStateChange={setQuickAdd}
+        onSubmit={handleAddTransaction}
+      />
 
-          <nav className="space-y-1">
-            {navItems.map((item) => {
-              const active = activeTab === item.id;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => setActiveTab(item.id)}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all ${
-                    active
-                      ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/10 text-emerald-300 border border-emerald-500/25 shadow-sm'
-                      : 'text-zinc-400 hover:text-zinc-100 hover:bg-white/[0.04]'
-                  }`}
-                >
-                  {item.icon}
-                  {item.label}
-                </button>
-              );
-            })}
-          </nav>
-        </div>
-
-        <div className="space-y-3 pt-4 border-t border-[var(--line)]">
-          <div className="rounded-2xl border border-[var(--line)] bg-[var(--surface-1)] p-3 text-xs space-y-2">
-            <p className="font-semibold text-[var(--text)] truncate">{profileClient}</p>
-            <p className="text-[var(--text-muted)] truncate">{profileEmail || `@${profileUsername}`}</p>
-            <span className="inline-block text-[10px] px-2 py-0.5 rounded-md bg-[var(--surface-2)] text-[var(--text-muted)] uppercase tracking-wider">
-              {userRole}
-            </span>
-          </div>
-
-          <SettingsMenu
-            align="left"
-            canEdit={canEdit}
-            showUsers={isSuperadmin}
-            onProfile={() => setActiveTab('profile')}
-            onUsers={() => setActiveTab('users')}
-            onScan={() => fileInputRef.current?.click()}
-            onImport={() => csvInputRef.current?.click()}
-            onExportPdf={() => exportToPDF(transactions, debts, clientName)}
-            onExportWord={() => exportToWord(transactions, debts, clientName)}
-          />
-
-          <button
-            onClick={handleLogout}
-            className="w-full py-2.5 px-3 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-zinc-300 text-xs font-medium flex items-center justify-center gap-2 transition"
-          >
-            <LogOut className="w-3.5 h-3.5" /> Keluar
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <div className="relative z-10 flex-1 lg:pl-64 flex flex-col min-w-0">
-        {/* Mobile Top Bar */}
-        <header className="lg:hidden sticky top-0 z-20 bg-[var(--bg)]/90 backdrop-blur-xl border-b border-[var(--line)] px-3 py-2.5 flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <BrandLogo size={30} />
-            <div className="min-w-0">
-              <h1 className="font-bold text-sm leading-none lowercase truncate">stashinmeid</h1>
-              <span className="text-[10px] text-[var(--text-muted)] truncate block">{profileClient}</span>
-            </div>
-          </div>
-          <div className="flex items-center gap-1 shrink-0">
-            <SettingsMenu
-              canEdit={canEdit}
-              showUsers={isSuperadmin}
-              onProfile={() => setActiveTab('profile')}
-              onUsers={() => setActiveTab('users')}
-              onScan={() => fileInputRef.current?.click()}
-              onImport={() => csvInputRef.current?.click()}
-              onExportPdf={() => exportToPDF(transactions, debts, clientName)}
-              onExportWord={() => exportToWord(transactions, debts, clientName)}
+      {/* Modal edit profil */}
+      <Modal
+        open={editingProfile}
+        onClose={() => setEditingProfile(false)}
+        title={tSettings('editTitle')}
+        size="md"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setEditingProfile(false)}
+            >
+              {t('common.cancel')}
+            </Button>
+            <Button
+              size="sm"
+              loading={profileSaving}
+              onClick={handleSaveProfile}
+            >
+              {tSettings('save')}
+            </Button>
+          </>
+        }
+      >
+        <form
+          onSubmit={handleSaveProfile}
+          autoComplete="off"
+          className="space-y-3.5"
+        >
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Input
+              label={tSettings('username')}
+              value={draftUsername}
+              onChange={(e) => setDraftUsername(e.target.value)}
+              autoComplete="off"
             />
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="p-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] text-[var(--text-muted)]"
-              title={tNav('signOut')}
-              aria-label={tNav('signOut')}
-            >
-              <LogOut className="w-4 h-4" />
-            </button>
+            <Input
+              label={tSettings('email')}
+              type="email"
+              value={draftEmail}
+              onChange={(e) => setDraftEmail(e.target.value)}
+              placeholder="nama@email.com"
+              autoComplete="off"
+            />
           </div>
-        </header>
 
-        <div className="hidden lg:flex sticky top-0 z-20 border-b border-[var(--line)] bg-[var(--bg)]/90 backdrop-blur-xl px-6 py-3 items-center justify-end gap-3">
-          <SettingsMenu
-            canEdit={canEdit}
-            showUsers={isSuperadmin}
-            onProfile={() => setActiveTab('profile')}
-            onUsers={() => setActiveTab('users')}
-            onScan={() => fileInputRef.current?.click()}
-            onImport={() => csvInputRef.current?.click()}
-            onExportPdf={() => exportToPDF(transactions, debts, clientName)}
-            onExportWord={() => exportToWord(transactions, debts, clientName)}
+          <Input
+            label={tSettings('workspace')}
+            value={draftClient}
+            onChange={(e) => setDraftClient(e.target.value)}
+            autoComplete="off"
           />
-        </div>
 
-        <main className="p-4 lg:p-8 max-w-6xl w-full mx-auto">
-          {impersonatingEmail && (
-            <div className="mb-5 p-3.5 rounded-2xl bg-indigo-500/15 border border-indigo-500/30 text-indigo-200 text-xs flex flex-wrap items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <UserCheck className="w-4 h-4 text-indigo-400" />
-                <span>
-                  Mode Impersonate aktif: melihat data <strong>{impersonatingEmail}</strong>
-                </span>
-              </div>
-              <button
-                onClick={handleStopImpersonate}
-                className="px-3 py-1.5 rounded-xl bg-indigo-500 text-white font-semibold hover:bg-indigo-400 transition"
-              >
-                Kembali ke Superadmin
-              </button>
-            </div>
-          )}
+          <Input
+            label={tSettings('bio')}
+            value={draftBio}
+            onChange={(e) => setDraftBio(e.target.value)}
+            placeholder={tSettings('bioPlaceholder')}
+          />
 
-          <AnimatePresence mode="wait">
-            {/* OVERVIEW TAB */}
-            {activeTab === 'overview' && (
-              <motion.div
-                key="overview"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="space-y-6"
-              >
-                {/* Bento Row 1: Hero Balance Card + Debt Snapshot */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  {/* Hero Fintech Card */}
-                  <div className="lg:col-span-2 relative overflow-hidden rounded-3xl bg-gradient-to-br from-zinc-900 via-zinc-900 to-emerald-950/50 border border-white/10 p-6 flex flex-col justify-between gap-6 shadow-2xl">
-                    <div className="flex items-start justify-between gap-4">
-                      <div>
-                        <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                          {t('overview.balanceLabel')}
-                        </span>
-                        <h2 className="text-3xl sm:text-4xl font-bold tracking-tight mt-1 text-white">
-                          {formatRp(netCashflow)}
-                        </h2>
-                      </div>
-                      <span className="px-3 py-1 rounded-full text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/25">
-                        Savings {savingsRate}%
-                      </span>
-                    </div>
+          <Input
+            label={tSettings('newPassword')}
+            hint={tSettings('newPasswordHint')}
+            type="password"
+            value={profileNewPassword}
+            onChange={(e) => setProfileNewPassword(e.target.value)}
+            autoComplete="new-password"
+          />
+        </form>
+      </Modal>
 
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="p-3.5 rounded-2xl bg-black/30 border border-white/[0.06] flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-emerald-500/15 text-emerald-400">
-                          <ArrowDownRight className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-[11px] text-zinc-400 block">Inflow</span>
-                          <span className="font-bold text-sm sm:text-base text-emerald-400 truncate block">
-                            {formatRp(totalInflow)}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="p-3.5 rounded-2xl bg-black/30 border border-white/[0.06] flex items-center gap-3">
-                        <div className="p-2 rounded-xl bg-rose-500/15 text-rose-400">
-                          <ArrowUpRight className="w-4 h-4" />
-                        </div>
-                        <div className="min-w-0">
-                          <span className="text-[11px] text-zinc-400 block">Outflow</span>
-                          <span className="font-bold text-sm sm:text-base text-rose-400 truncate block">
-                            {formatRp(totalOutflow)}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    {canEdit && (
-                      <div className="flex flex-wrap gap-2.5 pt-1">
-                        <button
-                          onClick={() => setShowQuickAdd(true)}
-                          className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:opacity-90 text-zinc-950 text-xs font-semibold flex items-center justify-center gap-1.5 shadow-lg shadow-emerald-500/20 transition"
-                        >
-                          <Plus className="w-4 h-4" /> Catat Transaksi
-                        </button>
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={scanning}
-                          className="flex-1 sm:flex-none px-4 py-2.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] border border-white/10 text-zinc-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition"
-                        >
-                          {scanning ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <Camera className="w-4 h-4 text-indigo-400" />
-                          )}
-                          Scan Struk AI
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Debt Snapshot Card */}
-                  <div className="rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 p-6 flex flex-col justify-between gap-4">
-                    <div>
-                      <span className="text-xs font-medium text-zinc-400 uppercase tracking-wider">
-                        {t('overview.totalDebt')}
-                      </span>
-                      <p className="text-2xl sm:text-3xl font-bold text-amber-400 mt-1">
-                        {formatRp(totalDebt)}
-                      </p>
-                      <p className="text-xs text-zinc-400 mt-1">
-                        {activeDebts.length} {t('overview.activeDebts')}
-                      </p>
-                    </div>
-
-                    <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/20">
-                      <span className="text-[11px] text-amber-300/80 block">
-                        Beban Cicilan / Bulan
-                      </span>
-                      <span className="text-lg font-bold text-amber-300">
-                        {formatRp(monthlyDebtBurden)}
-                      </span>
-                    </div>
-
-                    <button
-                      onClick={() => setActiveTab('debts')}
-                      className="w-full py-2.5 rounded-xl bg-white/[0.05] hover:bg-white/[0.09] border border-white/[0.08] text-xs font-medium text-zinc-200 transition"
-                    >
-                      {t('overview.openDebts')}
-                    </button>
-                  </div>
-                </div>
-
-                {/* Bento Row 2: Interactive Recharts */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-                  <div className="lg:col-span-2 rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 p-5">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-semibold text-sm">Tren Inflow vs Outflow</h3>
-                      <div className="flex items-center gap-3 text-[11px]">
-                        <span className="flex items-center gap-1 text-emerald-400">
-                          <span className="w-2 h-2 rounded-full bg-emerald-400" /> Inflow
-                        </span>
-                        <span className="flex items-center gap-1 text-rose-400">
-                          <span className="w-2 h-2 rounded-full bg-rose-400" /> Outflow
-                        </span>
-                      </div>
-                    </div>
-                    <CashflowAreaChart transactions={transactions} />
-                  </div>
-
-                  <div className="rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 p-5">
-                    <h3 className="font-semibold text-sm mb-2">{t('overview.debtComposition')}</h3>
-                    <DebtDonutChart debts={debts} />
-                  </div>
-                </div>
-
-                {/* Bento Row 3: Upcoming Bills + Recent Transactions */}
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                  <div className="rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-sm flex items-center gap-2">
-                        <CalendarClock className="w-4 h-4 text-amber-400" />
-                        Jatuh Tempo Terdekat
-                      </h3>
-                    </div>
-                    <div className="space-y-2">
-                      {upcomingDebts.map((d) => (
-                        <div
-                          key={d.id}
-                          className="flex items-center justify-between p-3 rounded-2xl bg-black/30 border border-white/[0.05] text-xs"
-                        >
-                          <div className="min-w-0 pr-2">
-                            <p className="font-medium text-zinc-200 truncate">{d.platform}</p>
-                            <p className="text-zinc-500">Setiap tgl {d.due_day}</p>
-                          </div>
-                          <span className="font-semibold text-amber-400 shrink-0">
-                            {formatRp(d.monthly_installment)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="rounded-3xl bg-zinc-900/70 backdrop-blur-xl border border-white/10 p-5 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h3 className="font-semibold text-sm">Transaksi Terbaru</h3>
-                      <button
-                        onClick={() => setActiveTab('cashflow')}
-                        className="text-xs text-rose-400 hover:underline"
-                      >
-                        Lihat semua
-                      </button>
-                    </div>
-                    <div className="space-y-2">
-                      {transactions.slice(0, 4).map((tx) => (
-                        <div
-                          key={tx.id}
-                          className="flex items-center justify-between p-3 rounded-2xl bg-black/30 border border-white/[0.05] text-xs"
-                        >
-                          <div className="min-w-0 pr-2">
-                            <p className="font-medium text-zinc-200 truncate">
-                              {tx.description || tx.category}
-                            </p>
-                            <p className="text-zinc-500">{tx.transaction_date}</p>
-                          </div>
-                          <span
-                            className={`font-semibold shrink-0 ${
-                              tx.type === 'inflow' ? 'text-emerald-400' : 'text-rose-400'
-                            }`}
-                          >
-                            {tx.type === 'inflow' ? '+' : '-'} {formatRp(tx.amount)}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* CASHFLOW TAB */}
-            {activeTab === 'cashflow' && (
-              <motion.div
-                key="cashflow"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="space-y-4"
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <h2 className="text-xl font-bold">Riwayat Inflow & Outflow</h2>
-                  <div className="flex gap-2">
-                    <div className="relative flex-1 sm:w-56">
-                      <Search className="w-4 h-4 text-zinc-500 absolute left-3 top-2.5" />
-                      <input
-                        type="text"
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                        placeholder="Cari transaksi..."
-                        className="w-full pl-9 pr-3 py-2 bg-zinc-900 border border-white/10 rounded-xl text-xs focus:outline-none focus:border-rose-500"
-                      />
-                    </div>
-                    <div className="flex gap-1 bg-zinc-900 p-1 rounded-xl border border-white/10 text-xs">
-                      {(['all', 'inflow', 'outflow'] as const).map((f) => (
-                        <button
-                          key={f}
-                          onClick={() => setFilterType(f)}
-                          className={`px-2.5 py-1 rounded-lg capitalize transition ${
-                            filterType === f
-                              ? 'bg-rose-500 text-white font-semibold'
-                              : 'text-zinc-400 hover:text-zinc-200'
-                          }`}
-                        >
-                          {f === 'all' ? 'Semua' : f}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2.5">
-                  {filteredTransactions.length === 0 ? (
-                    <p className="text-sm text-zinc-500 text-center py-12 bg-zinc-900/60 border border-white/10 rounded-3xl">
-                      Tidak ada transaksi yang cocok.
-                    </p>
-                  ) : (
-                    filteredTransactions.map((tx) => (
-                      <div
-                        key={tx.id}
-                        className="flex items-center justify-between p-4 rounded-2xl bg-zinc-900/70 border border-white/[0.08] hover:border-white/15 transition"
-                      >
-                        <div className="min-w-0 pr-3">
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <span className="font-medium text-sm truncate">
-                              {tx.description || tx.category}
-                            </span>
-                            <span className="text-[11px] px-2 py-0.5 rounded-md bg-white/[0.06] text-zinc-300">
-                              {tx.category}
-                            </span>
-                            {tx.source === 'ai_scan' && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-500/20 text-indigo-300">
-                                AI
-                              </span>
-                            )}
-                          </div>
-                          <p className="text-xs text-zinc-500 mt-0.5">{tx.transaction_date}</p>
-                        </div>
-
-                        <div className="flex items-center gap-3 shrink-0">
-                          <span
-                            className={`font-semibold text-sm ${
-                              tx.type === 'inflow' ? 'text-emerald-400' : 'text-rose-400'
-                            }`}
-                          >
-                            {tx.type === 'inflow' ? '+' : '-'} {formatRp(tx.amount)}
-                          </span>
-                          {canEdit && (
-                            <button
-                              onClick={() => handleDeleteTransaction(tx.id)}
-                              className="text-zinc-500 hover:text-rose-400 transition p-1"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    ))
-                  )}
-                </div>
-              </motion.div>
-            )}
-
-            {/* DEBTS TAB */}
-            {activeTab === 'debts' && (
-              <motion.div
-                key="debts"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="space-y-5"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold">{t('debts.headerTitle')}</h2>
-                    <p className="text-xs text-zinc-400">
-                      Centang pinjaman di bawah untuk simulasi penghematan cashflow bulanan.
-                    </p>
-                  </div>
-                  {canEdit && (
-                    <button
-                      onClick={() => setShowDebtForm(!showDebtForm)}
-                      className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-zinc-950 font-semibold text-xs flex items-center gap-1.5 transition"
-                    >
-                      <Plus className="w-4 h-4" /> {t('debts.add')}
-                    </button>
-                  )}
-                </div>
-
-                {/* Payoff Simulator Banner */}
-                <div className="rounded-3xl bg-gradient-to-r from-indigo-950/60 via-zinc-900 to-rose-950/40 border border-indigo-500/25 p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2.5 rounded-2xl bg-indigo-500/20 text-indigo-300">
-                      <Calculator className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h3 className="font-semibold text-sm">
-                        Simulasi Pelunasan ({simStats.count} dipilih)
-                      </h3>
-                      <p className="text-xs text-zinc-400">
-                        Dana tutup tagihan:{' '}
-                        <span className="text-white font-semibold">
-                          {formatRp(simStats.payoffNeeded)}
-                        </span>
-                      </p>
-                    </div>
-                  </div>
-                  <div className="text-left sm:text-right">
-                    <span className="text-[11px] text-emerald-300/80 block">
-                      Penghematan Cicilan / Bulan
-                    </span>
-                    <span className="text-xl font-bold text-emerald-400">
-                      +{formatRp(simStats.monthlySaved)}
-                    </span>
-                  </div>
-                </div>
-
-                {showDebtForm && (
-                  <form
-                    onSubmit={handleAddDebt}
-                    className="bg-zinc-900/90 border border-white/10 rounded-3xl p-5 grid grid-cols-1 sm:grid-cols-3 gap-3.5"
-                  >
-                    <input
-                      type="text"
-                      required
-                      placeholder="Platform (e.g. SPinjam, Kredivo)"
-                      value={debtPlatform}
-                      onChange={(e) => setDebtPlatform(e.target.value)}
-                      className="px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
-                    />
-                    <input
-                      type="text"
-                      placeholder="No. Kontrak / Keterangan"
-                      value={debtContract}
-                      onChange={(e) => setDebtContract(e.target.value)}
-                      className="px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
-                    />
-                    <input
-                      type="number"
-                      required
-                      placeholder="Sisa Tagihan (Rp)"
-                      value={debtBalance}
-                      onChange={(e) => setDebtBalance(e.target.value)}
-                      className="px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Cicilan / Bulan (Rp)"
-                      value={debtInstallment}
-                      onChange={(e) => setDebtInstallment(e.target.value)}
-                      className="px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
-                    />
-                    <input
-                      type="number"
-                      placeholder="Sisa Tenor (Bulan)"
-                      value={debtTenor}
-                      onChange={(e) => setDebtTenor(e.target.value)}
-                      className="px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
-                    />
-                    <div className="flex gap-2">
-                      <input
-                        type="number"
-                        min="1"
-                        max="31"
-                        placeholder="Tgl Jatuh Tempo"
-                        value={debtDueDay}
-                        onChange={(e) => setDebtDueDay(e.target.value)}
-                        className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
-                      />
-                      <button
-                        type="submit"
-                        className="px-4 py-2.5 bg-amber-500 text-zinc-950 font-semibold rounded-xl text-sm shrink-0"
-                      >
-                        Simpan
-                      </button>
-                    </div>
-                  </form>
-                )}
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {debts.map((debt) => {
-                    const isSimSelected = simSelectedIds.includes(debt.id);
-                    const paidPct =
-                      debt.total_tenor && debt.remaining_tenor !== null
-                        ? Math.min(
-                            100,
-                            Math.max(
-                              0,
-                              Math.round(
-                                ((debt.total_tenor - debt.remaining_tenor) / debt.total_tenor) * 100
-                              )
-                            )
-                          )
-                        : 0;
-
-                    return (
-                      <div
-                        key={debt.id}
-                        className={`rounded-3xl bg-zinc-900/70 backdrop-blur-xl border p-5 flex flex-col justify-between gap-4 transition ${
-                          isSimSelected
-                            ? 'border-indigo-500/60 ring-1 ring-indigo-500/30'
-                            : debt.status === 'paid_off'
-                            ? 'border-emerald-500/30 opacity-70'
-                            : 'border-white/10'
-                        }`}
-                      >
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex items-start gap-3">
-                            {debt.status === 'active' && (
-                              <input
-                                type="checkbox"
-                                checked={isSimSelected}
-                                onChange={() => toggleSimDebt(debt.id)}
-                                className="mt-1 accent-indigo-500 w-4 h-4 rounded cursor-pointer"
-                                title="Pilih untuk simulasi pelunasan"
-                              />
-                            )}
-                            <div>
-                              <div className="flex items-center gap-2">
-                                <h3 className="font-semibold text-base">{debt.platform}</h3>
-                                {debt.status === 'paid_off' && (
-                                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-emerald-500/20 text-emerald-300 flex items-center gap-1">
-                                    <CheckCircle2 className="w-3 h-3" /> Lunas
-                                  </span>
-                                )}
-                              </div>
-                              {debt.contract_no && (
-                                <p className="text-xs text-zinc-400 mt-0.5">{debt.contract_no}</p>
-                              )}
-                            </div>
-                          </div>
-                          {canEdit && (
-                            <button
-                              onClick={() => handleDeleteDebt(debt.id)}
-                              className="text-zinc-500 hover:text-rose-400 transition p-1"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-
-                        {/* Progress Bar */}
-                        <div className="space-y-1">
-                          <div className="flex justify-between text-[11px] text-zinc-400">
-                            <span>Progres Tenor</span>
-                            <span>{paidPct}%</span>
-                          </div>
-                          <div className="h-1.5 bg-black/50 rounded-full overflow-hidden">
-                            <div
-                              className="h-full bg-gradient-to-r from-amber-500 to-rose-500 rounded-full"
-                              style={{ width: `${paidPct}%` }}
-                            />
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-3 gap-2 text-xs bg-black/30 p-3 rounded-2xl border border-white/[0.06]">
-                          <div>
-                            <span className="text-zinc-500 block">Sisa Tagihan</span>
-                            <span className="font-bold text-amber-400 text-sm">
-                              {formatRp(debt.remaining_balance)}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-zinc-500 block">Cicilan/bln</span>
-                            <span className="font-semibold text-zinc-200">
-                              {debt.monthly_installment ? formatRp(debt.monthly_installment) : '-'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-zinc-500 block">Tenor / Tgl</span>
-                            <span className="font-semibold text-zinc-200">
-                              {debt.remaining_tenor ?? '-'} bln{' '}
-                              {debt.due_day ? `(Tgl ${debt.due_day})` : ''}
-                            </span>
-                          </div>
-                        </div>
-
-                        {debt.status === 'active' && canEdit && (
-                          <button
-                            onClick={() => handlePayDebt(debt)}
-                            className="w-full py-2.5 rounded-xl bg-white/[0.06] hover:bg-emerald-500 hover:text-zinc-950 text-zinc-200 text-xs font-semibold transition"
-                          >
-                            Bayar Cicilan & Catat Outflow
-                          </button>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              </motion.div>
-            )}
-
-            {/* TOOLS TAB */}
-            {activeTab === 'tools' && (
-              <motion.div
-                key="tools"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="space-y-4"
-              >
-                <h2 className="text-xl font-bold">Tools, Import & Export</h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={scanning || !canEdit}
-                    className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 hover:border-indigo-500/50 text-left space-y-2 transition disabled:opacity-50"
-                  >
-                    <Camera className="w-6 h-6 text-indigo-400" />
-                    <h3 className="font-semibold text-sm">Scan Struk / Transfer (AI)</h3>
-                    <p className="text-xs text-zinc-400">
-                      Ambil foto struk atau screenshot transfer untuk isi transaksi otomatis.
-                    </p>
-                  </button>
-
-                  <button
-                    onClick={() => csvInputRef.current?.click()}
-                    disabled={!canEdit}
-                    className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 hover:border-emerald-500/50 text-left space-y-2 transition disabled:opacity-50"
-                  >
-                    <Upload className="w-6 h-6 text-emerald-400" />
-                    <h3 className="font-semibold text-sm">Import Data CSV</h3>
-                    <p className="text-xs text-zinc-400">
-                      Upload file CSV (type, amount, category, description, transaction_date).
-                    </p>
-                  </button>
-
-                  <button
-                    onClick={() => exportToPDF(transactions, debts, clientName)}
-                    className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 hover:border-rose-500/50 text-left space-y-2 transition"
-                  >
-                    <FileDown className="w-6 h-6 text-rose-400" />
-                    <h3 className="font-semibold text-sm">Export Laporan PDF</h3>
-                    <p className="text-xs text-zinc-400">
-                      Unduh ringkasan cashflow dan daftar cicilan dalam format PDF.
-                    </p>
-                  </button>
-
-                  <button
-                    onClick={() => exportToWord(transactions, debts, clientName)}
-                    className="p-6 rounded-3xl bg-zinc-900/70 border border-white/10 hover:border-blue-500/50 text-left space-y-2 transition"
-                  >
-                    <FileText className="w-6 h-6 text-blue-400" />
-                    <h3 className="font-semibold text-sm">Export Laporan Word (.docx)</h3>
-                    <p className="text-xs text-zinc-400">
-                      Unduh laporan lengkap dalam format Microsoft Word yang bisa diedit.
-                    </p>
-                  </button>
-                </div>
-              </motion.div>
-            )}
-
-            {/* PROFILE & SECURITY TAB (WS96-Inspired Layout) */}
-            {activeTab === 'profile' && (
-              <motion.div
-                key="profile"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="space-y-6"
-              >
-                {securityMsg && (
-                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs">
-                    {securityMsg}
-                  </div>
-                )}
-
-                {/* Top Grid: Profile Hero Card (Left 2 cols) + Info Akun Card (Right 1 col) */}
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                  {/* Profile Hero Card with Cover Banner */}
-                  <div className="lg:col-span-2 rounded-3xl bg-zinc-900/75 border border-white/10 overflow-hidden shadow-xl">
-                    {/* Cover Banner */}
-                    <div className="h-32 sm:h-36 bg-gradient-to-r from-emerald-900 via-teal-800 to-zinc-900 relative p-4 flex items-end justify-end">
-                      <span className="text-[11px] px-2.5 py-1 rounded-full bg-black/40 backdrop-blur border border-white/10 text-emerald-300 font-medium">
-                        stashinmeid • {userRole.toUpperCase()}
-                      </span>
-                    </div>
-
-                    {/* Avatar & Identity */}
-                    <div className="px-6 pb-6">
-                      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 -mt-10 mb-5">
-                        <div className="flex items-end gap-4">
-                          <div className="w-20 h-20 rounded-2xl bg-zinc-950 border-4 border-zinc-900 flex items-center justify-center shadow-xl overflow-hidden shrink-0">
-                            <BrandLogo size={68} />
-                          </div>
-                          <div className="pt-12 sm:pt-11">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <h2 className="text-xl font-bold text-white leading-tight">{profileClient}</h2>
-                              <span className="text-xs px-2.5 py-0.5 rounded-full bg-emerald-500/15 text-emerald-300 border border-emerald-500/25 font-mono">
-                                @{profileUsername}
-                              </span>
-                            </div>
-                            <p className="text-xs text-zinc-400 mt-0.5">
-                              {profileEmail || 'Email belum ditautkan'}
-                            </p>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={openEditProfile}
-                          className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-semibold text-xs transition hover:opacity-90 shrink-0"
-                        >
-                          Edit Profil
-                        </button>
-                      </div>
-
-                      {/* Kelengkapan Data Bar */}
-                      <div className="p-3.5 rounded-2xl bg-black/30 border border-white/[0.06] space-y-1.5 mb-4">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="text-zinc-400">Kelengkapan Data & Keamanan</span>
-                          <span className="font-semibold text-emerald-400">
-                            {profileCompleteness}%
-                          </span>
-                        </div>
-                        <div className="h-2 bg-zinc-950 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-gradient-to-r from-emerald-500 to-teal-400 rounded-full transition-all"
-                            style={{ width: `${profileCompleteness}%` }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Tentang / Bio */}
-                      <div className="space-y-1">
-                        <h3 className="text-xs font-semibold text-zinc-400 uppercase tracking-wider">
-                          Tentang
-                        </h3>
-                        <p className="text-sm text-zinc-300">{profileBio}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Card: Info Akun (Read-Only Summary ala WS96) */}
-                  <div className="rounded-3xl bg-zinc-900/75 border border-white/10 p-6 flex flex-col justify-between gap-4">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-semibold text-sm flex items-center gap-2">
-                          <Shield className="w-4 h-4 text-emerald-400" /> Info Akun
-                        </h3>
-                        <button
-                          type="button"
-                          onClick={openEditProfile}
-                          className="text-xs text-emerald-400 hover:underline"
-                        >
-                          Ubah
-                        </button>
-                      </div>
-
-                      <div className="space-y-3 text-xs">
-                        <div>
-                          <span className="text-zinc-500 block">Username</span>
-                          <span className="font-medium text-zinc-200">@{profileUsername}</span>
-                        </div>
-                        <div>
-                          <span className="text-zinc-500 block">Email Tertaut</span>
-                          <span className="font-medium text-zinc-200">
-                            {profileEmail || 'Belum diset'}
-                          </span>
-                        </div>
-                        <div>
-                          <span className="text-zinc-500 block">Nama Workspace / Client</span>
-                          <span className="font-medium text-zinc-200">{profileClient}</span>
-                        </div>
-                        <div>
-                          <span className="text-zinc-500 block">Status & Role</span>
-                          <span className="inline-block mt-0.5 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 uppercase text-[10px] font-semibold">
-                            {userRole} • Aktif
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Edit Profile Popup Modal */}
-                {editingProfile && (
-                  <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.96, y: 20 }}
-                      animate={{ opacity: 1, scale: 1, y: 0 }}
-                      className="w-full sm:max-w-lg bg-zinc-900 border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl space-y-4"
-                    >
-                      <div className="flex items-center justify-between">
-                        <h3 className="font-bold text-base flex items-center gap-2">
-                          <UserCircle className="w-5 h-5 text-emerald-400" /> Edit Profil & Akun
-                        </h3>
-                        <button
-                          type="button"
-                          onClick={() => setEditingProfile(false)}
-                          className="p-1.5 rounded-xl bg-white/[0.06] text-zinc-400 hover:text-white"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </div>
-
-                      <form
-                        onSubmit={handleSaveProfile}
-                        autoComplete="off"
-                        className="space-y-3.5"
-                      >
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div>
-                            <label className="block text-xs text-zinc-400 mb-1">Username</label>
-                            <input
-                              type="text"
-                              value={draftUsername}
-                              onChange={(e) => setDraftUsername(e.target.value)}
-                              autoComplete="off"
-                              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
-                            />
-                          </div>
-                          <div>
-                            <label className="block text-xs text-zinc-400 mb-1">Email Tertaut</label>
-                            <input
-                              type="email"
-                              value={draftEmail}
-                              onChange={(e) => setDraftEmail(e.target.value)}
-                              placeholder="nama@email.com"
-                              autoComplete="off"
-                              className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
-                            />
-                          </div>
-                        </div>
-
-                        <div>
-                          <label className="block text-xs text-zinc-400 mb-1">
-                            Nama Workspace / Client
-                          </label>
-                          <input
-                            type="text"
-                            value={draftClient}
-                            onChange={(e) => setDraftClient(e.target.value)}
-                            autoComplete="off"
-                            className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs text-zinc-400 mb-1">Bio Singkat</label>
-                          <input
-                            type="text"
-                            value={draftBio}
-                            onChange={(e) => setDraftBio(e.target.value)}
-                            className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
-                          />
-                        </div>
-
-                        <div>
-                          <label className="block text-xs text-zinc-400 mb-1">
-                            Password Baru (Opsional, min. 8 karakter)
-                          </label>
-                          <input
-                            type="password"
-                            value={profileNewPassword}
-                            onChange={(e) => setProfileNewPassword(e.target.value)}
-                            placeholder="Kosongkan jika tidak ganti"
-                            autoComplete="new-password"
-                            className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm text-zinc-100"
-                          />
-                        </div>
-
-                        <div className="flex gap-2 pt-2">
-                          <button
-                            type="submit"
-                            disabled={profileSaving}
-                            className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-semibold text-sm transition disabled:opacity-50"
-                          >
-                            {profileSaving ? 'Menyimpan...' : 'Simpan Perubahan'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setEditingProfile(false)}
-                            className="px-4 py-2.5 rounded-xl bg-white/[0.06] text-zinc-300 text-sm"
-                          >
-                            Batal
-                          </button>
-                        </div>
-                      </form>
-                    </motion.div>
-                  </div>
-                )}
-
-                {/* Security: PIN Lock & 2FA Authenticator */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {/* App PIN Lock */}
-                  <div className="p-6 rounded-3xl bg-zinc-900/75 border border-white/10 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <h4 className="font-semibold text-sm flex items-center gap-2">
-                        <KeyRound className="w-4 h-4 text-emerald-400" /> App PIN Lock (6 Digit)
-                      </h4>
-                      {appPin && (
-                        <span className="text-[11px] px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
-                          Aktif
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-xs text-zinc-400">
-                      Kunci layar aplikasi dengan PIN 6 angka agar lebih aman di HP.
-                    </p>
-                    <div className="flex gap-2">
-                      <input
-                        type="password"
-                        maxLength={6}
-                        autoComplete="new-password"
-                        value={newPinInput}
-                        onChange={(e) => setNewPinInput(e.target.value.replace(/\D/g, ''))}
-                        placeholder="6 digit PIN baru"
-                        className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs"
-                      />
-                      <button
-                        onClick={handleSavePin}
-                        className="px-3.5 py-2 rounded-xl bg-emerald-500 text-zinc-950 font-semibold text-xs"
-                      >
-                        Simpan PIN
-                      </button>
-                    </div>
-                    {appPin && (
-                      <div className="flex gap-2 pt-1">
-                        <button
-                          onClick={() => setPinLocked(true)}
-                          className="flex-1 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-medium"
-                        >
-                          Kunci Layar Sekarang
-                        </button>
-                        <button
-                          onClick={handleRemovePin}
-                          className="px-3 py-2 rounded-xl bg-rose-500/15 text-rose-300 text-xs"
-                        >
-                          Hapus PIN
-                        </button>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* 2FA Authenticator */}
-                  <div className="p-6 rounded-3xl bg-zinc-900/75 border border-white/10 space-y-3">
-                    <h4 className="font-semibold text-sm flex items-center gap-2">
-                      <Smartphone className="w-4 h-4 text-indigo-400" /> 2FA Authenticator (TOTP)
-                    </h4>
-                    <p className="text-xs text-zinc-400">
-                      Hubungkan Google Authenticator / Authy untuk verifikasi 2 langkah.
-                    </p>
-                    {!mfaQr ? (
-                      <button
-                        onClick={handleEnroll2FA}
-                        className="px-4 py-2 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold"
-                      >
-                        Aktifkan 2FA Authenticator
-                      </button>
-                    ) : (
-                      <div className="space-y-3">
-                        <img
-                          src={mfaQr}
-                          alt="2FA QR Code"
-                          className="w-40 h-40 rounded-xl bg-white p-2"
-                        />
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            maxLength={6}
-                            value={mfaCode}
-                            onChange={(e) => setMfaCode(e.target.value)}
-                            placeholder="Kode 6 digit"
-                            className="flex-1 px-3 py-2 bg-black/40 border border-white/10 rounded-xl text-xs"
-                          />
-                          <button
-                            onClick={handleVerify2FA}
-                            className="px-3.5 py-2 rounded-xl bg-emerald-500 text-zinc-950 font-semibold text-xs"
-                          >
-                            Verifikasi
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* SUPERADMIN USERS & IMPERSONATE TAB */}
-            {activeTab === 'users' && isSuperadmin && (
-              <motion.div
-                key="users"
-                initial={{ opacity: 0, y: 12 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.25 }}
-                className="space-y-4"
-              >
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-xl font-bold">Manajemen User & Impersonate</h2>
-                    <p className="text-xs text-zinc-400">
-                      Kelola akun terdaftar, ubah role, atau impersonate untuk melihat dashboard user.
-                    </p>
-                  </div>
-                  <button
-                    onClick={loadManagedUsers}
-                    className="px-3.5 py-2 rounded-xl bg-white/[0.06] hover:bg-white/[0.1] text-xs font-medium transition"
-                  >
-                    Refresh
-                  </button>
-                </div>
-
-                {adminToast && (
-                  <div className="p-3.5 rounded-2xl bg-emerald-500/10 border border-emerald-500/25 text-emerald-300 text-xs">
-                    {adminToast}
-                  </div>
-                )}
-
-                {usersError && (
-                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 text-amber-200 text-xs">
-                    {usersError}
-                  </div>
-                )}
-
-                {usersLoading ? (
-                  <div className="py-12 flex justify-center">
-                    <Loader2 className="w-6 h-6 animate-spin text-emerald-400" />
-                  </div>
-                ) : managedUsers.length === 0 ? (
-                  <div className="p-10 text-center text-sm text-zinc-500 bg-zinc-900/60 border border-white/10 rounded-3xl">
-                    Belum ada user terdaftar (atau pastikan <code className="text-zinc-300">SUPABASE_SERVICE_ROLE_KEY</code> sudah diset di Vercel).
-                  </div>
-                ) : (
-                  <div className="space-y-2.5">
-                    {managedUsers.map((u) => (
-                      <div
-                        key={u.id}
-                        className="p-4 rounded-2xl bg-zinc-900/70 border border-white/10 space-y-3"
-                      >
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="font-semibold text-sm truncate">{u.email}</p>
-                            <p className="text-xs text-zinc-400">
-                              Workspace: {u.client_name} • Daftar:{' '}
-                              {new Date(u.created_at).toLocaleDateString('id-ID')}
-                            </p>
-                          </div>
-
-                          <div className="flex items-center gap-2 flex-wrap">
-                            <select
-                              value={u.role}
-                              onChange={(e) => handleChangeUserRole(u.id, e.target.value as UserRole)}
-                              className="px-2.5 py-1.5 rounded-xl bg-black/40 border border-white/10 text-xs"
-                            >
-                              <option value="admin">Admin</option>
-                              <option value="member">Member</option>
-                              <option value="viewer">Viewer</option>
-                            </select>
-
-                            <button
-                              onClick={() => {
-                                setEditingUserId(editingUserId === u.id ? null : u.id);
-                                setEditUserEmail(u.email);
-                                setEditUserClient(u.client_name);
-                              }}
-                              className="px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] text-zinc-200 text-xs font-medium transition"
-                            >
-                              Edit
-                            </button>
-
-                            <button
-                              onClick={() => handleAdminResetPassword(u.email)}
-                              className="px-3 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 text-amber-300 border border-amber-500/30 text-xs font-semibold flex items-center gap-1 transition"
-                              title="Kirim link reset password ke email user"
-                            >
-                              <KeyRound className="w-3.5 h-3.5" /> Reset PW
-                            </button>
-
-                            <button
-                              onClick={() => handleImpersonate(u)}
-                              className="px-3 py-1.5 rounded-xl bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/30 text-xs font-semibold flex items-center gap-1 transition"
-                            >
-                              <UserCheck className="w-3.5 h-3.5" /> Impersonate
-                            </button>
-
-                            <button
-                              onClick={() => handleDeleteUser(u.id)}
-                              className="p-1.5 rounded-xl bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition"
-                              title="Hapus User"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
-                          </div>
-                        </div>
-
-                        {editingUserId === u.id && (
-                          <div className="pt-3 border-t border-white/[0.06] grid grid-cols-1 sm:grid-cols-3 gap-2">
-                            <input
-                              type="email"
-                              value={editUserEmail}
-                              onChange={(e) => setEditUserEmail(e.target.value)}
-                              placeholder="Email tertaut"
-                              className="px-3 py-2 rounded-xl bg-black/40 border border-white/10 text-xs"
-                            />
-                            <input
-                              type="text"
-                              value={editUserClient}
-                              onChange={(e) => setEditUserClient(e.target.value)}
-                              placeholder="Nama Workspace / Client"
-                              className="px-3 py-2 rounded-xl bg-black/40 border border-white/10 text-xs"
-                            />
-                            <div className="flex gap-2">
-                              <button
-                                onClick={() => handleSaveUserEdit(u.id)}
-                                className="flex-1 py-2 rounded-xl bg-emerald-500 text-zinc-950 font-semibold text-xs"
-                              >
-                                Simpan
-                              </button>
-                              <button
-                                onClick={() => setEditingUserId(null)}
-                                className="px-3 py-2 rounded-xl bg-white/[0.06] text-zinc-300 text-xs"
-                              >
-                                Batal
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </main>
-      </div>
-
-      {/* Mobile Bottom Navigation with Centered FAB */}
-      <nav className="lg:hidden fixed bottom-0 inset-x-0 z-30 bg-zinc-950/90 backdrop-blur-xl border-t border-white/[0.08] px-3 py-2 flex items-center justify-around">
-        {navItems.slice(0, 2).map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-medium transition ${
-              activeTab === item.id ? 'text-rose-400' : 'text-zinc-500'
-            }`}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        ))}
-
-        {/* Centered FAB */}
-        {canEdit && (
-          <button
-            onClick={() => setShowQuickAdd(true)}
-            className="-mt-7 p-3.5 rounded-2xl bg-gradient-to-br from-emerald-500 to-teal-500 text-zinc-950 shadow-xl shadow-emerald-500/30 active:scale-95 transition"
-            aria-label="Tambah Transaksi"
-          >
-            <Plus className="w-6 h-6" />
-          </button>
-        )}
-
-        {navItems.slice(2).map((item) => (
-          <button
-            key={item.id}
-            onClick={() => setActiveTab(item.id)}
-            className={`flex flex-col items-center gap-1 px-3 py-1 rounded-xl text-[11px] font-medium transition ${
-              activeTab === item.id ? 'text-rose-400' : 'text-zinc-500'
-            }`}
-          >
-            {item.icon}
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </nav>
-
-      {/* Save Confirmation Popup Modal */}
-      {saveConfirmMsg && (
-        <div className="fixed inset-0 z-[70] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.92 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="w-full max-w-sm bg-zinc-900 border border-emerald-500/30 rounded-3xl p-6 text-center space-y-4 shadow-2xl"
-          >
-            <div className="mx-auto w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="font-bold text-base text-white">Berhasil Disimpan</h3>
-              <p className="text-xs text-zinc-400 mt-1">{saveConfirmMsg}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => setSaveConfirmMsg(null)}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-zinc-950 font-semibold text-sm"
-            >
-              Oke
-            </button>
-          </motion.div>
-        </div>
-      )}
-
-      {/* PIN Lock Overlay */}
+      {/* Overlay kunci PIN */}
       {pinLocked && appPin && (
-        <div className="fixed inset-0 z-[60] bg-[#09090b]/95 backdrop-blur-xl flex items-center justify-center p-4">
-          <div className="w-full max-w-xs bg-zinc-900 border border-white/10 rounded-3xl p-6 text-center space-y-4 shadow-2xl">
-            <div className="mx-auto w-12 h-12 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center">
-              <Lock className="w-6 h-6" />
-            </div>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-[var(--bg)]/95 p-4 backdrop-blur-xl">
+          <div className="w-full max-w-xs space-y-4 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-6 text-center">
             <div>
-              <h3 className="font-bold text-base">stashinmeid Terkunci</h3>
-              <p className="text-xs text-zinc-400 mt-0.5">Masukkan PIN 6 digit untuk membuka</p>
+              <h3 className="text-[15px] font-semibold text-[var(--text)]">
+                {t('settings.security.locked')}
+              </h3>
+              <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
+                {t('settings.security.unlock')}
+              </p>
             </div>
             <input
               type="password"
+              inputMode="numeric"
               maxLength={6}
               value={pinInput}
               onChange={(e) => {
@@ -2162,133 +1330,19 @@ export default function DashboardClient({
                 }
               }}
               placeholder="••••••"
-              className="w-full text-center tracking-[0.5em] text-lg py-3 bg-black/50 border border-white/10 rounded-xl focus:outline-none focus:border-emerald-500"
+              aria-label={t('settings.security.unlock')}
+              className="tnum w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-3 text-center text-[18px] tracking-[0.5em] focus:border-[var(--brand)] focus:outline-none"
               autoFocus
             />
           </div>
         </div>
       )}
 
-      {/* Quick Add / AI Scan Bottom-Sheet Modal */}
-      {showQuickAdd && (
-        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
-          <motion.div
-            initial={{ opacity: 0, y: 40 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="w-full sm:max-w-md bg-zinc-900 border border-white/10 rounded-t-3xl sm:rounded-3xl p-6 space-y-4 shadow-2xl"
-          >
-            <div className="flex items-center justify-between">
-              <h3 className="font-bold text-base">Catat Transaksi</h3>
-              <button
-                onClick={() => setShowQuickAdd(false)}
-                className="p-1.5 rounded-xl bg-white/[0.06] text-zinc-400 hover:text-white"
-              >
-                <X className="w-4 h-4" />
-              </button>
-            </div>
-
-            {scanMsg && (
-              <div className="p-3 rounded-2xl bg-indigo-500/15 border border-indigo-500/25 text-indigo-300 text-xs flex items-center gap-2">
-                <Sparkles className="w-4 h-4 shrink-0" />
-                <span>{scanMsg}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleAddTransaction} className="space-y-3.5">
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTxType('outflow');
-                    setTxCategory(CATEGORIES.outflow[0]);
-                  }}
-                  className={`py-2.5 rounded-xl text-xs font-semibold border transition ${
-                    txType === 'outflow'
-                      ? 'bg-rose-500/20 border-rose-500/40 text-rose-300'
-                      : 'bg-black/40 border-white/10 text-zinc-400'
-                  }`}
-                >
-                  Outflow (Keluar)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setTxType('inflow');
-                    setTxCategory(CATEGORIES.inflow[0]);
-                  }}
-                  className={`py-2.5 rounded-xl text-xs font-semibold border transition ${
-                    txType === 'inflow'
-                      ? 'bg-emerald-500/20 border-emerald-500/40 text-emerald-300'
-                      : 'bg-black/40 border-white/10 text-zinc-400'
-                  }`}
-                >
-                  Inflow (Masuk)
-                </button>
-              </div>
-
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1">Nominal (Rp)</label>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  value={txAmount}
-                  onChange={(e) => setTxAmount(e.target.value)}
-                  placeholder="50000"
-                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm focus:outline-none focus:border-rose-500"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-2.5">
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Kategori</label>
-                  <select
-                    value={txCategory}
-                    onChange={(e) => setTxCategory(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
-                  >
-                    {CATEGORIES[txType].map((c) => (
-                      <option key={c} value={c}>
-                        {c}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs text-zinc-400 mb-1">Tanggal</label>
-                  <input
-                    type="date"
-                    value={txDate}
-                    onChange={(e) => setTxDate(e.target.value)}
-                    className="w-full px-3 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs text-zinc-400 mb-1">Catatan</label>
-                <input
-                  type="text"
-                  value={txDesc}
-                  onChange={(e) => setTxDesc(e.target.value)}
-                  placeholder="Contoh: Kopi Kenangan / Gaji Bulanan"
-                  className="w-full px-3.5 py-2.5 bg-black/40 border border-white/10 rounded-xl text-sm"
-                />
-              </div>
-
-              <button
-                type="submit"
-                disabled={txLoading}
-                className="w-full py-3 bg-gradient-to-r from-rose-500 to-orange-500 hover:opacity-90 text-white font-semibold rounded-xl text-sm transition flex items-center justify-center gap-1.5"
-              >
-                <Plus className="w-4 h-4" /> Simpan Transaksi
-              </button>
-            </form>
-          </motion.div>
-        </div>
-      )}
-
-      <CommandPalette open={commandOpen} onClose={() => setCommandOpen(false)} actions={paletteActions} />
+      <CommandPalette
+        open={commandOpen}
+        onClose={() => setCommandOpen(false)}
+        actions={paletteActions}
+      />
     </div>
   );
 }

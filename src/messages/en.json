@@ -75,6 +75,7 @@
     "debtComposition": "Loan Breakdown",
     "debtCompositionEmpty": "Every loan is paid off.",
     "openDebts": "Open Simulation & Loan List →",
+    "openDebtsShort": "View all",
     "upcoming": "Upcoming due dates",
     "upcomingEmpty": "No payments due in the next 30 days.",
     "recent": "Recent transactions",
@@ -105,6 +106,7 @@
     "deleteTitle": "Delete this transaction?",
     "deleteBody": "This transaction will be permanently removed from the database.",
     "deleted": "Transaction deleted.",
+    "restored": "Transaction restored.",
     "count": "{count} transactions"
   },
   "debts": {
@@ -144,7 +146,11 @@
       "pay": "Pay installment",
       "payConfirm": "Record this installment as an outgoing transaction?",
       "paidToast": "Installment recorded.",
-      "remainingLabel": "Remaining balance"
+      "remainingLabel": "Remaining balance",
+      "paidOff": "Paid off",
+      "progress": "Tenor progress",
+      "installmentLabel": "Installment/mo",
+      "tenorLabel": "Tenor"
     },
     "empty": {
       "title": "No loans yet",
@@ -232,7 +238,8 @@
       "twofaActive": "2FA is on",
       "twofaNeedLogin": "Sign in with an email account first to enable 2FA.",
       "locked": "App is locked",
-      "unlock": "Enter your PIN to unlock"
+      "unlock": "Enter your PIN to unlock",
+      "lock": "Lock now"
     },
     "appearance": {
       "title": "Appearance",
@@ -273,7 +280,15 @@
     "scanSuccess": "Receipt read. Check the amount before saving.",
     "importSuccess": "Imported {count} transactions.",
     "importFailed": "Could not read the CSV file.",
-    "exported": "Report downloaded."
+    "exported": "Report downloaded.",
+    "title": "Data Tools",
+    "subtitle": "Scan receipts, import, and export your financial data.",
+    "run": "Run",
+    "scanShort": "Scan receipt",
+    "emptyToExport": "No data to export yet.",
+    "csvHint": "Download transactions and loans as a CSV that can be imported back.",
+    "pdfHint": "Download a cashflow summary and installment list as a PDF.",
+    "wordHint": "Download the full report as an editable Microsoft Word file."
   },
   "quickAdd": {
     "title": "Add transaction",

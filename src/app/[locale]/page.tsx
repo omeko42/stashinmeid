@@ -9,7 +9,7 @@ import { createAdminClient } from '@/lib/supabase/admin';
 import { getOrCreateSuperadminUserId } from '@/lib/superadminUser';
 import { verifySuperadminToken } from '@/lib/jwt';
 import DashboardClient from '@/components/DashboardClient';
-import { BrandLogo } from '@/components/BrandLogo';
+import { DashboardSkeleton } from '@/components/shell/DashboardSkeleton';
 import { Transaction, Debt } from '@/types/finance';
 
 const DEMO_TRANSACTIONS: Transaction[] = [
@@ -185,15 +185,10 @@ export default async function HomePage({ params }: HomePageProps) {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[var(--bg)] text-[var(--text-muted)] flex flex-col items-center justify-center gap-4">
-          <div className="animate-pulse">
-            <BrandLogo size={52} />
-          </div>
-          <div className="flex items-center gap-1.5 pt-1">
-            <span className="w-2 h-2 rounded-full bg-[var(--brand)] animate-bounce [animation-delay:-0.3s]" />
-            <span className="w-2 h-2 rounded-full bg-[var(--brand)] animate-bounce [animation-delay:-0.15s]" />
-            <span className="w-2 h-2 rounded-full bg-[var(--brand)] animate-bounce" />
-          </div>
+        <div className="min-h-screen bg-[var(--bg)] text-[var(--text-muted)]">
+          <main className="mx-auto w-full max-w-6xl px-4 py-5 lg:px-8">
+            <DashboardSkeleton />
+          </main>
         </div>
       }
     >

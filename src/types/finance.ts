@@ -42,3 +42,21 @@ export interface AIScanResult {
   description: string;
   transaction_date: string;
 }
+
+export type BudgetPeriod = 'monthly' | 'weekly' | 'yearly';
+
+/**
+ * Pagu pengeluaran per kategori.
+ *
+ * Tabel `budgets` sudah ada di Supabase (lihat
+ * `supabase/migrations/2026-11-20_*_budgets.sql`).
+ */
+export interface Budget {
+  id: string;
+  user_id?: string;
+  category: string;
+  amount: number;
+  period: BudgetPeriod;
+  created_at?: string;
+  updated_at?: string;
+}

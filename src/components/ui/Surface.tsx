@@ -76,7 +76,9 @@ export function SectionTitle({
 }) {
   return (
     <div className={cn('flex items-center justify-between gap-3', className)}>
-      <h2 className="text-[15px] font-semibold text-[var(--text)]">{children}</h2>
+      <h2 className="min-w-0 text-[15px] font-semibold text-[var(--text)]">
+        {children}
+      </h2>
       {action}
     </div>
   );

@@ -72,9 +72,10 @@
     "activeDebts": "pinjaman aktif",
     "trendTitle": "Tren masuk dan keluar",
     "trendEmpty": "Belum ada transaksi untuk digrafikkan.",
-    "debtComposition": "Komposisi Sisa Pinjaman",
+    "debtComposition": "Komposisi Pinjaman",
     "debtCompositionEmpty": "Semua pinjaman sudah lunas.",
     "openDebts": "Buka Simulasi & Daftar Pinjaman →",
+    "openDebtsShort": "Lihat semua",
     "upcoming": "Jatuh tempo terdekat",
     "upcomingEmpty": "Tidak ada jatuh tempo dalam 30 hari ke depan.",
     "recent": "Transaksi terbaru",
@@ -105,6 +106,7 @@
     "deleteTitle": "Hapus transaksi ini?",
     "deleteBody": "Transaksi akan dihapus permanen dari database.",
     "deleted": "Transaksi dihapus.",
+    "restored": "Transaksi dikembalikan.",
     "count": "{count} transaksi"
   },
   "debts": {
@@ -144,7 +146,11 @@
       "pay": "Bayar cicilan",
       "payConfirm": "Catat pembayaran cicilan ini sebagai transaksi keluar?",
       "paidToast": "Cicilan dicatat.",
-      "remainingLabel": "Sisa tagihan"
+      "remainingLabel": "Sisa tagihan",
+      "paidOff": "Lunas",
+      "progress": "Progres tenor",
+      "installmentLabel": "Cicilan/bln",
+      "tenorLabel": "Tenor"
     },
     "empty": {
       "title": "Belum ada pinjaman",
@@ -232,7 +238,8 @@
       "twofaActive": "2FA aktif",
       "twofaNeedLogin": "Login dengan akun email dulu untuk mengaktifkan 2FA.",
       "locked": "Aplikasi terkunci",
-      "unlock": "Masukkan PIN untuk membuka"
+      "unlock": "Masukkan PIN untuk membuka",
+      "lock": "Kunci sekarang"
     },
     "appearance": {
       "title": "Tampilan",
@@ -273,7 +280,15 @@
     "scanSuccess": "Struk terbaca. Periksa nominalnya sebelum disimpan.",
     "importSuccess": "{count} transaksi diimpor.",
     "importFailed": "Gagal membaca berkas CSV.",
-    "exported": "Laporan berhasil diunduh."
+    "exported": "Laporan berhasil diunduh.",
+    "title": "Alat Data",
+    "subtitle": "Pindai struk, impor, dan ekspor data keuanganmu.",
+    "run": "Jalankan",
+    "scanShort": "Pindai struk",
+    "emptyToExport": "Belum ada data untuk diekspor.",
+    "csvHint": "Unduh transaksi dan pinjaman sebagai CSV yang bisa diimpor balik.",
+    "pdfHint": "Unduh ringkasan cashflow dan daftar cicilan dalam format PDF.",
+    "wordHint": "Unduh laporan lengkap dalam format Microsoft Word yang bisa diedit."
   },
   "quickAdd": {
     "title": "Catat transaksi",

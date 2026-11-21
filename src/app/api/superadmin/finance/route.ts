@@ -41,6 +41,7 @@ const ALLOWED_COLUMNS: Record<string, string[]> = {
     'status',
     'notes',
   ],
+  budgets: ['category', 'amount', 'period'],
 };
 
 /**
@@ -63,6 +64,34 @@ function sanitizeUpdates(
   }
 
   return Object.keys(clean).length > 0 ? clean : null;
+}
+
+/**
+ * Baca data satu tabel milik user yang sedang aktif (superadmin atau target
+ * impersonate). Hanya tabel yang memang dipakai dashboard yang diizinkan.
+ */
+export async function GET(req: NextRequest) {
+  const userId = await getTargetUserId();
+  const admin = createAdminClient();
+  if (!userId || !admin) {
+    return NextResponse.json({ error: 'Unauthorized or Supabase Admin not configured.' }, { status: 401 });
+  }
+
+  const table = req.nextUrl.searchParams.get('table');
+  if (!table || !['transactions', 'debts', 'budgets', 'profiles'].includes(table)) {
+    return NextResponse.json({ error: 'Invalid table.' }, { status: 400 });
+  }
+
+  // `profiles` punya primary key `id` yang sama dengan user id. Tabel lain
+  // memakai kolom `user_id`.
+  const query =
+    table === 'profiles'
+      ? admin.from(table).select('*').eq('id', userId)
+      : admin.from(table).select('*').eq('user_id', userId);
+
+  const { data, error } = await query;
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  return NextResponse.json({ data });
 }
 
 export async function POST(req: NextRequest) {
@@ -95,6 +124,20 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ data });
   }
 
+  if (table === 'budgets') {
+    // Pagu bersifat unik per (user, kategori, periode). Upsert di sini supaya
+    // mengatur pagu lagi untuk kategori yang sama memperbarui, bukan menambah
+    // baris ganda.
+    const row = { ...payload, user_id: userId };
+    const { data, error } = await admin
+      .from('budgets')
+      .upsert(row, { onConflict: 'user_id,category,period' })
+      .select()
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ data });
+  }
+
   return NextResponse.json({ error: 'Invalid table.' }, { status: 400 });
 }
 
@@ -109,7 +152,7 @@ export async function PATCH(req: NextRequest) {
 
   // Hanya tabel yang memang boleh diubah lewat superadmin. `profiles` ikut
   // bisa diubah supaya superadmin bisa impersonate lalu menyunting profil target.
-  if (table !== 'profiles' && table !== 'debts') {
+  if (table !== 'profiles' && table !== 'debts' && table !== 'budgets') {
     return NextResponse.json({ error: 'Invalid table.' }, { status: 400 });
   }
 
@@ -125,13 +168,14 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: true });
   }
 
-  // debts: wajib menyebut id baris yang mau diubah, dan tetap batasi ke userId.
+  // debts dan budgets: wajib menyebut id baris yang mau diubah, dan tetap
+  // batasi ke userId.
   if (!id) {
     return NextResponse.json({ error: 'id wajib diisi.' }, { status: 400 });
   }
 
   const { error } = await admin
-    .from('debts')
+    .from(table)
     .update(clean)
     .eq('id', id)
     .eq('user_id', userId);
@@ -148,7 +192,7 @@ export async function DELETE(req: NextRequest) {
   }
 
   const { table, id } = await req.json();
-  if (!['transactions', 'debts'].includes(table) || !id) {
+  if (!['transactions', 'debts', 'budgets'].includes(table) || !id) {
     return NextResponse.json({ error: 'Invalid request.' }, { status: 400 });
   }
 

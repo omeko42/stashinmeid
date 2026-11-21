@@ -1,0 +1,223 @@
+'use client';
+
+import { useTranslations } from 'next-intl';
+import { KeyRound, Loader2, Trash2, UserCheck } from 'lucide-react';
+import type { UserRole } from '@/types/finance';
+import { Label } from '@/components/ui/Surface';
+import { Button, IconButton } from '@/components/ui/Button';
+import { EmptyState } from '@/components/ui/EmptyState';
+
+export interface ManagedUser {
+  id: string;
+  email: string;
+  client_name: string;
+  role: UserRole;
+  created_at: string;
+}
+
+interface UsersTabProps {
+  users: ManagedUser[];
+  loading: boolean;
+  error: string | null;
+  editingUserId: string | null;
+  editUserEmail: string;
+  editUserClient: string;
+  onRefresh: () => void;
+  onChangeRole: (userId: string, role: UserRole) => void;
+  onResetPassword: (email: string) => void;
+  onImpersonate: (user: ManagedUser) => void;
+  onDelete: (userId: string) => void;
+  onToggleEdit: (user: ManagedUser) => void;
+  onEditFieldChange: (field: 'email' | 'client_name', value: string) => void;
+  onSaveEdit: (userId: string) => void;
+  onCancelEdit: () => void;
+}
+
+/**
+ * Manajemen user (khusus superadmin).
+ *
+ * Daftar baris datar - tiap user adalah baris dengan email, workspace, dan
+ * aksi. Form edit inline, bukan modal, supaya konteks user tetap terlihat.
+ */
+export function UsersTab({
+  users,
+  loading,
+  error,
+  editingUserId,
+  editUserEmail,
+  editUserClient,
+  onRefresh,
+  onChangeRole,
+  onResetPassword,
+  onImpersonate,
+  onDelete,
+  onToggleEdit,
+  onEditFieldChange,
+  onSaveEdit,
+  onCancelEdit,
+}: UsersTabProps) {
+  const tUsers = useTranslations('users');
+  const tCommon = useTranslations('common');
+
+  const roleOptions: { value: UserRole; label: string }[] = [
+    { value: 'admin', label: tUsers('roles.admin') },
+    { value: 'member', label: tUsers('roles.member') },
+    { value: 'viewer', label: tUsers('roles.viewer') },
+  ];
+
+  return (
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-[18px] font-semibold text-[var(--text)]">
+            {tUsers('title')}
+          </h2>
+          <p className="text-[12px] text-[var(--text-muted)]">
+            {tUsers('subtitle')}
+          </p>
+        </div>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={onRefresh}
+          loading={loading}
+        >
+          {tUsers('refresh')}
+        </Button>
+      </div>
+
+      {error && (
+        <div className="rounded-lg border border-[var(--due)]/30 bg-[var(--due-soft)] px-4 py-3 text-[12px] text-[var(--due)]">
+          {error}
+        </div>
+      )}
+
+      {loading && users.length === 0 ? (
+        <div className="flex justify-center py-12">
+          <Loader2 className="size-6 animate-spin text-[var(--brand)]" />
+        </div>
+      ) : users.length === 0 ? (
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)]">
+          <EmptyState
+            icon={<UserCheck className="size-5" />}
+            title={tUsers('empty.title')}
+            description={tUsers('empty.description')}
+          />
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)]">
+          {users.map((u, idx) => (
+            <div
+              key={u.id}
+              className={`px-4 py-3.5 ${idx > 0 ? 'border-t border-[var(--line)]' : ''}`}
+            >
+              <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                <div className="min-w-0">
+                  <p className="truncate text-[13px] font-semibold text-[var(--text)]">
+                    {u.email}
+                  </p>
+                  <p className="truncate text-[11px] text-[var(--text-muted)]">
+                    {u.client_name} ·{' '}
+                    {new Date(u.created_at).toLocaleDateString('id-ID')}
+                  </p>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <label className="sr-only" htmlFor={`role-${u.id}`}>
+                    {tUsers('role')}
+                  </label>
+                  <select
+                    id={`role-${u.id}`}
+                    value={u.role}
+                    onChange={(e) =>
+                      onChangeRole(u.id, e.target.value as UserRole)
+                    }
+                    className="h-8 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                  >
+                    {roleOptions.map((r) => (
+                      <option key={r.value} value={r.value}>
+                        {r.label}
+                      </option>
+                    ))}
+                  </select>
+
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => onToggleEdit(u)}
+                  >
+                    {tCommon('edit')}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<KeyRound className="size-3.5" />}
+                    onClick={() => onResetPassword(u.email)}
+                  >
+                    {tUsers('resetPassword')}
+                  </Button>
+
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<UserCheck className="size-3.5" />}
+                    onClick={() => onImpersonate(u)}
+                  >
+                    {tUsers('impersonate')}
+                  </Button>
+
+                  <IconButton
+                    label={tUsers('deleteUser')}
+                    size="sm"
+                    onClick={() => onDelete(u.id)}
+                    className="text-[var(--text-faint)] hover:text-[var(--out)]"
+                  >
+                    <Trash2 className="size-4" />
+                  </IconButton>
+                </div>
+              </div>
+
+              {editingUserId === u.id && (
+                <div className="mt-3 grid grid-cols-1 gap-2 border-t border-[var(--line)] pt-3 sm:grid-cols-3">
+                  <div>
+                    <Label>{tUsers('editTitle', { name: u.email })}</Label>
+                    <input
+                      type="email"
+                      value={editUserEmail}
+                      onChange={(e) => onEditFieldChange('email', e.target.value)}
+                      placeholder="Email tertaut"
+                      aria-label="Email tertaut"
+                      className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <Label>{tUsers('edit')}</Label>
+                    <input
+                      type="text"
+                      value={editUserClient}
+                      onChange={(e) =>
+                        onEditFieldChange('client_name', e.target.value)
+                      }
+                      placeholder="Nama workspace"
+                      aria-label="Nama workspace"
+                      className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                    />
+                  </div>
+                  <div className="flex items-end gap-2">
+                    <Button size="sm" onClick={() => onSaveEdit(u.id)}>
+                      {tCommon('save')}
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={onCancelEdit}>
+                      {tCommon('cancel')}
+                    </Button>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
