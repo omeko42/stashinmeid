@@ -108,7 +108,8 @@ export default function DashboardClient({
   const supabase = createClient();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const csvInputRef = useRef<HTMLInputElement>(null);
-  const canEdit = userRole !== 'viewer';
+  // Role sekarang hanya admin & user - keduanya bisa kelola keuangannya sendiri.
+  const canEdit = true;
 
   const [transactions, setTransactions] =
     useState<Transaction[]>(initialTransactions);

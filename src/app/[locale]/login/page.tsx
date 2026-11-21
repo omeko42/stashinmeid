@@ -87,7 +87,7 @@ export default function LoginPage() {
             full_name: fullName,
             client_name: clientName || 'Personal',
             bio,
-            role: 'member',
+            role: 'user',
           },
         },
       });

@@ -1,5 +1,6 @@
 export type TransactionType = 'inflow' | 'outflow';
-export type UserRole = 'admin' | 'member' | 'viewer';
+/** Role tinggal dua: admin & user (sebelumnya admin/member/viewer). */
+export type UserRole = 'admin' | 'user';
 
 export interface UserProfile {
   id: string;

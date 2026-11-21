@@ -38,7 +38,7 @@ export async function GET() {
   return NextResponse.json({ users: data || [] });
 }
 
-const VALID_ROLES = ['admin', 'member', 'viewer'];
+const VALID_ROLES = ['admin', 'user'];
 
 export async function PATCH(req: NextRequest) {
   const session = await requireSuperadmin();

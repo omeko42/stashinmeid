@@ -39,7 +39,7 @@ async function getAuthorizedUserId(req: NextRequest): Promise<string | null> {
       .select('id, role')
       .eq('id', session.impersonateUserId)
       .single();
-    if (error || !profile || profile.role === 'viewer') return null;
+    if (error || !profile) return null;
     return `superadmin:${session.sub}:${profile.id}`;
   }
 

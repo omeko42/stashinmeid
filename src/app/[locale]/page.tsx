@@ -172,7 +172,7 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
         initialDebts={(debts as Debt[]) || []}
         userEmail={user.email ?? null}
         clientName={profile?.client_name ?? 'Personal'}
-        userRole={(profile?.role as 'admin' | 'member' | 'viewer') ?? 'member'}
+        userRole={(profile?.role as 'admin' | 'user') ?? 'user'}
         initialBio={(profile?.bio as string) || ''}
         initialAvatarUrl={(profile?.avatar_url as string) || null}
         initialBannerUrl={(profile?.banner_url as string) || null}

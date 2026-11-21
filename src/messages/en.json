@@ -297,8 +297,7 @@
     "role": "Role",
     "roles": {
       "admin": "Admin",
-      "member": "Member",
-      "viewer": "Viewer"
+      "user": "User"
     },
     "edit": "Edit login details",
     "editTitle": "Edit login details for {name}",

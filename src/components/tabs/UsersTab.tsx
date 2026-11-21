@@ -63,8 +63,7 @@ export function UsersTab({
 
   const roleOptions: { value: UserRole; label: string }[] = [
     { value: 'admin', label: tUsers('roles.admin') },
-    { value: 'member', label: tUsers('roles.member') },
-    { value: 'viewer', label: tUsers('roles.viewer') },
+    { value: 'user', label: tUsers('roles.user') },
   ];
 
   return (

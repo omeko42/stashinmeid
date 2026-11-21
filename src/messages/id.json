@@ -297,8 +297,7 @@
     "role": "Peran",
     "roles": {
       "admin": "Admin",
-      "member": "Member",
-      "viewer": "Viewer"
+      "user": "User"
     },
     "edit": "Ubah data login",
     "editTitle": "Ubah data login {name}",
