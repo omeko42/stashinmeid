@@ -8,6 +8,7 @@ import { useHotkey } from '@/hooks/useHotkey';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useBudgets } from '@/hooks/useBudgets';
 import { useKolega } from '@/hooks/useKolega';
+import { useConnections } from '@/hooks/useConnections';
 import { useAssets } from '@/hooks/useAssets';
 import { CommandPalette, type CommandAction } from '@/components/shell/CommandPalette';
 import { Sidebar, type NavTab } from '@/components/shell/Sidebar';
@@ -31,6 +32,7 @@ import { SocialTab, type SocialSub } from '@/components/tabs/SocialTab';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Field';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { createClient } from '@/lib/supabase/client';
 import type { Debt, Transaction, TransactionType, UserRole } from '@/types/finance';
 import {
@@ -184,6 +186,7 @@ export default function DashboardClient({
 
   const budgets = useBudgets({ isDemoMode, isSuperadmin });
   const kolega = useKolega();
+  const connections = useConnections();
   const assets = useAssets({ isDemoMode, isSuperadmin });
 
   // Split dompet fisik (kas) vs non-fisik (bank/e-wallet/crypto) - dipakai
@@ -1340,6 +1343,7 @@ export default function DashboardClient({
                   sub={sosialSub}
                   onSubChange={setSosialSub}
                   kolega={kolega}
+                  connections={connections}
                 />
               )}
 
@@ -1374,6 +1378,7 @@ export default function DashboardClient({
                     if (banner !== undefined) setProfileBannerUrl(banner);
                   }}
                   kolega={kolega}
+                  connections={connections}
                 />
               )}
 
@@ -1593,10 +1598,9 @@ export default function DashboardClient({
             placeholder={tSettings('bioPlaceholder')}
           />
 
-          <Input
+          <PasswordInput
             label={tSettings('newPassword')}
             hint={tSettings('newPasswordHint')}
-            type="password"
             value={profileNewPassword}
             onChange={(e) => setProfileNewPassword(e.target.value)}
             autoComplete="new-password"

@@ -8,6 +8,7 @@ import { formatDate, formatRp } from '@/lib/format';
 import { getCategory } from '@/lib/categories';
 import { Amount, Label, Progress, Rule, SectionTitle } from '@/components/ui/Surface';
 import { Button } from '@/components/ui/Button';
+import { BalanceVisibilityToggle } from '@/components/ui/BalanceVisibilityToggle';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Segmented } from '@/components/ui/Segmented';
 import { CashflowChart, type ChartPeriod } from '@/components/charts/CashflowChart';
@@ -97,7 +98,10 @@ export function OverviewTab({
       <section className="border-b border-[var(--line)] pb-5">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <Label>{tOverview('balanceLabel')}</Label>
+            <div className="flex items-center gap-2">
+              <Label>{tOverview('balanceLabel')}</Label>
+              <BalanceVisibilityToggle />
+            </div>
             <div className="mt-1.5">
               <div className="group relative inline-block">
                 <Amount

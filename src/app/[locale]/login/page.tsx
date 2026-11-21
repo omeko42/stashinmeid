@@ -7,6 +7,7 @@ import { useRouter } from '@/i18n/navigation';
 import { motion } from 'framer-motion';
 import { createClient } from '@/lib/supabase/client';
 import { BrandLogo } from '@/components/BrandLogo';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Loader2, KeyRound, ArrowRight, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
@@ -234,8 +235,8 @@ export default function LoginPage() {
               <label className="block text-xs font-medium text-slate-400 mb-1.5">
                 Password (min. 8 karakter, huruf & angka)
               </label>
-              <input
-                type="password"
+              <PasswordInput
+                unstyled
                 required
                 minLength={8}
                 value={password}
@@ -249,8 +250,8 @@ export default function LoginPage() {
               <label className="block text-xs font-medium text-slate-400 mb-1.5">
                 Ulangi Password
               </label>
-              <input
-                type="password"
+              <PasswordInput
+                unstyled
                 required
                 minLength={8}
                 value={confirmPassword}
@@ -357,8 +358,8 @@ export default function LoginPage() {
                       Lupa Password?
                     </button>
                   </div>
-                  <input
-                    type="password"
+                  <PasswordInput
+                    unstyled
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}

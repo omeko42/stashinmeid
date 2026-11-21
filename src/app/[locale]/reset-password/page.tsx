@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { BrandLogo } from '@/components/BrandLogo';
+import { PasswordInput } from '@/components/ui/PasswordInput';
 import { Loader2, KeyRound } from 'lucide-react';
 
 export default function ResetPasswordPage() {
@@ -70,8 +71,8 @@ export default function ResetPasswordPage() {
         <form onSubmit={handleUpdate} className="space-y-4">
           <div>
             <label className="block text-xs text-zinc-400 mb-1.5">Password Baru</label>
-            <input
-              type="password"
+            <PasswordInput
+              unstyled
               required
               minLength={8}
               value={password}
@@ -82,8 +83,8 @@ export default function ResetPasswordPage() {
           </div>
           <div>
             <label className="block text-xs text-zinc-400 mb-1.5">Ulangi Password Baru</label>
-            <input
-              type="password"
+            <PasswordInput
+              unstyled
               required
               minLength={8}
               value={confirm}

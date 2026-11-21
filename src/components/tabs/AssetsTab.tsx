@@ -15,6 +15,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { Amount } from '@/components/ui/Surface';
+import { BalanceVisibilityToggle } from '@/components/ui/BalanceVisibilityToggle';
 import { Button } from '@/components/ui/Button';
 import { CURRENCY_OPTIONS, useAssets, type AccountKind } from '@/hooks/useAssets';
 import { formatRp } from '@/lib/format';
@@ -122,9 +123,12 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
       <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-              {t('totalIn', { currency: primary })}
-            </p>
+            <div className="flex items-center gap-1.5">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                {t('totalIn', { currency: primary })}
+              </p>
+              <BalanceVisibilityToggle />
+            </div>
             <Amount value={formatRp(assets.totalConverted)} size="xl" />
           </div>
           <label className="flex items-center gap-2 text-[12px] text-[var(--text-muted)]">

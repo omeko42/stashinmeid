@@ -87,48 +87,18 @@ export function SectionTitle({
 /**
  * Nilai angka besar. Semua angka uang di app ini lewat komponen ini supaya
  * tipografi dan align-nya konsisten.
+ *
+ * Nominal bisa disembunyikan lewat preferensi "sembunyikan saldo" - kalau
+ * aktif, angka diganti bullet. Implementasinya di `AmountMasked` (client
+ * component) supaya `Surface` tetap bisa dipakai di server component.
  */
-export function Amount({
-  value,
-  tone = 'default',
-  size = 'md',
-  className,
-}: {
+export { AmountMasked as Amount } from './AmountMasked';
+export type AmountProps = {
   value: string;
   tone?: 'default' | 'brand' | 'out' | 'due' | 'info' | 'muted';
   size?: 'sm' | 'md' | 'lg' | 'xl' | 'hero';
   className?: string;
-}) {
-  const tones = {
-    default: 'text-[var(--text)]',
-    brand: 'text-[var(--brand)]',
-    out: 'text-[var(--out)]',
-    due: 'text-[var(--due)]',
-    info: 'text-[var(--info)]',
-    muted: 'text-[var(--text-muted)]',
-  } as const;
-
-  const sizes = {
-    sm: 'text-[13px]',
-    md: 'text-[15px]',
-    lg: 'text-[18px]',
-    xl: 'text-[24px]',
-    hero: 'text-[34px] sm:text-[44px] lg:text-[56px]',
-  } as const;
-
-  return (
-    <span
-      className={cn(
-        'tnum font-semibold tracking-[-0.02em] leading-none',
-        tones[tone],
-        sizes[size],
-        className
-      )}
-    >
-      {value}
-    </span>
-  );
-}
+};
 
 /**
  * Progress bar tipis untuk progress bar tenor / pagu anggaran.

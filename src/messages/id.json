@@ -36,7 +36,24 @@
     "postSend": "Kirim",
     "feedEmptyTitle": "Feed masih kosong",
     "feedEmptyDesc": "Jadilah yang pertama memosting - bisa soal target menabung, laporan mingguan, atau ajakan patungan.",
-    "you": "Anda"
+    "you": "Anda",
+    "connections": {
+      "title": "Kolega",
+      "subtitle": "Pertemanan dua arah, murni sosial. Kolega tidak bisa melihat transaksi atau datumu yang lain. Kalau mau berbagi keuangan, buat grup keuangan di bawah.",
+      "listTitle": "Kolega kamu",
+      "emptyTitle": "Belum ada kolega",
+      "emptyHint": "Cari orang di tab Obrolan lalu kirim permintaan pertemanan.",
+      "incomingTitle": "Permintaan masuk",
+      "outgoingTitle": "Permintaan terkirim",
+      "pending": "Menunggu",
+      "accept": "Terima",
+      "reject": "Tolak",
+      "cancel": "Batal",
+      "remove": "Hapus kolega",
+      "accepted": "Kolega ditambahkan.",
+      "rejected": "Permintaan ditolak.",
+      "removed": "Kolega dihapus."
+    }
   },
   "common": {
     "save": "Simpan",
@@ -299,20 +316,29 @@
       "enabled": "Aktifkan"
     },
     "kolega": {
-      "title": "Kolega",
-      "subtitle": "Ngumpulin keuangan sama orang yang kamu percaya. Kolega bisa lihat dan mencatat di ruang bersama, keuangan pribadu tetap milikmu.",
+      "title": "Grup keuangan",
+      "subtitle": "Ruang transaksi bersama. Hanya anggota grup ini yang bisa melihat transaksi yang dicatat ke grup - dan itu tetap butuh izinmu saat mencatat.",
       "create": "Buat",
-      "created": "Ruang bersama dibuat.",
-      "groupName": "Nama ruang bersama",
+      "created": "Grup keuangan dibuat.",
+      "groupName": "Nama grup keuangan",
       "invite": "Undang",
-      "inviteEmail": "Email kolega (harus punya akun)",
-      "invited": "Kolega ditambahkan.",
-      "removed": "Kolega dikeluarkan.",
+      "inviteEmail": "Email (harus punya akun)",
+      "invited": "Anggota ditambahkan.",
+      "removed": "Anggota dikeluarkan.",
       "owner": "Pemilik",
       "remove": "Keluarkan",
       "inflow": "Masuk",
       "outflow": "Keluar",
       "failed": "Ada yang gagal. Coba lagi."
+    },
+    "balance": {
+      "id": {
+        "title": "Sembunyikan saldo",
+        "hint": "Ganti nominal saldo dengan titik-titik di seluruh aplikasi. Berguna saat dipakai di tempat umum."
+      },
+      "show": "Tampilkan saldo",
+      "hide": "Sembunyikan saldo",
+      "hiddenNote": "Saldo sedang disembunyikan."
     }
   },
   "users": {

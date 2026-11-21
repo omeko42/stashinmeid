@@ -3,6 +3,7 @@
 import { useTranslations } from 'next-intl';
 import { Segmented } from '@/components/ui/Segmented';
 import { Amount, Label } from '@/components/ui/Surface';
+import { BalanceVisibilityToggle } from '@/components/ui/BalanceVisibilityToggle';
 import { BudgetTab } from './BudgetTab';
 import { CashflowTab } from './CashflowTab';
 import { AssetsTab } from './AssetsTab';
@@ -81,7 +82,10 @@ export function SaldoTab({
       {/* Saldo fisik vs non-fisik */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4 sm:col-span-1">
-          <Label>{t('totalLabel')}</Label>
+          <div className="flex items-center gap-1.5">
+            <Label>{t('totalLabel')}</Label>
+            <BalanceVisibilityToggle />
+          </div>
           <div className="mt-1.5">
             <Amount value={formatRp(grandTotal)} size="lg" />
           </div>

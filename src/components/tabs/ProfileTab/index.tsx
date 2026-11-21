@@ -9,6 +9,7 @@ import { Amount, Progress, Rule, Label } from '@/components/ui/Surface';
 import { Button } from '@/components/ui/Button';
 import { KolegaSection } from '@/components/profile/KolegaSection';
 import type { KolegaApi } from '@/hooks/useKolega';
+import type { ConnectionsApi } from '@/hooks/useConnections';
 import { createClient } from '@/lib/supabase/client';
 
 interface ProfileTabProps {
@@ -25,6 +26,8 @@ interface ProfileTabProps {
   onProfileMediaChange: (avatarUrl: string | null, bannerUrl: string | null) => void;
   /** Data kolega dari DashboardClient supaya tidak fetch dobel. */
   kolega: KolegaApi;
+  /** Kolega sosial (pertemanan 2-arah). */
+  connections: ConnectionsApi;
 }
 
 /**
@@ -47,6 +50,7 @@ export function ProfileTab({
   onEditProfile,
   onProfileMediaChange,
   kolega,
+  connections,
 }: ProfileTabProps) {
   const t = useTranslations();
   const tSettings = useTranslations('settings');
@@ -288,7 +292,7 @@ export function ProfileTab({
         </section>
       </div>
 
-      <KolegaSection kolega={kolega} />
+      <KolegaSection kolega={kolega} connections={connections} />
     </div>
   );
 }

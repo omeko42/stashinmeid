@@ -6,6 +6,7 @@ import { KolegaSection } from '@/components/profile/KolegaSection';
 import { ChatPanel } from './ChatPanel';
 import { FeedTab } from './FeedTab';
 import type { KolegaApi } from '@/hooks/useKolega';
+import type { ConnectionsApi } from '@/hooks/useConnections';
 
 export type SocialSub = 'kolega' | 'chat' | 'feed';
 
@@ -13,16 +14,17 @@ interface SocialTabProps {
   sub: SocialSub;
   onSubChange: (sub: SocialSub) => void;
   kolega: KolegaApi;
+  connections: ConnectionsApi;
 }
 
 /**
  * Lapisan sosial stashinmeid.
  *
- * Tiga permukaan: Kolega (ruang keuangan bersama), Obrolan (perpesanan
+ * Tiga permukaan: Kolega (pertemanan + grup keuangan), Obrolan (perpesanan
  * antar pengguna), dan Feed (postingan). Kolega memakai section yang sama
  * dengan menu Profil agar tidak ada dua sumber kebenaran.
  */
-export function SocialTab({ sub, onSubChange, kolega }: SocialTabProps) {
+export function SocialTab({ sub, onSubChange, kolega, connections }: SocialTabProps) {
   const tSos = useTranslations('sosial');
 
   const options = [
@@ -40,7 +42,7 @@ export function SocialTab({ sub, onSubChange, kolega }: SocialTabProps) {
         ariaLabel={tSos('title')}
       />
 
-      {sub === 'kolega' && <KolegaSection kolega={kolega} />}
+      {sub === 'kolega' && <KolegaSection kolega={kolega} connections={connections} />}
       {sub === 'chat' && <ChatPanel />}
       {sub === 'feed' && <FeedTab />}
     </div>

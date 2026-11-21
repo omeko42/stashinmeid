@@ -27,6 +27,13 @@ export const PasswordInput = forwardRef<
     hideLabel?: string;
     /** Label tombol saat password tersembunyi. */
     showLabel?: string;
+    /**
+     * Pakai styling sendiri (bukan design system). Untuk halaman auth
+     * yang punya tema visual berbeda dari aplikasi.
+     */
+    unstyled?: boolean;
+    /** Class untuk tombol ikon mata. */
+    toggleClassName?: string;
   }
 >(function PasswordInput(
   {
@@ -38,6 +45,8 @@ export const PasswordInput = forwardRef<
     id,
     hideLabel = 'Sembunyikan password',
     showLabel = 'Lihat password',
+    unstyled = false,
+    toggleClassName,
     ...props
   },
   ref
@@ -45,6 +54,56 @@ export const PasswordInput = forwardRef<
   const generatedId = useId();
   const fieldId = id ?? generatedId;
   const [visible, setVisible] = useState(false);
+
+  const input = (
+    <input
+      ref={ref}
+      id={fieldId}
+      type="password"
+      required={required}
+      aria-invalid={error ? true : undefined}
+      className={cn(
+        unstyled ? undefined : FIELD_BASE,
+        !unstyled && 'pr-10',
+        !unstyled && error && 'border-[var(--out)]',
+        className
+      )}
+      {...props}
+    />
+  );
+
+  const toggle = (
+    <button
+      type="button"
+      onClick={() => setVisible((v) => !v)}
+      aria-label={visible ? hideLabel : showLabel}
+      aria-pressed={visible}
+      title={visible ? hideLabel : showLabel}
+      className={cn(
+        'absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]',
+        unstyled
+          ? 'text-slate-500 hover:text-slate-300'
+          : 'text-[var(--text-faint)] hover:bg-[var(--surface-3)] hover:text-[var(--text-muted)]',
+        toggleClassName
+      )}
+    >
+      {visible ? (
+        <EyeOff className="size-4" aria-hidden />
+      ) : (
+        <Eye className="size-4" aria-hidden />
+      )}
+    </button>
+  );
+
+  // Mode unstyled: caller sudah pegang label dan layout-nya sendiri.
+  if (unstyled) {
+    return (
+      <div className="relative">
+        {input}
+        {toggle}
+      </div>
+    );
+  }
 
   return (
     <FieldShell
@@ -55,34 +114,8 @@ export const PasswordInput = forwardRef<
       htmlFor={fieldId}
     >
       <div className="relative">
-        <input
-          ref={ref}
-          id={fieldId}
-          type="password"
-          required={required}
-          aria-invalid={error ? true : undefined}
-          className={cn(
-            FIELD_BASE,
-            'pr-10',
-            error && 'border-[var(--out)]',
-            className
-          )}
-          {...props}
-        />
-        <button
-          type="button"
-          onClick={() => setVisible((v) => !v)}
-          aria-label={visible ? hideLabel : showLabel}
-          aria-pressed={visible}
-          title={visible ? hideLabel : showLabel}
-          className="absolute right-1 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-faint)] transition-colors hover:bg-[var(--surface-3)] hover:text-[var(--text-muted)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--brand)]"
-        >
-          {visible ? (
-            <EyeOff className="size-4" aria-hidden />
-          ) : (
-            <Eye className="size-4" aria-hidden />
-          )}
-        </button>
+        {input}
+        {toggle}
       </div>
     </FieldShell>
   );

@@ -36,7 +36,24 @@
     "postSend": "Post",
     "feedEmptyTitle": "Feed is empty",
     "feedEmptyDesc": "Be the first to post - savings goals, weekly recaps, or joint-funding invites.",
-    "you": "You"
+    "you": "You",
+    "connections": {
+      "title": "Connections",
+      "subtitle": "Two-way friendship, purely social. Connections cannot see each other's transactions or data. If you want to share finances, create a finance group below.",
+      "listTitle": "Your connections",
+      "emptyTitle": "No connections yet",
+      "emptyHint": "Find people in the Chat tab and send a friend request.",
+      "incomingTitle": "Incoming requests",
+      "outgoingTitle": "Sent requests",
+      "pending": "Pending",
+      "accept": "Accept",
+      "reject": "Decline",
+      "cancel": "Cancel",
+      "remove": "Remove connection",
+      "accepted": "Connection added.",
+      "rejected": "Request declined.",
+      "removed": "Connection removed."
+    }
   },
   "common": {
     "save": "Save",
@@ -299,20 +316,29 @@
       "enabled": "Enable"
     },
     "kolega": {
-      "title": "Colleagues",
-      "subtitle": "Pool finances with people you trust. Colleagues can see and record in the shared space; your personal finances stay yours.",
+      "title": "Finance groups",
+      "subtitle": "Shared transaction space. Only members of a group can see transactions recorded to that group - and that still needs your permission when recording.",
       "create": "Create",
-      "created": "Shared space created.",
-      "groupName": "Shared space name",
+      "created": "Finance group created.",
+      "groupName": "Finance group name",
       "invite": "Invite",
-      "inviteEmail": "Colleague email (must have an account)",
-      "invited": "Colleague added.",
-      "removed": "Colleague removed.",
+      "inviteEmail": "Email (must have an account)",
+      "invited": "Member added.",
+      "removed": "Member removed.",
       "owner": "Owner",
       "remove": "Remove",
       "inflow": "In",
       "outflow": "Out",
       "failed": "Something failed. Try again."
+    },
+    "balance": {
+      "id": {
+        "title": "Hide balance",
+        "hint": "Replace balance amounts with dots throughout the app. Useful when you use it in public."
+      },
+      "show": "Show balance",
+      "hide": "Hide balance",
+      "hiddenNote": "Balance is currently hidden."
     }
   },
   "users": {

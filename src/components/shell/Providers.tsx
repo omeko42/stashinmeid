@@ -4,12 +4,16 @@ import { ThemeProvider } from 'next-themes';
 import { Toaster } from 'sonner';
 import { useLocale } from 'next-intl';
 import { RegisterPwa } from './RegisterPwa';
+import { BalancePrivacyProvider } from '@/components/ui/BalancePrivacy';
 
 /**
- * Provider global: tema (terang/gelap) dan toast.
+ * Provider global: tema (terang/gelap), toast, dan preferensi kerahasiaan
+ * saldo.
  *
  * `next-themes` mencegah kilatan tema salah sebelum hydration selesai.
  * `sonner` menangani toast global untuk seluruh aplikasi.
+ * `BalancePrivacyProvider` menyimpan status "sembunyikan saldo" yang dibaca
+ * semua komponen `Amount`.
  */
 export function Providers({ children }: { children: React.ReactNode }) {
   const locale = useLocale();
@@ -22,7 +26,9 @@ export function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
       storageKey="stashinme-theme"
     >
-      {children}
+      <BalancePrivacyProvider>
+        {children}
+      </BalancePrivacyProvider>
       <RegisterPwa />
       <Toaster
         position="bottom-right"
