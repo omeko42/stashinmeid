@@ -183,17 +183,19 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
       console.error('[stashinmeid] user dashboard loader error:', err);
     }
 
+    const isTaggedDemo = Boolean(user.user_metadata?.is_demo);
+
     return (
       <DashboardClient
         initialTransactions={transactions}
         initialDebts={debts}
         userEmail={user.email ?? null}
         clientName={(profile?.client_name as string) ?? 'Personal'}
-        userRole={(profile?.role as 'admin' | 'user') ?? 'user'}
+        userRole={isTaggedDemo ? 'user' : ((profile?.role as 'admin' | 'user') ?? 'user')}
         initialBio={(profile?.bio as string) || ''}
         initialAvatarUrl={(profile?.avatar_url as string) || null}
         initialBannerUrl={(profile?.banner_url as string) || null}
-        isDemoMode={false}
+        isDemoMode={isTaggedDemo}
       />
     );
   }

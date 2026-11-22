@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { useRouter } from '@/i18n/navigation';
+import { Link, useRouter } from '@/i18n/navigation';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowLeft,
@@ -10,9 +10,11 @@ import {
   ArrowUpRight,
   Bitcoin,
   Building2,
+  FlaskConical,
   KeyRound,
   Loader2,
   Lock,
+  Mail,
   MessageSquare,
   Plug,
   X,
@@ -414,6 +416,13 @@ export function LandingPage({
           </div>
 
           <div className="flex items-center gap-2">
+            <Link
+              href="/demo"
+              className="hidden items-center gap-1.5 rounded-xl px-3 py-2 text-[13px] font-medium text-zinc-400 transition hover:bg-white/[0.05] hover:text-white sm:inline-flex"
+            >
+              <FlaskConical className="size-3.5 text-emerald-400" />
+              Coba Demo
+            </Link>
             <motion.button
               whileTap={{ scale: 0.97 }}
               type="button"
@@ -493,10 +502,17 @@ export function LandingPage({
                 whileTap={{ scale: 0.97 }}
                 type="button"
                 onClick={() => openAuthModal('signin')}
-                className="rounded-2xl border border-white/12 bg-white/[0.03] px-6 py-3 text-[13px] font-semibold text-white transition hover:border-white/25 hover:bg-white/[0.07]"
+                className="rounded-2xl border border-white/12 bg-white/[0.03] px-5 py-3 text-[13px] font-semibold text-white transition hover:border-white/25 hover:bg-white/[0.07]"
               >
                 Masuk
               </motion.button>
+              <Link
+                href="/demo"
+                className="inline-flex items-center gap-1.5 rounded-2xl border border-emerald-500/25 bg-emerald-500/[0.06] px-5 py-3 text-[13px] font-semibold text-emerald-300 transition hover:border-emerald-400/50 hover:bg-emerald-500/15"
+              >
+                <FlaskConical className="size-3.5" />
+                Coba Demo
+              </Link>
             </div>
           </motion.div>
 
@@ -830,25 +846,132 @@ export function LandingPage({
         </motion.section>
       </main>
 
-      {/* Minimal Footer */}
-      <footer className="border-t border-white/[0.06]">
-        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-6 text-[12px] text-zinc-500 sm:px-6">
-          <span>stashinmeid</span>
-          <div className="flex items-center gap-4">
-            <button
-              type="button"
-              onClick={() => openAuthModal('signin')}
-              className="transition hover:text-white"
-            >
-              Masuk
-            </button>
-            <button
-              type="button"
-              onClick={() => openAuthModal('signup')}
-              className="font-medium text-emerald-400 transition hover:text-emerald-300"
-            >
-              Daftar
-            </button>
+      {/* Footer Profesional */}
+      <footer className="border-t border-white/[0.07] bg-[#080c10]">
+        <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
+          <div className="grid grid-cols-1 gap-10 sm:grid-cols-2 lg:grid-cols-12">
+            {/* Brand */}
+            <div className="space-y-3 lg:col-span-5">
+              <div className="flex items-center gap-2.5">
+                <BrandLogo size={30} />
+                <span className="text-[15px] font-bold tracking-tight text-white">
+                  stashinmeid
+                </span>
+              </div>
+              <p className="max-w-xs text-[12px] leading-relaxed text-zinc-400">
+                Buku kas pribadi, ruang grup kolega, dan pelacak aset digital
+                dalam satu workspace.
+              </p>
+              <a
+                href="mailto:hello@stashinmeid.app"
+                className="inline-flex items-center gap-1.5 text-[12px] font-medium text-emerald-400 transition hover:text-emerald-300"
+              >
+                <Mail className="size-3.5" />
+                hello@stashinmeid.app
+              </a>
+            </div>
+
+            {/* Produk */}
+            <div className="space-y-2.5 lg:col-span-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                Produk
+              </p>
+              <ul className="space-y-2 text-[13px] text-zinc-400">
+                <li>
+                  <Link href="/demo" className="transition hover:text-white">
+                    Coba Demo
+                  </Link>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal('signin')}
+                    className="transition hover:text-white"
+                  >
+                    Masuk
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => openAuthModal('signup')}
+                    className="transition hover:text-white"
+                  >
+                    Daftar Akun
+                  </button>
+                </li>
+              </ul>
+            </div>
+
+            {/* Komunitas & Kemitraan */}
+            <div className="space-y-2.5 lg:col-span-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                Kolaborasi
+              </p>
+              <ul className="space-y-2 text-[13px] text-zinc-400">
+                <li>
+                  <a
+                    href="https://github.com/omeko42/stashinmeid"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="inline-flex items-center gap-1 transition hover:text-white"
+                  >
+                    Contribute (GitHub)
+                    <ArrowUpRight className="size-3" />
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="mailto:partner@stashinmeid.app?subject=Partnership%20stashinmeid"
+                    className="inline-flex items-center gap-1 transition hover:text-white"
+                  >
+                    Become a Partner
+                    <ArrowUpRight className="size-3" />
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="https://github.com/omeko42/stashinmeid/issues"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="transition hover:text-white"
+                  >
+                    Laporkan Bug &amp; Masukan
+                  </a>
+                </li>
+              </ul>
+            </div>
+
+            {/* Kontak Perusahaan */}
+            <div className="space-y-2.5 lg:col-span-2">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-zinc-500">
+                Kontak
+              </p>
+              <ul className="space-y-2 text-[12px] text-zinc-400">
+                <li>
+                  <a
+                    href="mailto:hello@stashinmeid.app"
+                    className="transition hover:text-white"
+                  >
+                    hello@stashinmeid.app
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="mailto:partner@stashinmeid.app"
+                    className="transition hover:text-white"
+                  >
+                    partner@stashinmeid.app
+                  </a>
+                </li>
+                <li className="text-zinc-500">Indonesia · WIB</li>
+              </ul>
+            </div>
+          </div>
+
+          <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-white/[0.06] pt-6 text-[12px] text-zinc-500 sm:flex-row">
+            <span>© 2026 stashinmeid. All rights reserved.</span>
+            <span>v3.0 · Built in Indonesia</span>
           </div>
         </div>
       </footer>

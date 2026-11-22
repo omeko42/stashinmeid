@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { createDemoAccounts } from '@/lib/demoData';
 
 export type AccountKind = 'bank' | 'cash' | 'ewallet' | 'crypto' | 'other';
 
@@ -41,6 +42,10 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
 
   const refresh = useCallback(async () => {
     if (opts.isDemoMode) {
+      setAccounts(createDemoAccounts());
+      setRates([{ currency: 'USDT', rate: 15870 }, { currency: 'USD', rate: 15865 }]);
+      setPrimaryCurrency('IDR');
+      setError(null);
       setLoading(false);
       return;
     }
@@ -132,6 +137,16 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
       currency: string;
       balance: number;
     }) => {
+      if (opts.isDemoMode) {
+        setAccounts((prev) => {
+          if (row.id) {
+            return prev.map((a) => (a.id === row.id ? { ...a, ...row, id: row.id } : a));
+          }
+          return [...prev, { ...row, id: crypto.randomUUID() }];
+        });
+        return;
+      }
+
       // Superadmin menulis lewat API admin (service role), bukan sesi Supabase.
       if (opts.isSuperadmin) {
         const res = await fetch('/api/superadmin/finance', {
@@ -167,11 +182,16 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
       if (err) throw err;
       await refresh();
     },
-    [opts.isSuperadmin, refresh]
+    [opts.isDemoMode, opts.isSuperadmin, refresh]
   );
 
   const removeAccount = useCallback(
     async (id: string) => {
+      if (opts.isDemoMode) {
+        setAccounts((prev) => prev.filter((a) => a.id !== id));
+        return;
+      }
+
       if (opts.isSuperadmin) {
         const res = await fetch('/api/superadmin/finance', {
           method: 'DELETE',
@@ -190,11 +210,16 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
       if (err) throw err;
       await refresh();
     },
-    [opts.isSuperadmin, refresh]
+    [opts.isDemoMode, opts.isSuperadmin, refresh]
   );
 
   const savePrimaryCurrency = useCallback(
     async (currency: string) => {
+      if (opts.isDemoMode) {
+        setPrimaryCurrency(currency);
+        return;
+      }
+
       if (opts.isSuperadmin) {
         const res = await fetch('/api/superadmin/finance', {
           method: 'PATCH',
@@ -223,11 +248,21 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
       if (err) throw err;
       setPrimaryCurrency(currency);
     },
-    [opts.isSuperadmin]
+    [opts.isDemoMode, opts.isSuperadmin]
   );
 
   const saveRate = useCallback(
     async (currency: string, rate: number) => {
+      if (opts.isDemoMode) {
+        setRates((prev) => {
+          const exists = prev.some((r) => r.currency === currency);
+          return exists
+            ? prev.map((r) => (r.currency === currency ? { ...r, rate } : r))
+            : [...prev, { currency, rate }];
+        });
+        return;
+      }
+
       if (opts.isSuperadmin) {
         const res = await fetch('/api/superadmin/finance', {
           method: 'POST',
@@ -256,7 +291,7 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
       if (err) throw err;
       await refresh();
     },
-    [opts.isSuperadmin, refresh]
+    [opts.isDemoMode, opts.isSuperadmin, refresh]
   );
 
   /**
@@ -317,6 +352,19 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
 
       const now = new Date().toISOString();
 
+      if (opts.isDemoMode) {
+        setRates((prev) => {
+          const next = [...prev];
+          for (const f of fetched) {
+            const idx = next.findIndex((r) => r.currency === f.currency);
+            if (idx >= 0) next[idx] = { ...next[idx], rate: f.rate, updated_at: now };
+            else next.push({ currency: f.currency, rate: f.rate, updated_at: now });
+          }
+          return next;
+        });
+        return fetched.length;
+      }
+
       if (opts.isSuperadmin) {
         // Superadmin tidak punya sesi Supabase milik user target, jadi kurs
         // ditulis lewat API admin (service role).
@@ -352,10 +400,15 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
     } finally {
       setSyncing(false);
     }
-  }, [accounts, rates, primaryCurrency, refresh, opts.isSuperadmin]);
+  }, [accounts, rates, primaryCurrency, refresh, opts.isDemoMode, opts.isSuperadmin]);
 
   const removeRate = useCallback(
     async (currency: string) => {
+      if (opts.isDemoMode) {
+        setRates((prev) => prev.filter((r) => r.currency !== currency));
+        return;
+      }
+
       if (opts.isSuperadmin) {
         // Endpoint DELETE butuh id baris, sedangkan fx_rates diidentifikasi
         // lewat (user, currency). Jadi id-nya dicari dulu lewat API admin.
@@ -392,7 +445,7 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
       if (err) throw err;
       await refresh();
     },
-    [opts.isSuperadmin, refresh]
+    [opts.isDemoMode, opts.isSuperadmin, refresh]
   );
 
   /** Nilai satu akun dikonversi ke mata uang utama. */

@@ -52,13 +52,16 @@ import {
 } from '@/lib/exportUtils';
 import { budgetStatuses } from '@/lib/budget';
 import { reportDbError } from '@/lib/dbErrors';
+import { createDemoDebts, createDemoTransactions } from '@/lib/demoData';
 import { appNow, nextDueDate, todayIso } from '@/lib/format';
 import {
   ArrowLeftRight,
   Bitcoin,
   Building2,
+  FlaskConical,
   Landmark,
   Layers,
+  RotateCcw,
   User,
   UserCheck,
   Wallet,
@@ -1145,10 +1148,25 @@ export default function DashboardClient({
   };
 
   const handleLogout = async () => {
+    if (isDemoMode) {
+      if (supabase) await supabase.auth.signOut().catch(() => {});
+      router.push('/');
+      router.refresh();
+      return;
+    }
     await fetch('/api/auth/superadmin', { method: 'DELETE' });
     if (supabase) await supabase.auth.signOut();
-    router.push('/login');
+    router.push('/');
     router.refresh();
+  };
+
+  const handleResetDemo = async () => {
+    setTransactions(createDemoTransactions());
+    setDebts(createDemoDebts());
+    setActiveScope('personal');
+    setSimSelectedIds([]);
+    await assets.refresh();
+    toast.success('Data demo dikembalikan ke awal.');
   };
 
   // ------------------------------------------------------------------
@@ -1469,6 +1487,30 @@ export default function DashboardClient({
         />
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-7 lg:px-8 lg:pb-10 lg:pt-10">
+          {isDemoMode && (
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--due)]/35 bg-[var(--due-soft)] px-4 py-3 text-[12px] text-[var(--text)]">
+              <span className="inline-flex items-center gap-2">
+                <FlaskConical className="size-4 shrink-0 text-[var(--due)]" aria-hidden />
+                <span>
+                  <strong>Mode Demo</strong> · Perubahan hanya sementara dan kembali ke awal saat dimuat ulang.
+                </span>
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<RotateCcw className="size-3.5" />}
+                  onClick={handleResetDemo}
+                >
+                  Reset Data
+                </Button>
+                <Button size="sm" onClick={handleLogout}>
+                  Daftar / Keluar
+                </Button>
+              </div>
+            </div>
+          )}
+
           {impersonatingEmail && (
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[var(--info)]/30 bg-[var(--info-soft)] px-4 py-3 text-[12px] text-[var(--info)]">
               <span className="inline-flex items-center gap-2">
