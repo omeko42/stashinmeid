@@ -8,7 +8,6 @@ import {
   CheckCircle2,
   Copy,
   CreditCard,
-  Database,
   ExternalLink,
   FileBadge,
   Loader2,
@@ -29,165 +28,175 @@ import {
 } from '@/lib/integrations';
 
 export const API_INTEGRATIONS_STORAGE_KEY = 'stashinmeid_api_integrations';
-export const API_INTEGRATIONS_UPDATED_EVENT = 'stashinmeid:api-integrations-updated';
+export const API_INTEGRATIONS_UPDATED_EVENT =
+  'stashinmeid:api-integrations-updated';
 
 type IntegrationKey = keyof ApiIntegrationsState;
 
 interface ProviderPreset {
   id: string;
   label: string;
+  tier: string;
   sandboxUrl: string;
   productionUrl: string;
   defaultExtra: string;
 }
 
 const PROVIDER_PRESETS: Record<IntegrationKey, ProviderPreset[]> = {
-  payment: [
-    {
-      id: 'midtrans',
-      label: 'Midtrans (Snap & Core API)',
-      sandboxUrl: 'https://api.sandbox.midtrans.com/v2',
-      productionUrl: 'https://api.midtrans.com/v2',
-      defaultExtra: 'QRIS, Virtual Account (BCA/Mandiri/BRI), GoPay, ShopeePay',
-    },
-    {
-      id: 'xendit',
-      label: 'Xendit Payment Gateway',
-      sandboxUrl: 'https://api.xendit.co',
-      productionUrl: 'https://api.xendit.co',
-      defaultExtra: 'QRIS Dinamis, Virtual Account, OVO, DANA, Auto-Debet Cicilan',
-    },
-    {
-      id: 'doku',
-      label: 'DOKU Jokul Checkout',
-      sandboxUrl: 'https://api-sandbox.doku.com',
-      productionUrl: 'https://api.doku.com',
-      defaultExtra: 'QRIS, Virtual Account, Kartu Kredit/Debit',
-    },
-    {
-      id: 'stripe',
-      label: 'Stripe Global Payments',
-      sandboxUrl: 'https://api.stripe.com/v1',
-      productionUrl: 'https://api.stripe.com/v1',
-      defaultExtra: 'Multi-Currency Card, Apple Pay, Google Pay',
-    },
-    {
-      id: 'custom_payment',
-      label: 'Custom QRIS / Open Banking API',
-      sandboxUrl: 'https://sandbox.openbanking.example.com/v1',
-      productionUrl: 'https://api.openbanking.example.com/v1',
-      defaultExtra: 'Custom Webhook & Settlement Callback',
-    },
-  ],
-  kyc: [
-    {
-      id: 'verihubs',
-      label: 'Verihubs e-KYC & Dukcapil Indonesia',
-      sandboxUrl: 'https://api.verihubs.com/v1/ktp/verify',
-      productionUrl: 'https://api.verihubs.com/v1/ktp/verify',
-      defaultExtra: 'OCR e-KTP + Validasi NIK Dukcapil + Liveness (Zero File Storage)',
-    },
-    {
-      id: 'privyid',
-      label: 'PrivyID Digital Identity & e-KYC',
-      sandboxUrl: 'https://stg-core.privy.id/v3/merchant',
-      productionUrl: 'https://core.privy.id/v3/merchant',
-      defaultExtra: 'Verifikasi Identitas Tersertifikasi Kominfo & Tanda Tangan Digital',
-    },
-    {
-      id: 'vida',
-      label: 'VIDA Digital Identity',
-      sandboxUrl: 'https://api-sandbox.vida.id/kyc/v1',
-      productionUrl: 'https://api.vida.id/kyc/v1',
-      defaultExtra: 'Biometric Face Match & e-KTP Verification',
-    },
-    {
-      id: 'sumsub',
-      label: 'Sumsub Global KYC & AML Screening',
-      sandboxUrl: 'https://api.sumsub.com',
-      productionUrl: 'https://api.sumsub.com',
-      defaultExtra: 'ID Verification, Pep/Sanctions AML Check',
-    },
-    {
-      id: 'custom_kyc',
-      label: 'Custom Third-Party e-KYC Endpoint',
-      sandboxUrl: 'https://sandbox-kyc.example.com/v1/verify',
-      productionUrl: 'https://kyc.example.com/v1/verify',
-      defaultExtra: 'Offload Dokumen KYC & Simpan Verification Token Saja',
-    },
-  ],
   news: [
     {
-      id: 'finnhub_rss',
-      label: 'Frankfurter ECB FX + Market Stream',
-      sandboxUrl: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=IDR,EUR,SGD,JPY',
-      productionUrl: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=IDR,EUR,SGD,JPY',
-      defaultExtra: 'Indonesia & Global Macro (Stream Langsung, 0 KB Beban DB)',
+      id: 'free_bundle',
+      label: 'CNBC ID + Antara + CoinGecko + ECB',
+      tier: '100% Gratis · Tanpa API Key',
+      sandboxUrl:
+        'https://api.frankfurter.dev/v1/latest?base=USD&symbols=IDR,SGD,EUR',
+      productionUrl:
+        'https://api.frankfurter.dev/v1/latest?base=USD&symbols=IDR,SGD,EUR',
+      defaultExtra: 'Aktif otomatis · Berita ekonomi & kurs live',
     },
     {
-      id: 'newsapi',
-      label: 'NewsAPI.org (Business & Finance)',
-      sandboxUrl: 'https://newsapi.org/v2/top-headlines?category=business&country=id',
-      productionUrl: 'https://newsapi.org/v2/top-headlines?category=business&country=id',
-      defaultExtra: 'Berita Ekonomi Nasional, Perbankan, IHSG & Kebijakan BI',
+      id: 'gnews_free',
+      label: 'GNews.io (Free Tier)',
+      tier: 'Gratis 100 req/hari',
+      sandboxUrl:
+        'https://gnews.io/api/v4/top-headlines?category=business&lang=id',
+      productionUrl:
+        'https://gnews.io/api/v4/top-headlines?category=business&lang=id',
+      defaultExtra: 'Berita bisnis & finansial Indonesia/Global',
     },
     {
-      id: 'alphavantage',
-      label: 'Alpha Vantage Market News & Sentiment',
-      sandboxUrl: 'https://www.alphavantage.co/query?function=NEWS_SENTIMENT',
-      productionUrl: 'https://www.alphavantage.co/query?function=NEWS_SENTIMENT',
-      defaultExtra: 'Global Equities, Forex, Crypto & Macro Sentiment Score',
+      id: 'finnhub_free',
+      label: 'Finnhub Market API (Free Tier)',
+      tier: 'Gratis 60 req/menit',
+      sandboxUrl: 'https://finnhub.io/api/v1/news?category=general',
+      productionUrl: 'https://finnhub.io/api/v1/news?category=general',
+      defaultExtra: 'Saham global, forex, dan berita pasar',
     },
     {
-      id: 'coingecko',
-      label: 'CoinGecko & CryptoPanic Market API',
+      id: 'coingecko_free',
+      label: 'CoinGecko Public API',
+      tier: 'Gratis · Tanpa API Key',
       sandboxUrl: 'https://api.coingecko.com/api/v3/ping',
       productionUrl: 'https://api.coingecko.com/api/v3/ping',
-      defaultExtra: 'Harga Aset Digital, Market Cap & Berita Web3',
+      defaultExtra: 'Harga crypto & perubahan 24 jam',
     },
     {
       id: 'custom_news',
-      label: 'Custom JSON / RSS Finance News Endpoint',
-      sandboxUrl: 'https://api.example.com/v1/finance-news',
-      productionUrl: 'https://api.example.com/v1/finance-news',
-      defaultExtra: 'Custom JSON Feed Endpoint (Tanpa Simpan Artikel ke DB)',
+      label: 'Endpoint Berita / RSS Custom',
+      tier: 'Custom',
+      sandboxUrl: 'https://www.cnbcindonesia.com/market/rss',
+      productionUrl: 'https://www.cnbcindonesia.com/market/rss',
+      defaultExtra: 'RSS atau JSON feed pilihan sendiri',
     },
   ],
   messaging_ai: [
     {
-      id: 'gemini_vision',
-      label: 'Google Gemini Vision API (OCR Struk & AI)',
+      id: 'gemini_free',
+      label: 'Google Gemini API (AI Studio)',
+      tier: 'Free Tier Tersedia',
       sandboxUrl: 'https://generativelanguage.googleapis.com/v1beta',
       productionUrl: 'https://generativelanguage.googleapis.com/v1beta',
-      defaultExtra: 'Ekstraksi Struk Belanja Otomatis & Kategori AI',
+      defaultExtra: 'Pindai struk belanja otomatis',
+    },
+    {
+      id: 'telegram_free',
+      label: 'Telegram Bot API',
+      tier: '100% Gratis Selamanya',
+      sandboxUrl: 'https://api.telegram.org',
+      productionUrl: 'https://api.telegram.org',
+      defaultExtra: 'Pengingat jatuh tempo & notifikasi grup ke Telegram',
+    },
+    {
+      id: 'discord_free',
+      label: 'Discord Webhook',
+      tier: '100% Gratis Selamanya',
+      sandboxUrl: 'https://discord.com/api/webhooks',
+      productionUrl: 'https://discord.com/api/webhooks',
+      defaultExtra: 'Kirim ringkasan kas grup ke channel Discord',
+    },
+    {
+      id: 'resend_free',
+      label: 'Resend Email API',
+      tier: 'Gratis 3.000 email/bulan',
+      sandboxUrl: 'https://api.resend.com/emails',
+      productionUrl: 'https://api.resend.com/emails',
+      defaultExtra: 'Notifikasi email tagihan & undangan kolega',
     },
     {
       id: 'fonnte_wa',
-      label: 'Fonnte WhatsApp Notification Gateway',
+      label: 'Fonnte WhatsApp Starter',
+      tier: 'Free Trial / Hemat',
       sandboxUrl: 'https://api.fonnte.com/send',
       productionUrl: 'https://api.fonnte.com/send',
-      defaultExtra: 'Notifikasi WA Pengingat Jatuh Tempo Cicilan & Kas Grup',
+      defaultExtra: 'Pengingat tagihan lewat WhatsApp',
+    },
+  ],
+  payment: [
+    {
+      id: 'midtrans',
+      label: 'Midtrans (Sandbox & Live)',
+      tier: 'Rp 0 biaya bulanan',
+      sandboxUrl: 'https://api.sandbox.midtrans.com/v2',
+      productionUrl: 'https://api.midtrans.com/v2',
+      defaultExtra: 'QRIS, Virtual Account, GoPay, ShopeePay',
     },
     {
-      id: 'wablas_wa',
-      label: 'Wablas WhatsApp Business API',
-      sandboxUrl: 'https://pati.wablas.com/api/send-message',
-      productionUrl: 'https://pati.wablas.com/api/send-message',
-      defaultExtra: 'Alert Tagihan & Undangan Grup Kolega via WhatsApp',
+      id: 'xendit',
+      label: 'Xendit Payment',
+      tier: 'Rp 0 biaya bulanan',
+      sandboxUrl: 'https://api.xendit.co',
+      productionUrl: 'https://api.xendit.co',
+      defaultExtra: 'QRIS, VA, OVO, DANA',
     },
     {
-      id: 'openai_vision',
-      label: 'OpenAI GPT-4o Vision & Financial Assistant',
-      sandboxUrl: 'https://api.openai.com/v1/chat/completions',
-      productionUrl: 'https://api.openai.com/v1/chat/completions',
-      defaultExtra: 'OCR Struk Multi-Bahasa & Analisis Cashflow',
+      id: 'tripay',
+      label: 'Tripay / Duitku Starter',
+      tier: 'Ramah Pemula & UMKM',
+      sandboxUrl: 'https://tripay.co.id/api-sandbox',
+      productionUrl: 'https://tripay.co.id/api',
+      defaultExtra: 'QRIS & transfer bank tanpa biaya langganan',
     },
     {
-      id: 'custom_webhook',
-      label: 'Custom Webhook / Telegram Bot Gateway',
-      sandboxUrl: 'https://api.telegram.org',
-      productionUrl: 'https://api.telegram.org',
-      defaultExtra: 'Forward Event Transaksi & Alert Keamanan ke Webhook Eksternal',
+      id: 'custom_payment',
+      label: 'Webhook Pembayaran Custom',
+      tier: 'Custom',
+      sandboxUrl: 'https://api.example.com/v1/payment',
+      productionUrl: 'https://api.example.com/v1/payment',
+      defaultExtra: 'Endpoint pembayaran pilihan sendiri',
+    },
+  ],
+  kyc: [
+    {
+      id: 'didit_free',
+      label: 'Didit.me KYC',
+      tier: 'Gratis 500 verifikasi/bln',
+      sandboxUrl: 'https://verification.didit.me/v1',
+      productionUrl: 'https://verification.didit.me/v1',
+      defaultExtra: 'Verifikasi KTP & wajah gratis untuk tahap awal',
+    },
+    {
+      id: 'verihubs',
+      label: 'Verihubs e-KYC Indonesia',
+      tier: 'Sandbox Gratis',
+      sandboxUrl: 'https://api.verihubs.com/v1/ktp/verify',
+      productionUrl: 'https://api.verihubs.com/v1/ktp/verify',
+      defaultExtra: 'Cek NIK & OCR e-KTP Indonesia',
+    },
+    {
+      id: 'sumsub',
+      label: 'Sumsub KYC Sandbox',
+      tier: 'Sandbox Gratis',
+      sandboxUrl: 'https://api.sumsub.com',
+      productionUrl: 'https://api.sumsub.com',
+      defaultExtra: 'Verifikasi identitas global',
+    },
+    {
+      id: 'custom_kyc',
+      label: 'Endpoint KYC Custom',
+      tier: 'Custom',
+      sandboxUrl: 'https://kyc.example.com/v1/verify',
+      productionUrl: 'https://kyc.example.com/v1/verify',
+      defaultExtra: 'Provider verifikasi pilihan sendiri',
     },
   ],
 };
@@ -197,40 +206,35 @@ const CATEGORY_META: {
   title: string;
   badge: string;
   subtitle: string;
-  dbSavingNote: string;
   icon: React.ReactNode;
 }[] = [
   {
-    key: 'payment',
-    title: 'Payment Gateway',
-    badge: 'Pembayaran',
-    subtitle: 'Integrasi cicilan, split-bill grup, QRIS, dan Virtual Account.',
-    dbSavingNote: 'Hanya simpan referensi & status transaksi di DB internal.',
-    icon: <CreditCard className="size-4 text-[var(--brand)]" />,
-  },
-  {
-    key: 'kyc',
-    title: 'e-KYC Pihak Ketiga',
-    badge: 'Identitas',
-    subtitle: 'Verifikasi NIK e-KTP & liveness lewat provider eksternal.',
-    dbSavingNote: 'Dokumen tidak disimpan di storage kita; hanya token status.',
-    icon: <FileBadge className="size-4 text-[var(--info)]" />,
-  },
-  {
     key: 'news',
-    title: 'API Berita & Kurs',
-    badge: 'Market Data',
-    subtitle: 'Sumber berita ekonomi & kurs live untuk menu Sosial.',
-    dbSavingNote: 'Stream langsung ke klien (0 KB beban database).',
+    title: 'Berita & Kurs Pasar',
+    badge: 'Gratis · Aktif',
+    subtitle: 'Sumber berita ekonomi & kurs live untuk menu Sosial dan Beranda.',
     icon: <Newspaper className="size-4 text-[var(--in)]" />,
   },
   {
     key: 'messaging_ai',
-    title: 'AI OCR & WhatsApp',
-    badge: 'Otomasi',
-    subtitle: 'Pemindai struk AI & pengingat jatuh tempo via WhatsApp/Webhook.',
-    dbSavingNote: 'Gambar struk diproses di memori tanpa menyimpan file mentah.',
+    title: 'AI Struk & Notifikasi',
+    badge: 'Free Tier',
+    subtitle: 'Pindai struk AI (Gemini) dan notifikasi gratis (Telegram/Discord/Email).',
     icon: <Bot className="size-4 text-[var(--due)]" />,
+  },
+  {
+    key: 'payment',
+    title: 'Pembayaran (Payment)',
+    badge: 'Rp 0/bln',
+    subtitle: 'QRIS & Virtual Account tanpa biaya langganan bulanan.',
+    icon: <CreditCard className="size-4 text-[var(--brand)]" />,
+  },
+  {
+    key: 'kyc',
+    title: 'Verifikasi KYC',
+    badge: 'Free Tier',
+    subtitle: 'Verifikasi identitas lewat provider pihak ketiga (gratis tahap awal).',
+    icon: <FileBadge className="size-4 text-[var(--info)]" />,
   },
 ];
 
@@ -258,7 +262,7 @@ export function ApiIntegrationsManager() {
   const [integrations, setIntegrations] = useState<ApiIntegrationsState>(
     DEFAULT_API_INTEGRATIONS
   );
-  const [activeCategory, setActiveCategory] = useState<IntegrationKey>('payment');
+  const [activeCategory, setActiveCategory] = useState<IntegrationKey>('news');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [testingKey, setTestingKey] = useState<IntegrationKey | null>(null);
@@ -360,11 +364,11 @@ export function ApiIntegrationsManager() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(json.error || 'Gagal menyimpan konfigurasi API ke server.');
+        toast.error(json.error || 'Gagal menyimpan konfigurasi API.');
         return;
       }
       if (json.updatedAt) setUpdatedAt(json.updatedAt);
-      toast.success('Konfigurasi koneksi API pihak ketiga berhasil disimpan!');
+      toast.success('Koneksi API berhasil disimpan.');
     } catch {
       toast.error('Gagal menyimpan konfigurasi API.');
     } finally {
@@ -400,7 +404,7 @@ export function ApiIntegrationsManager() {
         };
         setIntegrations(next);
         localStorage.setItem(API_INTEGRATIONS_STORAGE_KEY, JSON.stringify(next));
-        toast.success(json.message || 'Koneksi endpoint API berhasil!');
+        toast.success(json.message || 'Endpoint merespons normal.');
       } else {
         const next: ApiIntegrationsState = {
           ...integrations,
@@ -413,7 +417,7 @@ export function ApiIntegrationsManager() {
         };
         setIntegrations(next);
         toast.error(
-          json.error || json.message || 'Endpoint tidak merespons / gagal diuji.'
+          json.error || json.message || 'Endpoint tidak merespons.'
         );
       }
     } finally {
@@ -426,29 +430,30 @@ export function ApiIntegrationsManager() {
     CATEGORY_META.find((m) => m.key === activeCategory) ?? CATEGORY_META[0];
   const currentConfig = integrations[activeCategory];
   const presets = PROVIDER_PRESETS[activeCategory];
+  const selectedPreset =
+    presets.find((p) => p.id === currentConfig.provider) ?? presets[0];
 
   return (
     <div className="space-y-4">
-      {/* Banner Arsitektur Hemat Database & Ringkasan Koneksi */}
+      {/* Header & Kartu 4 Integrasi */}
       <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
-              <Plug className="size-5" />
+            <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
+              <Plug className="size-4" />
             </div>
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-[14px] font-semibold text-[var(--text)]">
-                  Manajemen Koneksi API
+                  Koneksi API Pihak Ketiga
                 </h3>
-                <span className="inline-flex items-center gap-1 rounded-full bg-[var(--in-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--in)]">
-                  <Database className="size-3" />
+                <span className="rounded-full bg-[var(--in-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--in)]">
                   {activeCount}/4 Aktif
                 </span>
               </div>
-              <p className="mt-1 text-[12px] text-[var(--text-muted)]">
-                Atur endpoint pihak ketiga untuk pembayaran, e-KYC, berita, dan
-                notifikasi agar beban penyimpanan tetap ringan.
+              <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
+                Sudah dilengkapi preset layanan gratis &amp; free-tier untuk
+                berita, kurs, AI struk, notifikasi, KYC, dan pembayaran.
               </p>
             </div>
           </div>
@@ -469,19 +474,19 @@ export function ApiIntegrationsManager() {
               onClick={handleSaveAll}
               loading={saving}
             >
-              Simpan Konfigurasi
+              Simpan
             </Button>
           </div>
         </div>
 
-        {/* Kartu pemilih 4 kategori integrasi */}
+        {/* 4 Kartu Kategori */}
         <div className="mt-4 grid grid-cols-1 gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
           {CATEGORY_META.map((item) => {
             const cfg = integrations[item.key];
             const selected = activeCategory === item.key;
-            const presetLabel =
-              PROVIDER_PRESETS[item.key].find((p) => p.id === cfg.provider)
-                ?.label || cfg.provider;
+            const preset =
+              PROVIDER_PRESETS[item.key].find((p) => p.id === cfg.provider) ??
+              PROVIDER_PRESETS[item.key][0];
 
             return (
               <button
@@ -497,7 +502,7 @@ export function ApiIntegrationsManager() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     {item.icon}
-                    <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                       {item.badge}
                     </span>
                   </div>
@@ -522,18 +527,16 @@ export function ApiIntegrationsManager() {
                     {item.title}
                   </p>
                   <p className="mt-0.5 truncate text-[11px] text-[var(--text-muted)]">
-                    Provider: {presetLabel}
+                    {preset.label}
                   </p>
                 </div>
 
                 <div className="mt-2.5 flex items-center justify-between border-t border-[var(--line)]/60 pt-2 text-[10px] text-[var(--text-faint)]">
-                  <span className="uppercase">{cfg.environment}</span>
-                  {cfg.lastLatencyMs ? (
+                  <span>{preset.tier}</span>
+                  {cfg.lastLatencyMs && (
                     <span className="tnum text-[var(--in)]">
-                      Ping {cfg.lastLatencyMs} ms
+                      {cfg.lastLatencyMs} ms
                     </span>
-                  ) : (
-                    <span>Belum diuji</span>
                   )}
                 </div>
               </button>
@@ -542,7 +545,7 @@ export function ApiIntegrationsManager() {
         </div>
       </div>
 
-      {/* Form Detail Kategori API yang Dipilih */}
+      {/* Detail Form */}
       {loading ? (
         <div className="flex justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-1)] py-12">
           <Loader2 className="size-6 animate-spin text-[var(--brand)]" />
@@ -563,11 +566,16 @@ export function ApiIntegrationsManager() {
                   {currentMeta.icon}
                 </div>
                 <div>
-                  <h4 className="text-[15px] font-semibold text-[var(--text)]">
-                    {currentMeta.title}
-                  </h4>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-[15px] font-semibold text-[var(--text)]">
+                      {currentMeta.title}
+                    </h4>
+                    <span className="rounded-md bg-[var(--surface-2)] px-2 py-0.5 text-[11px] font-medium text-[var(--brand)]">
+                      {selectedPreset.tier}
+                    </span>
+                  </div>
                   <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
-                    {currentMeta.subtitle} · {currentMeta.dbSavingNote}
+                    {currentMeta.subtitle}
                   </p>
                 </div>
               </div>
@@ -594,14 +602,13 @@ export function ApiIntegrationsManager() {
               </label>
             </div>
 
-            {/* Grid Input Konfigurasi API */}
-            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label
                   htmlFor={`api-provider-${activeCategory}`}
                   className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                 >
-                  Provider
+                  Provider (Gratis / Starter)
                 </label>
                 <select
                   id={`api-provider-${activeCategory}`}
@@ -614,7 +621,7 @@ export function ApiIntegrationsManager() {
                 >
                   {presets.map((p) => (
                     <option key={p.id} value={p.id}>
-                      {p.label}
+                      {p.label} — {p.tier}
                     </option>
                   ))}
                 </select>
@@ -639,35 +646,8 @@ export function ApiIntegrationsManager() {
                   }
                   className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
                 >
-                  <option value="sandbox">Sandbox</option>
-                  <option value="production">Production</option>
-                </select>
-              </div>
-
-              <div>
-                <label
-                  htmlFor={`api-storage-${activeCategory}`}
-                  className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                >
-                  Penyimpanan DB
-                </label>
-                <select
-                  id={`api-storage-${activeCategory}`}
-                  name={`apiStorage_${activeCategory}`}
-                  value={currentConfig.storagePolicy}
-                  onChange={(e) =>
-                    updateCategory(activeCategory, {
-                      storagePolicy: e.target.value as
-                        | 'stateless'
-                        | 'minimal_token'
-                        | 'hybrid',
-                    })
-                  }
-                  className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
-                >
-                  <option value="stateless">Stateless (0 KB DB)</option>
-                  <option value="minimal_token">Token &amp; Status Saja</option>
-                  <option value="hybrid">Hybrid Metadata</option>
+                  <option value="sandbox">Sandbox (Uji Coba)</option>
+                  <option value="production">Production (Live)</option>
                 </select>
               </div>
             </div>
@@ -698,7 +678,7 @@ export function ApiIntegrationsManager() {
                   htmlFor={`api-extra-${activeCategory}`}
                   className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                 >
-                  Channel Aktif
+                  Catatan / Channel
                 </label>
                 <input
                   id={`api-extra-${activeCategory}`}
@@ -710,7 +690,7 @@ export function ApiIntegrationsManager() {
                       extraOption: e.target.value,
                     })
                   }
-                  placeholder="QRIS, VA, OCR e-KTP"
+                  placeholder="QRIS, Telegram, RSS"
                   className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
                 />
               </div>
@@ -722,7 +702,7 @@ export function ApiIntegrationsManager() {
                   htmlFor={`api-publickey-${activeCategory}`}
                   className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                 >
-                  Public Key / App ID
+                  Public Key / App ID (Opsional jika gratis)
                 </label>
                 <input
                   id={`api-publickey-${activeCategory}`}
@@ -734,7 +714,7 @@ export function ApiIntegrationsManager() {
                       publicKey: e.target.value,
                     })
                   }
-                  placeholder="Client key atau App ID"
+                  placeholder="Kosongkan jika tanpa API key"
                   autoComplete="off"
                   className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 font-mono text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
                 />
@@ -744,63 +724,63 @@ export function ApiIntegrationsManager() {
                 <PasswordInput
                   id={`api-secretkey-${activeCategory}`}
                   name={`apiSecretKey_${activeCategory}`}
-                  label="Secret Key / Token"
+                  label="Secret Key / Token (Opsional)"
                   value={currentConfig.secretKey}
                   onChange={(e) =>
                     updateCategory(activeCategory, {
                       secretKey: e.target.value,
                     })
                   }
-                  placeholder="Secret key atau bearer token"
+                  placeholder="Kosongkan jika tidak perlu"
                   autoComplete="new-password"
                 />
               </div>
             </div>
 
-            {/* Webhook Callback URL */}
-            <div className="mt-4">
-              <label
-                htmlFor={`api-webhook-${activeCategory}`}
-                className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-              >
-                Webhook URL
-              </label>
-              <div className="mt-1 flex gap-2">
-                <input
-                  id={`api-webhook-${activeCategory}`}
-                  name={`apiWebhook_${activeCategory}`}
-                  type="url"
-                  value={currentConfig.webhookUrl}
-                  onChange={(e) =>
-                    updateCategory(activeCategory, {
-                      webhookUrl: e.target.value,
-                    })
-                  }
-                  placeholder="https://stashinmeid.vercel.app/api/integrations?webhook=..."
-                  className="h-9 flex-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 font-mono text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
-                />
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  icon={<Copy className="size-3.5" />}
-                  onClick={() => {
-                    if (!currentConfig.webhookUrl) return;
-                    navigator.clipboard.writeText(currentConfig.webhookUrl);
-                    toast.success('Webhook URL disalin.');
-                  }}
+            {activeCategory !== 'news' && (
+              <div className="mt-4">
+                <label
+                  htmlFor={`api-webhook-${activeCategory}`}
+                  className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
                 >
-                  Salin
-                </Button>
+                  Callback URL
+                </label>
+                <div className="mt-1 flex gap-2">
+                  <input
+                    id={`api-webhook-${activeCategory}`}
+                    name={`apiWebhook_${activeCategory}`}
+                    type="url"
+                    value={currentConfig.webhookUrl}
+                    onChange={(e) =>
+                      updateCategory(activeCategory, {
+                        webhookUrl: e.target.value,
+                      })
+                    }
+                    placeholder="https://stashinmeid.vercel.app/api/integrations?webhook=..."
+                    className="h-9 flex-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 font-mono text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                  />
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    icon={<Copy className="size-3.5" />}
+                    onClick={() => {
+                      if (!currentConfig.webhookUrl) return;
+                      navigator.clipboard.writeText(currentConfig.webhookUrl);
+                      toast.success('URL disalin.');
+                    }}
+                  >
+                    Salin
+                  </Button>
+                </div>
               </div>
-            </div>
+            )}
 
-            {/* Footer Bar */}
             <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--line)] pt-4">
               <div className="flex flex-wrap items-center gap-2 text-[12px]">
                 {currentConfig.lastTestStatus === 'ok' ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--in-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--in)]">
                     <CheckCircle2 className="size-3.5" />
-                    OK · {currentConfig.lastLatencyMs ?? 120} ms
+                    Terhubung · {currentConfig.lastLatencyMs ?? 120} ms
                   </span>
                 ) : currentConfig.lastTestStatus === 'error' ? (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--out-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--out)]">
@@ -810,7 +790,7 @@ export function ApiIntegrationsManager() {
                 ) : (
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-2)] px-2.5 py-1 text-[11px] text-[var(--text-muted)]">
                     <ShieldCheck className="size-3.5" />
-                    Belum diuji
+                    Siap diuji
                   </span>
                 )}
 

@@ -383,7 +383,7 @@ export function KycModal({
                 if (!kycApi.enabled) return null;
                 return (
                   <span className="inline-flex items-center gap-1 rounded-full bg-[var(--info-soft)] px-2.5 py-1 text-[10px] font-semibold text-[var(--info)]">
-                    e-KYC API: {kycApi.provider.toUpperCase()} (Hemat DB)
+                    Provider: {kycApi.provider.toUpperCase()}
                   </span>
                 );
               })()}

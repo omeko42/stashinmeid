@@ -9,6 +9,7 @@ import {
   Building2,
   Check,
   Compass,
+  ExternalLink,
   Globe,
   Landmark,
   LayoutGrid,
@@ -17,6 +18,7 @@ import {
   Newspaper,
   PenSquare,
   Plus,
+  RefreshCw,
   Search,
   Send,
   TrendingUp,
@@ -65,17 +67,23 @@ interface GlobalUserResult {
 
 interface FinanceNewsItem {
   id: string;
-  region: 'lokal' | 'global' | 'crypto' | 'strategi';
+  region: 'lokal' | 'global' | 'crypto';
   regionLabel: string;
   title: string;
   summary: string;
-  impact: string;
   source: string;
+  url: string;
   publishedAt: string;
-  sentiment: 'positif' | 'netral' | 'waspada';
 }
 
-const FINANCE_NEWS: FinanceNewsItem[] = [
+interface MarketTicker {
+  label: string;
+  price: string;
+  delta: string;
+  up: boolean;
+}
+
+const FALLBACK_NEWS: FinanceNewsItem[] = [
   {
     id: 'bi-rate-2026',
     region: 'lokal',
@@ -83,67 +91,30 @@ const FINANCE_NEWS: FinanceNewsItem[] = [
     title: 'BI Tahan Suku Bunga Acuan di 6,00%, Likuiditas Rupiah Terjaga',
     summary:
       'Suku bunga KPR dan kredit usaha tetap stabil; fokuskan arus kas pada pelunasan cicilan berbunga tinggi lebih dulu.',
-    impact: 'Bunga kredit stabil — prioritaskan cicilan berbunga tinggi.',
-    source: 'Macro Desk ID',
-    publishedAt: '10:15 WIB',
-    sentiment: 'positif',
-  },
-  {
-    id: 'fed-global-outlook',
-    region: 'global',
-    regionLabel: 'Global',
-    title: 'The Fed Buka Ruang Pelonggaran, Dana Asing Masuk ke Pasar Asia',
-    summary:
-      'Inflasi inti AS yang melandai mendorong arus modal bersih masuk ke obligasi dan saham Asia Tenggara.',
-    impact: 'Momentum bagus untuk menambah porsi investasi jangka menengah.',
-    source: 'Global Markets',
-    publishedAt: '08:40 WIB',
-    sentiment: 'positif',
-  },
-  {
-    id: 'corp-family-separation',
-    region: 'strategi',
-    regionLabel: 'Kas & Bisnis',
-    title: 'Memisahkan Cicilan Operasional Usaha dari Rekening Rumah Tangga',
-    summary:
-      'Pencampuran kas pribadi dan bisnis membuat rasio utang sulit dibaca. Pisahkan lewat ruang grup berbeda.',
-    impact: 'Pisahkan pembukuan Grup Keluarga vs Grup Perusahaan.',
-    source: 'Catatan Kas',
-    publishedAt: 'Kemarin',
-    sentiment: 'netral',
+    source: 'CNBC Indonesia',
+    url: 'https://www.cnbcindonesia.com/market',
+    publishedAt: 'Hari ini',
   },
   {
     id: 'crypto-fx-volatility',
     region: 'crypto',
-    regionLabel: 'Crypto & Valas',
-    title: 'Penggunaan Stablecoin & Rekening Valas untuk Lindung Nilai Kurs',
+    regionLabel: 'Global · Crypto',
+    title: 'Pergerakan Bitcoin & Stablecoin Jadi Acuan Likuiditas Aset Digital',
     summary:
-      'Pekerja remote dan eksportir jasa makin rutin menyimpan sebagian kas di USD, SGD, dan USDT.',
-    impact: 'Pantau dompet valas & crypto dengan kurs otomatis.',
-    source: 'Digital Asset',
-    publishedAt: 'Kemarin',
-    sentiment: 'netral',
-  },
-  {
-    id: 'paylater-alert-id',
-    region: 'lokal',
-    regionLabel: 'OJK · Konsumen',
-    title: 'Batas Aman Rasio Cicilan Bulanan Maksimal 30% dari Pemasukan',
-    summary:
-      'Disiplin mencatat jatuh tempo PayLater dan pinjaman daring menjaga skor SLIK tetap bersih.',
-    impact: 'Cek jatuh tempo terdekat & simulasi pelunasan di menu Pinjaman.',
-    source: 'Literasi ID',
-    publishedAt: '2 hari lalu',
-    sentiment: 'waspada',
+      'Penggunaan dompet valas dan stablecoin untuk lindung nilai terhadap fluktuasi kurs terus meningkat.',
+    source: 'CoinTelegraph',
+    url: 'https://cointelegraph.com',
+    publishedAt: 'Hari ini',
   },
 ];
 
-const MARKET_TICKERS = [
-  { label: 'USD / IDR', value: 'Rp 15.845', change: '-0,18%', positive: true },
-  { label: 'SGD / IDR', value: 'Rp 11.820', change: '+0,09%', positive: true },
-  { label: 'BI-Rate', value: '6,00%', change: 'Tetap', positive: true },
-  { label: 'IHSG', value: '7.412,80', change: '+0,64%', positive: true },
-  { label: 'BTC / IDR', value: 'Rp 1,48 M', change: '+2,15%', positive: true },
+const FALLBACK_TICKERS: MarketTicker[] = [
+  { label: 'BTC / IDR', price: 'Rp 1,54 M', delta: '+2,1%', up: true },
+  { label: 'ETH / IDR', price: 'Rp 49,3 Jt', delta: '+1,4%', up: true },
+  { label: 'SOL / IDR', price: 'Rp 3,42 Jt', delta: '+3,8%', up: true },
+  { label: 'USDT / IDR', price: 'Rp 15.870', delta: '+0,1%', up: true },
+  { label: 'USD / IDR', price: 'Rp 15.865', delta: 'ECB', up: true },
+  { label: 'SGD / IDR', price: 'Rp 11.820', delta: 'ECB', up: true },
 ];
 
 export function SocialTab({
@@ -206,8 +177,37 @@ export function SocialTab({
   const [findLoading, setFindLoading] = useState(false);
   const [busyConnId, setBusyConnId] = useState<string | null>(null);
 
-  // State filter Berita
+  // State Berita & Pasar Live (Gratis: CNBC ID, Antara, CoinTelegraph, CoinGecko, ECB)
   const [newsFilter, setNewsFilter] = useState<'all' | FinanceNewsItem['region']>('all');
+  const [liveNews, setLiveNews] = useState<FinanceNewsItem[]>(FALLBACK_NEWS);
+  const [liveTickers, setLiveTickers] = useState<MarketTicker[]>(FALLBACK_TICKERS);
+  const [newsLoading, setNewsLoading] = useState(false);
+
+  const loadMarketNews = useCallback(async () => {
+    setNewsLoading(true);
+    try {
+      const res = await fetch('/api/market-news', { cache: 'no-store' });
+      const json = await res.json();
+      if (res.ok) {
+        if (Array.isArray(json.news) && json.news.length > 0) {
+          setLiveNews(json.news);
+        }
+        if (Array.isArray(json.tickers) && json.tickers.length > 0) {
+          setLiveTickers(json.tickers);
+        }
+      }
+    } catch {
+      // Gunakan fallback
+    } finally {
+      setNewsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (sub === 'news') {
+      void loadMarketNews();
+    }
+  }, [sub, loadMarketNews]);
 
   // Daftar kontak dari kolega yang sudah accepted (untuk WA-style chat & Fast Chat)
   const acceptedContacts = useMemo(
@@ -400,9 +400,9 @@ export function SocialTab({
   const filteredNews = useMemo(
     () =>
       newsFilter === 'all'
-        ? FINANCE_NEWS
-        : FINANCE_NEWS.filter((item) => item.region === newsFilter),
-    [newsFilter]
+        ? liveNews
+        : liveNews.filter((item) => item.region === newsFilter),
+    [newsFilter, liveNews]
   );
 
   return (
@@ -1280,13 +1280,13 @@ export function SocialTab({
       )}
 
       {/* =====================================================================
-          SUB-MENU 5: BERITA (BERITA & INSIGHT FINANSIAL GLOBAL & LOKAL)
+          SUB-MENU 5: BERITA (LIVE RSS CNBC ID, ANTARA, COINTELEGRAPH & KURS)
       ===================================================================== */}
       {sub === 'news' && (
         <div className="space-y-4">
-          {/* Ticker Ringkasan Pasar */}
-          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-5">
-            {MARKET_TICKERS.map((tk) => (
+          {/* Ticker Ringkasan Pasar Live */}
+          <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 lg:grid-cols-6">
+            {liveTickers.slice(0, 6).map((tk) => (
               <div
                 key={tk.label}
                 className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] px-3.5 py-2.5"
@@ -1295,28 +1295,37 @@ export function SocialTab({
                   <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
                     {tk.label}
                   </span>
-                  <TrendingUp className="size-3 text-[var(--brand)]" aria-hidden />
+                  <TrendingUp
+                    className={cn(
+                      'size-3',
+                      tk.up ? 'text-[var(--brand)]' : 'text-[var(--out)]'
+                    )}
+                    aria-hidden
+                  />
                 </div>
-                <p className="tnum mt-1 text-[14px] font-semibold text-[var(--text)]">
-                  {tk.value}
+                <p className="tnum mt-1 text-[13px] font-semibold text-[var(--text)]">
+                  {tk.price}
                 </p>
-                <p className="tnum text-[11px] font-medium text-[var(--brand)]">
-                  {tk.change}
+                <p
+                  className={cn(
+                    'tnum text-[11px] font-medium',
+                    tk.up ? 'text-[var(--brand)]' : 'text-[var(--out)]'
+                  )}
+                >
+                  {tk.delta}
                 </p>
               </div>
             ))}
           </div>
 
-          {/* Filter Wilayah / Topik Berita */}
+          {/* Filter Wilayah / Topik Berita + Segarkan */}
           <div className="flex flex-wrap items-center justify-between gap-3">
             <div className="flex flex-wrap gap-1.5">
               {(
                 [
-                  { id: 'all', label: 'Semua Berita' },
-                  { id: 'lokal', label: 'Lokal (Indonesia)' },
-                  { id: 'global', label: 'Global & Makro' },
-                  { id: 'crypto', label: 'Kripto & Valas' },
-                  { id: 'strategi', label: 'Strategi Kas & Utang' },
+                  { id: 'all', label: 'Semua' },
+                  { id: 'lokal', label: 'Indonesia (CNBC & Antara)' },
+                  { id: 'crypto', label: 'Crypto (CoinTelegraph)' },
                 ] as const
               ).map((tab) => (
                 <button
@@ -1334,9 +1343,19 @@ export function SocialTab({
                 </button>
               ))}
             </div>
+
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={<RefreshCw className="size-3.5" />}
+              loading={newsLoading}
+              onClick={loadMarketNews}
+            >
+              Segarkan
+            </Button>
           </div>
 
-          {/* Daftar Artikel Berita */}
+          {/* Daftar Artikel Berita Live */}
           <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-2">
             {filteredNews.map((item) => (
               <article
@@ -1349,17 +1368,8 @@ export function SocialTab({
                       <Globe className="size-3 text-[var(--info)]" aria-hidden />
                       {item.regionLabel}
                     </span>
-                    <span
-                      className={cn(
-                        'rounded px-2 py-0.5 text-[10px] font-semibold uppercase',
-                        item.sentiment === 'positif'
-                          ? 'bg-[var(--brand-soft)] text-[var(--brand)]'
-                          : item.sentiment === 'waspada'
-                            ? 'bg-[var(--due-soft)] text-[var(--due)]'
-                            : 'bg-[var(--info-soft)] text-[var(--info)]'
-                      )}
-                    >
-                      Sentimen: {item.sentiment}
+                    <span className="text-[11px] text-[var(--text-faint)]">
+                      {item.publishedAt}
                     </span>
                   </div>
 
@@ -1373,22 +1383,33 @@ export function SocialTab({
                 </div>
 
                 <div className="flex items-center justify-between gap-2 border-t border-[var(--line)] pt-2.5 text-[11px] text-[var(--text-faint)]">
-                  <span>
-                    {item.source} · {item.publishedAt}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setFeedPrefill(
-                        `[${item.title}]\n${item.impact}\n\nPendapat kalian?`
-                      );
-                      setFeedAutoFocus(true);
-                      onSubChange('feed');
-                    }}
-                    className="font-semibold text-[var(--brand)] hover:underline"
-                  >
-                    Diskusikan →
-                  </button>
+                  <span>{item.source}</span>
+                  <div className="flex items-center gap-3">
+                    {item.url && item.url !== '#' && (
+                      <a
+                        href={item.url}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 font-medium text-[var(--text-muted)] hover:text-[var(--text)]"
+                      >
+                        Baca
+                        <ExternalLink className="size-3" />
+                      </a>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFeedPrefill(
+                          `${item.title}\n${item.url !== '#' ? item.url : ''}\n\nPendapat kalian?`
+                        );
+                        setFeedAutoFocus(true);
+                        onSubChange('feed');
+                      }}
+                      className="font-semibold text-[var(--brand)] hover:underline"
+                    >
+                      Diskusikan →
+                    </button>
+                  </div>
                 </div>
               </article>
             ))}

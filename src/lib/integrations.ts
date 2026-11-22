@@ -6,7 +6,6 @@ export interface SingleIntegrationConfig {
   publicKey: string;
   secretKey: string;
   webhookUrl: string;
-  storagePolicy: 'stateless' | 'minimal_token' | 'hybrid';
   extraOption: string;
   lastTestedAt?: string | null;
   lastTestStatus?: 'ok' | 'error' | null;
@@ -29,53 +28,49 @@ export const DEFAULT_API_INTEGRATIONS: ApiIntegrationsState = {
     publicKey: '',
     secretKey: '',
     webhookUrl: 'https://stashinmeid.vercel.app/api/integrations?webhook=payment',
-    storagePolicy: 'minimal_token',
-    extraOption: 'QRIS, Virtual Account, E-Wallet',
+    extraOption: 'QRIS & Virtual Account (Rp 0 biaya bulanan)',
     lastTestedAt: null,
     lastTestStatus: null,
     lastLatencyMs: null,
   },
   kyc: {
     enabled: false,
-    provider: 'verihubs',
+    provider: 'didit_free',
     environment: 'sandbox',
-    baseUrl: 'https://api.verihubs.com/v1/ktp/verify',
+    baseUrl: 'https://verification.didit.me/v1',
     publicKey: '',
     secretKey: '',
     webhookUrl: 'https://stashinmeid.vercel.app/api/integrations?webhook=kyc',
-    storagePolicy: 'minimal_token',
-    extraOption: 'OCR e-KTP + Dukcapil Verification (Zero File Storage)',
+    extraOption: 'Didit Free Tier (Gratis hingga 500 verifikasi/bulan)',
     lastTestedAt: null,
     lastTestStatus: null,
     lastLatencyMs: null,
   },
   news: {
     enabled: true,
-    provider: 'finnhub_rss',
+    provider: 'free_bundle',
     environment: 'production',
-    baseUrl: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=IDR,EUR,SGD,JPY',
+    baseUrl: 'https://api.frankfurter.dev/v1/latest?base=USD&symbols=IDR,SGD,EUR',
     publicKey: '',
     secretKey: '',
     webhookUrl: '',
-    storagePolicy: 'stateless',
-    extraOption: 'Indonesia & Global Macro (Cache 15m, 0 KB DB Storage)',
+    extraOption: 'Gratis tanpa API Key · CNBC ID, Antara, CoinGecko & ECB',
     lastTestedAt: null,
     lastTestStatus: 'ok',
-    lastLatencyMs: 142,
+    lastLatencyMs: 140,
   },
   messaging_ai: {
     enabled: true,
-    provider: 'gemini_vision',
+    provider: 'gemini_free',
     environment: 'production',
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     publicKey: '',
     secretKey: '',
-    webhookUrl: 'https://stashinmeid.vercel.app/api/integrations?webhook=messaging',
-    storagePolicy: 'stateless',
-    extraOption: 'AI Receipt OCR & Pengingat Jatuh Tempo',
+    webhookUrl: '',
+    extraOption: 'Google AI Studio Free Tier · Pindai Struk',
     lastTestedAt: null,
     lastTestStatus: 'ok',
-    lastLatencyMs: 185,
+    lastLatencyMs: 180,
   },
 };
 

@@ -140,11 +140,39 @@ export function LandingPage({
   const [authModalOpen, setAuthModalOpen] = useState(defaultModalOpen);
   const [demoScope, setDemoScope] = useState<DemoScopeKey>('personal');
   const [hoveredBarIdx, setHoveredBarIdx] = useState<number | null>(null);
+  const [liveMarket, setLiveMarket] = useState(MARKET_STRIP);
   const [apiSwitches, setApiSwitches] = useState<Record<string, boolean>>({
     payment: true,
     kyc: true,
     news: true,
   });
+
+  useEffect(() => {
+    let alive = true;
+    fetch('/api/market-news')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (!alive || !Array.isArray(json?.tickers) || json.tickers.length === 0) {
+          return;
+        }
+        setLiveMarket(
+          json.tickers.map(
+            (t: { sym: string; price: string; delta: string; up: boolean }) => ({
+              sym: t.sym,
+              price: t.price.replace(/^Rp\s*/, ''),
+              delta: t.delta,
+              up: t.up,
+            })
+          )
+        );
+      })
+      .catch(() => {
+        // Tetap tampilkan fallback jika offline
+      });
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   // Auth form state
   const [email, setEmail] = useState('');
@@ -413,7 +441,7 @@ export function LandingPage({
               <span className="size-1.5 rounded-full bg-emerald-400" />
               PASAR
             </span>
-            {MARKET_STRIP.map((m) => (
+            {liveMarket.map((m) => (
               <span key={m.sym} className="inline-flex items-center gap-1.5">
                 <span className="font-semibold text-zinc-200">{m.sym}</span>
                 <span className="tnum text-zinc-400">{m.price}</span>
@@ -695,15 +723,15 @@ export function LandingPage({
                 </h2>
               </div>
               <span className="font-mono text-[10px] text-zinc-400">
-                Hemat DB
+                Gratis · Modular
               </span>
             </div>
 
             <div className="mt-4 space-y-2">
               {[
-                { id: 'payment', name: 'Payment Gateway', sub: 'Midtrans · Xendit' },
-                { id: 'kyc', name: 'e-KYC Eksternal', sub: 'Verihubs · PrivyID' },
-                { id: 'news', name: 'Stream Berita', sub: '0 KB storage' },
+                { id: 'news', name: 'Berita & Kurs Live', sub: 'CNBC ID · CoinGecko · ECB' },
+                { id: 'kyc', name: 'Verifikasi KYC', sub: 'Didit.me · Verihubs' },
+                { id: 'payment', name: 'Pembayaran', sub: 'Midtrans · Xendit · Tripay' },
               ].map((api) => {
                 const on = apiSwitches[api.id];
                 return (
