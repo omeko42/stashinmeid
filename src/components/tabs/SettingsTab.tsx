@@ -167,7 +167,7 @@ export function SettingsTab({
       {section === 'appearance' && (
         <div
           role="tabpanel"
-          className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)]"
+          className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)]"
         >
           <SettingRow
             icon={<MoonStar className="size-4" />}

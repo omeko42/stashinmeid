@@ -449,6 +449,9 @@ export function LandingPage({
 
   const [isSignUp, setIsSignUp] = useState(defaultMode === 'signup');
   const [signUpStep, setSignUpStep] = useState<1 | 2>(1);
+  // Tahan autofill agresif browser sebelum user mengklik kolom input,
+  // sehingga modal terbuka bersih & Chrome menampilkan popup rekomendasi saat diklik.
+  const [authFieldsUnlocked, setAuthFieldsUnlocked] = useState(false);
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<{
     type: 'error' | 'success';
@@ -469,6 +472,10 @@ export function LandingPage({
   const openAuthModal = (mode: 'signin' | 'signup') => {
     setIsSignUp(mode === 'signup');
     setSignUpStep(1);
+    setEmail('');
+    setPassword('');
+    setConfirmPassword('');
+    setAuthFieldsUnlocked(false);
     setMessage(null);
     setAuthModalOpen(true);
   };
@@ -1851,6 +1858,10 @@ export function LandingPage({
                       onClick={() => {
                         setIsSignUp(tab.signup);
                         setSignUpStep(1);
+                        setEmail('');
+                        setPassword('');
+                        setConfirmPassword('');
+                        setAuthFieldsUnlocked(false);
                         setMessage(null);
                         resetCaptcha();
                       }}
@@ -1890,7 +1901,11 @@ export function LandingPage({
               )}
 
               {isSignUp && signUpStep === 1 ? (
-                <form onSubmit={handleNextStep} className="space-y-3.5">
+                <form
+                  onSubmit={handleNextStep}
+                  autoComplete="off"
+                  className="space-y-3.5"
+                >
                   <div className="flex items-center justify-between text-[11px] text-zinc-500">
                     <span>
                       {isEn ? 'Create your account' : 'Buat akun baru'}
@@ -1909,9 +1924,11 @@ export function LandingPage({
                     </label>
                     <input
                       id="signup-email"
-                      name="email"
+                      name="signupEmail"
                       type="email"
-                      autoComplete="email"
+                      autoComplete="off"
+                      readOnly={!authFieldsUnlocked}
+                      onFocus={() => setAuthFieldsUnlocked(true)}
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
@@ -1938,8 +1955,10 @@ export function LandingPage({
                     </div>
                     <PasswordInput
                       id="signup-password"
-                      name="password"
+                      name="signupPassword"
                       autoComplete="new-password"
+                      readOnly={!authFieldsUnlocked}
+                      onFocus={() => setAuthFieldsUnlocked(true)}
                       unstyled
                       required
                       minLength={8}
@@ -2207,6 +2226,8 @@ export function LandingPage({
                           name="identifier"
                           type="text"
                           autoComplete="username"
+                          readOnly={!authFieldsUnlocked}
+                          onFocus={() => setAuthFieldsUnlocked(true)}
                           required
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
@@ -2237,6 +2258,8 @@ export function LandingPage({
                           id="login-password"
                           name="password"
                           autoComplete="current-password"
+                          readOnly={!authFieldsUnlocked}
+                          onFocus={() => setAuthFieldsUnlocked(true)}
                           unstyled
                           required
                           value={password}

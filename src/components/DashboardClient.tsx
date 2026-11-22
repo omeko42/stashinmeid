@@ -161,7 +161,29 @@ export default function DashboardClient({
     'all'
   );
   const [groupPickerOpen, setGroupPickerOpen] = useState(false);
+  const groupPickerRef = useRef<HTMLDivElement>(null);
   const [fabOpen, setFabOpen] = useState(false);
+
+  useEffect(() => {
+    if (!groupPickerOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (
+        groupPickerRef.current &&
+        !groupPickerRef.current.contains(e.target as Node)
+      ) {
+        setGroupPickerOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setGroupPickerOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [groupPickerOpen]);
 
   // Simulasi pelunasan
   const [simSelectedIds, setSimSelectedIds] = useState<string[]>([]);
@@ -1766,37 +1788,147 @@ export default function DashboardClient({
                     {isEn ? 'Personal' : 'Pribadi'}
                   </button>
 
-                  {/* #3 Grup — buka Pop-up List agar hemat ruang walau punya banyak grup */}
-                  <button
-                    type="button"
-                    onClick={() => setGroupPickerOpen(true)}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
-                      isGroupScope
-                        ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
-                        : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
-                    }`}
-                  >
-                    <Building2 className="size-3.5" aria-hidden />
-                    <span>
-                      {activeGroup
-                        ? `${isEn ? 'Group' : 'Grup'}: ${activeGroup.name}`
-                        : isEn
-                          ? 'Groups'
-                          : 'Grup'}
-                    </span>
-                    {kolega.groups.length > 0 && (
-                      <span
-                        className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                          isGroupScope
-                            ? 'bg-black/20 text-[var(--brand-contrast)]'
-                            : 'bg-[var(--surface-1)] text-[var(--text-muted)]'
-                        }`}
-                      >
-                        {kolega.groups.length}
+                  {/* #3 Grup — popover dropdown tepat di bawah tombol agar rapi & hemat ruang */}
+                  <div ref={groupPickerRef} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setGroupPickerOpen((v) => !v)}
+                      aria-haspopup="listbox"
+                      aria-expanded={groupPickerOpen}
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
+                        isGroupScope
+                          ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
+                          : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                      }`}
+                    >
+                      <Building2 className="size-3.5" aria-hidden />
+                      <span>
+                        {activeGroup
+                          ? `${isEn ? 'Group' : 'Grup'}: ${activeGroup.name}`
+                          : isEn
+                            ? 'Groups'
+                            : 'Grup'}
                       </span>
-                    )}
-                    <ChevronDown className="size-3.5 opacity-80" aria-hidden />
-                  </button>
+                      {kolega.groups.length > 0 && (
+                        <span
+                          className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                            isGroupScope
+                              ? 'bg-black/20 text-[var(--brand-contrast)]'
+                              : 'bg-[var(--surface-1)] text-[var(--text-muted)]'
+                          }`}
+                        >
+                          {kolega.groups.length}
+                        </span>
+                      )}
+                      <ChevronDown
+                        className={`size-3.5 opacity-80 transition-transform duration-150 ${
+                          groupPickerOpen ? 'rotate-180' : ''
+                        }`}
+                        aria-hidden
+                      />
+                    </button>
+
+                    <AnimatePresence>
+                      {groupPickerOpen && (
+                        <motion.div
+                          role="listbox"
+                          aria-label={isEn ? 'Select Group Workspace' : 'Pilih Ruang Grup'}
+                          initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                          animate={{ opacity: 1, y: 0, scale: 1 }}
+                          exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                          transition={{ duration: 0.14, ease: 'easeOut' }}
+                          className="absolute left-0 top-full z-50 mt-2 w-72 overflow-hidden rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)] p-2 shadow-2xl"
+                        >
+                          <div className="mb-1.5 flex items-center justify-between px-2 pt-0.5">
+                            <span className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                              {isEn ? 'Group Workspaces' : 'Daftar Ruang Grup'}
+                            </span>
+                            <span className="text-[10px] text-[var(--text-faint)]">
+                              {kolega.groups.length} {isEn ? 'groups' : 'grup'}
+                            </span>
+                          </div>
+
+                          {kolega.groups.length === 0 ? (
+                            <div className="rounded-lg border border-dashed border-[var(--line)] bg-[var(--surface-2)]/60 px-3 py-4 text-center text-[11px] text-[var(--text-muted)]">
+                              {isEn
+                                ? 'No groups yet. Create one in Social.'
+                                : 'Belum ada grup. Buat grup di menu Sosial.'}
+                            </div>
+                          ) : (
+                            <div className="max-h-60 space-y-1 overflow-y-auto pr-0.5">
+                              {kolega.groups.map((g) => {
+                                const selected = activeScope === g.id;
+                                const txCount = transactions.filter(
+                                  (tx) => tx.group_id === g.id
+                                ).length;
+                                const debtCount = debts.filter(
+                                  (d) =>
+                                    d.group_id === g.id && d.status === 'active'
+                                ).length;
+                                return (
+                                  <button
+                                    key={g.id}
+                                    type="button"
+                                    role="option"
+                                    aria-selected={selected}
+                                    onClick={() => {
+                                      setActiveScope(g.id);
+                                      setGroupPickerOpen(false);
+                                    }}
+                                    className={`flex w-full items-center justify-between gap-2.5 rounded-lg px-2.5 py-2 text-left transition-colors ${
+                                      selected
+                                        ? 'bg-[var(--brand-soft)]/35 text-[var(--text)]'
+                                        : 'text-[var(--text)] hover:bg-[var(--surface-2)]'
+                                    }`}
+                                  >
+                                    <div className="flex min-w-0 items-center gap-2">
+                                      <div className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[var(--surface-2)] text-[var(--brand)]">
+                                        <Building2 className="size-3.5" aria-hidden />
+                                      </div>
+                                      <div className="min-w-0">
+                                        <p className="truncate text-[12px] font-semibold">
+                                          {g.name}
+                                        </p>
+                                        <p className="text-[10px] text-[var(--text-muted)]">
+                                          {g.members.length}{' '}
+                                          {isEn ? 'members' : 'anggota'} · {txCount}{' '}
+                                          {isEn ? 'tx' : 'transaksi'} · {debtCount}{' '}
+                                          {isEn ? 'loans' : 'pinjaman'}
+                                        </p>
+                                      </div>
+                                    </div>
+                                    {selected && (
+                                      <Check
+                                        className="size-3.5 shrink-0 text-[var(--brand)]"
+                                        aria-hidden
+                                      />
+                                    )}
+                                  </button>
+                                );
+                              })}
+                            </div>
+                          )}
+
+                          <div className="mt-2 border-t border-[var(--line)] pt-2">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setGroupPickerOpen(false);
+                                setSosialSub('kolega');
+                                navigate('social');
+                              }}
+                              className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--surface-2)] px-3 py-1.5 text-[11px] font-semibold text-[var(--brand)] transition hover:bg-[var(--surface-3)]"
+                            >
+                              <Plus className="size-3.5" aria-hidden />
+                              {isEn
+                                ? 'Manage / Create Groups'
+                                : 'Kelola / Buat Grup di Sosial'}
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 px-2 text-[11px] text-[var(--text-muted)]">
@@ -2282,82 +2414,6 @@ export default function DashboardClient({
           </div>
         </div>
       )}
-
-      {/* Pop-up Pilihan Grup (#3 Grup) agar daftar grup vertikal & hemat ruang */}
-      <Modal
-        open={groupPickerOpen}
-        onClose={() => setGroupPickerOpen(false)}
-        title={isEn ? 'Select Group Workspace' : 'Pilih Ruang Grup'}
-        description={
-          isEn
-            ? 'Switch to a specific family, business, or project group without cluttering the header.'
-            : 'Pilih grup keluarga, perusahaan, atau proyek agar catatan kas dan pinjaman terpisah rapi.'
-        }
-        size="sm"
-        footer={
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() => {
-              setGroupPickerOpen(false);
-              setSosialSub('kolega');
-              navigate('social');
-            }}
-          >
-            {isEn ? 'Manage / Create Groups in Social' : 'Kelola / Buat Grup di Sosial'}
-          </Button>
-        }
-      >
-        {kolega.groups.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[var(--line)] bg-[var(--surface-2)]/60 px-4 py-6 text-center text-[12px] text-[var(--text-muted)]">
-            {isEn
-              ? 'No groups yet. Create your first group from the Social menu.'
-              : 'Belum ada grup. Buat grup pertamamu lewat menu Sosial.'}
-          </div>
-        ) : (
-          <div className="max-h-72 space-y-1.5 overflow-y-auto pr-0.5">
-            {kolega.groups.map((g) => {
-              const selected = activeScope === g.id;
-              const txCount = transactions.filter((tx) => tx.group_id === g.id).length;
-              const debtCount = debts.filter(
-                (d) => d.group_id === g.id && d.status === 'active'
-              ).length;
-              return (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => {
-                    setActiveScope(g.id);
-                    setGroupPickerOpen(false);
-                  }}
-                  className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors ${
-                    selected
-                      ? 'border-[var(--brand)] bg-[var(--brand-soft)]/35 text-[var(--text)]'
-                      : 'border-[var(--line)] bg-[var(--surface-2)]/70 text-[var(--text)] hover:border-[var(--line-strong)]'
-                  }`}
-                >
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-1)] text-[var(--brand)]">
-                      <Building2 className="size-4" aria-hidden />
-                    </div>
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-semibold">{g.name}</p>
-                      <p className="text-[11px] text-[var(--text-muted)]">
-                        {g.members.length} {isEn ? 'members' : 'anggota'} · {txCount}{' '}
-                        {isEn ? 'tx' : 'transaksi'} · {debtCount}{' '}
-                        {isEn ? 'loans' : 'pinjaman'}
-                      </p>
-                    </div>
-                  </div>
-                  {selected && (
-                    <Check className="size-4 shrink-0 text-[var(--brand)]" aria-hidden />
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </Modal>
 
       {/* Floating Action Button (+) kanan bawah — Catat & Upload (AI) */}
       {canEdit && (

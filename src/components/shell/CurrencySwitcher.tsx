@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useLocale } from 'next-intl';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Check, ChevronDown, Coins } from 'lucide-react';
-import { Modal } from '@/components/ui/Modal';
 import { useCurrency } from '@/components/ui/CurrencyContext';
 import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { cn } from '@/lib/cn';
@@ -20,8 +20,8 @@ const CURRENCY_LIST: { code: string; nameId: string; nameEn: string; sym: string
 ];
 
 /**
- * Pemilih Mata Uang Utama berbasis Pop-up Modal dengan tombol konfirmasi
- * dan sinkronisasi global ke CurrencyContext & ticker pasar live.
+ * Pemilih Mata Uang Utama berbasis anchored popover dropdown (muncul tepat di bawah tombol)
+ * dengan tombol konfirmasi dan sinkronisasi global ke CurrencyContext & ticker pasar live.
  */
 export function CurrencySwitcher({
   compact,
@@ -35,6 +35,25 @@ export function CurrencySwitcher({
   const { primaryCurrency, setPrimaryCurrency } = useCurrency();
   const { confirm } = useConfirm();
   const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const onDown = (e: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
 
   const handleChoose = async (code: string) => {
     setOpen(false);
@@ -64,12 +83,12 @@ export function CurrencySwitcher({
   };
 
   return (
-    <>
+    <div ref={rootRef} className="relative inline-block">
       <button
         type="button"
-        onClick={() => setOpen(true)}
+        onClick={() => setOpen((v) => !v)}
         aria-label={isEn ? 'Select currency' : 'Pilih mata uang'}
-        aria-haspopup="dialog"
+        aria-haspopup="listbox"
         aria-expanded={open}
         className={cn(
           'inline-flex items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] font-semibold text-[var(--text)] transition hover:border-[var(--brand)]',
@@ -78,54 +97,66 @@ export function CurrencySwitcher({
       >
         <Coins className="size-3.5 text-[var(--brand)]" aria-hidden />
         <span className="font-mono">{primaryCurrency}</span>
-        <ChevronDown className="size-3 opacity-70" aria-hidden />
+        <ChevronDown
+          className={cn(
+            'size-3 opacity-70 transition-transform duration-150',
+            open && 'rotate-180'
+          )}
+          aria-hidden
+        />
       </button>
 
-      <Modal
-        open={open}
-        onClose={() => setOpen(false)}
-        title={isEn ? 'Select Currency' : 'Pilih Mata Uang'}
-        description={
-          isEn
-            ? 'Live market prices, balances, and plans will follow this currency.'
-            : 'Kurs pasar live, saldo, dan tampilan harga akan mengikuti satuan mata uang ini.'
-        }
-        size="sm"
-      >
-        <div className="max-h-72 space-y-1.5 overflow-y-auto pr-0.5">
-          {CURRENCY_LIST.map((cur) => {
-            const active = cur.code === primaryCurrency;
-            return (
-              <button
-                key={cur.code}
-                type="button"
-                onClick={() => void handleChoose(cur.code)}
-                className={cn(
-                  'flex w-full items-center justify-between rounded-xl border px-3.5 py-2.5 text-left transition',
-                  active
-                    ? 'border-[var(--brand)] bg-[var(--brand-soft)]/30 text-[var(--text)]'
-                    : 'border-[var(--line)] bg-[var(--surface-2)]/70 text-[var(--text)] hover:border-[var(--line-strong)]'
-                )}
-              >
-                <div className="flex items-center gap-2.5">
-                  <span className="inline-flex w-10 items-center justify-center rounded-lg bg-[var(--surface-1)] py-1 font-mono text-[11px] font-bold text-[var(--brand)]">
-                    {cur.sym}
-                  </span>
-                  <div>
-                    <p className="text-[13px] font-semibold">{cur.code}</p>
-                    <p className="text-[11px] text-[var(--text-muted)]">
-                      {isEn ? cur.nameEn : cur.nameId}
-                    </p>
-                  </div>
-                </div>
-                {active && (
-                  <Check className="size-4 text-[var(--brand)]" aria-hidden />
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </Modal>
-    </>
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            role="listbox"
+            aria-label={isEn ? 'Select currency' : 'Pilih mata uang'}
+            initial={{ opacity: 0, y: -4, scale: 0.97 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: -4, scale: 0.97 }}
+            transition={{ duration: 0.14, ease: 'easeOut' }}
+            className="absolute right-0 top-full z-50 mt-1.5 w-60 overflow-hidden rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)] p-1.5 shadow-2xl"
+          >
+            <div className="max-h-64 space-y-1 overflow-y-auto pr-0.5">
+              {CURRENCY_LIST.map((cur) => {
+                const active = cur.code === primaryCurrency;
+                return (
+                  <button
+                    key={cur.code}
+                    type="button"
+                    role="option"
+                    aria-selected={active}
+                    onClick={() => void handleChoose(cur.code)}
+                    className={cn(
+                      'flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-left transition',
+                      active
+                        ? 'bg-[var(--brand-soft)]/35 text-[var(--text)]'
+                        : 'text-[var(--text)] hover:bg-[var(--surface-2)]'
+                    )}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      <span className="inline-flex w-8 items-center justify-center rounded-md bg-[var(--surface-2)] py-0.5 font-mono text-[10px] font-bold text-[var(--brand)]">
+                        {cur.sym}
+                      </span>
+                      <div>
+                        <p className="text-[12px] font-semibold leading-tight">
+                          {cur.code}
+                        </p>
+                        <p className="text-[10px] text-[var(--text-muted)]">
+                          {isEn ? cur.nameEn : cur.nameId}
+                        </p>
+                      </div>
+                    </div>
+                    {active && (
+                      <Check className="size-3.5 text-[var(--brand)]" aria-hidden />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 }
