@@ -2,7 +2,7 @@
 
 <img src="public/logo-icon.png" alt="StashinMe Logo" width="76" height="76" />
 
-# StashinMe (`stashinmeid`)
+# StashinMe
 
 **Personal & Collaborative Finance Workspace — Multi-Space, Multi-Currency, AI Receipt Scanner**
 
