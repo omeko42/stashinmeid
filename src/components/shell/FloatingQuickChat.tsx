@@ -728,16 +728,11 @@ export function FloatingQuickChat({
         ) : (
           <MessageSquare className="size-5" aria-hidden />
         )}
-        {!open && totalUnread > 0 ? (
+        {!open && totalUnread > 0 && (
           <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold text-white ring-2 ring-[var(--bg)]">
             {totalUnread > 9 ? '9+' : totalUnread}
           </span>
-        ) : !open ? (
-          <span
-            aria-hidden
-            className="absolute bottom-0.5 right-0.5 size-3 rounded-full bg-emerald-400 ring-2 ring-[#2563eb]"
-          />
-        ) : null}
+        )}
       </button>
     </div>
   );
