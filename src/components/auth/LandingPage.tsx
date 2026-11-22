@@ -1498,10 +1498,10 @@ export function LandingPage({
                       <div className="mt-5 pt-4 text-[12px] text-zinc-400">
                         {isEn ? 'Prefer direct email?' : 'Lebih suka email langsung?'}{' '}
                         <a
-                          href="mailto:stashinmeid@gmail.com?subject=Enterprise%20Custom%20stashinmeid"
+                          href="mailto:support@stashinme.biz.id?subject=Enterprise%20Custom%20stashinmeid"
                           className="font-semibold text-emerald-400 hover:underline"
                         >
-                          stashinmeid@gmail.com
+                          support@stashinme.biz.id
                         </a>
                       </div>
                     </div>
@@ -1706,11 +1706,11 @@ export function LandingPage({
                   : 'Buku kas pribadi, ruang grup kolega, dan pelacak aset digital dalam satu workspace.'}
               </p>
               <a
-                href="mailto:stashinmeid@gmail.com"
+                href="mailto:support@stashinme.biz.id"
                 className="inline-flex items-center gap-1.5 text-[12px] font-medium text-emerald-400 transition hover:text-emerald-300"
               >
                 <Mail className="size-3.5" />
-                stashinmeid@gmail.com
+                support@stashinme.biz.id
               </a>
             </div>
 
@@ -1765,7 +1765,7 @@ export function LandingPage({
                 </li>
                 <li>
                   <a
-                    href="mailto:stashinmeid@gmail.com?subject=Partnership%20stashinmeid"
+                    href="mailto:support@stashinme.biz.id?subject=Partnership%20stashinmeid"
                     className="inline-flex items-center gap-1 transition hover:text-white"
                   >
                     Become a Partner
@@ -1793,15 +1793,15 @@ export function LandingPage({
               <ul className="space-y-2 text-[12px] text-zinc-400">
                 <li>
                   <a
-                    href="mailto:stashinmeid@gmail.com"
+                    href="mailto:support@stashinme.biz.id"
                     className="transition hover:text-white"
                   >
-                    stashinmeid@gmail.com
+                    support@stashinme.biz.id
                   </a>
                 </li>
                 <li>
                   <a
-                    href="mailto:stashinmeid@gmail.com?subject=Partnership%20stashinmeid"
+                    href="mailto:support@stashinme.biz.id?subject=Partnership%20stashinmeid"
                     className="transition hover:text-white"
                   >
                     {isEn ? 'Partnerships' : 'Kemitraan & Media'}

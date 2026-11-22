@@ -757,10 +757,10 @@ export function MembershipPanel({
               <p className="mt-4 text-[11px] text-[var(--text-muted)]">
                 Email:{' '}
                 <a
-                  href="mailto:stashinmeid@gmail.com?subject=Enterprise%20Custom%20stashinmeid"
+                  href="mailto:support@stashinme.biz.id?subject=Enterprise%20Custom%20stashinmeid"
                   className="font-semibold text-[var(--brand)] hover:underline"
                 >
-                  stashinmeid@gmail.com
+                  support@stashinme.biz.id
                 </a>
               </p>
             </div>
