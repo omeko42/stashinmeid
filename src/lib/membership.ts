@@ -1,3 +1,5 @@
+import { formatMoney } from '@/lib/format';
+
 export type MembershipTier = 'free' | 'standard' | 'pro' | 'business';
 export type BillingCycle = 'monthly' | 'yearly';
 
@@ -151,12 +153,67 @@ export const MEMBERSHIP_PLANS: Record<MembershipTier, MembershipPlan> = {
 export function getPlanPrice(plan: MembershipPlan, cycle: BillingCycle) {
   const mult = cycle === 'yearly' ? (100 - YEARLY_DISCOUNT_PCT) / 100 : 1;
   const usdMonthlyEffective = Math.round(plan.priceUsdMonthly * mult);
-  const idrMonthlyEffective = Math.round(plan.priceIdrMonthly * mult);
+  const idrMonthlyEffective =
+    Math.round((plan.priceIdrMonthly * mult) / 1000) * 1000;
   return {
     usdMonthlyEffective,
     usdTotalBilled: cycle === 'yearly' ? usdMonthlyEffective * 12 : usdMonthlyEffective,
     idrMonthlyEffective,
     idrTotalBilled: cycle === 'yearly' ? idrMonthlyEffective * 12 : idrMonthlyEffective,
+  };
+}
+
+/**
+ * Hitung tampilan harga paket dalam mata uang pilihan user secara konsisten:
+ * `yearlyTotal` dijamin tepat `monthlyEffective × 12` tanpa selisih pembulatan.
+ */
+export function computePlanDisplayPricing(opts: {
+  plan: MembershipPlan;
+  cycle: BillingCycle;
+  currency: string;
+  idrPerUnit: Record<string, number>;
+  locale: 'id' | 'en';
+}) {
+  const { plan, cycle, currency, idrPerUnit, locale } = opts;
+  const code = (currency || 'USD').toUpperCase();
+  const usdToIdr = idrPerUnit.USD || 15865;
+  const targetPerIdr = idrPerUnit[code] || 1;
+
+  const convertUsdClean = (usd: number): number => {
+    if (usd === 0) return 0;
+    if (code === 'USD') return usd;
+    const raw = (usd * usdToIdr) / targetPerIdr;
+    if (code === 'IDR') return Math.round(raw / 1000) * 1000;
+    if (code === 'JPY') return Math.round(raw / 10) * 10;
+    return Math.round(raw);
+  };
+
+  const monthlyRegular = convertUsdClean(plan.priceUsdMonthly);
+  const discountedRaw = monthlyRegular * ((100 - YEARLY_DISCOUNT_PCT) / 100);
+  const monthlyEffective =
+    cycle === 'yearly'
+      ? code === 'IDR'
+        ? Math.round(discountedRaw / 1000) * 1000
+        : code === 'JPY'
+          ? Math.round(discountedRaw / 10) * 10
+          : Math.round(discountedRaw * 100) / 100
+      : monthlyRegular;
+
+  const yearlyTotal = Math.round(monthlyEffective * 12 * 100) / 100;
+  const yearlySavings = Math.max(
+    0,
+    Math.round((monthlyRegular - monthlyEffective) * 12 * 100) / 100
+  );
+
+  return {
+    monthlyRegular,
+    monthlyEffective,
+    yearlyTotal,
+    yearlySavings,
+    formattedMonthlyRegular: formatMoney(monthlyRegular, code, locale),
+    formattedMonthlyEffective: formatMoney(monthlyEffective, code, locale),
+    formattedYearlyTotal: formatMoney(yearlyTotal, code, locale),
+    formattedYearlySavings: formatMoney(yearlySavings, code, locale),
   };
 }
 

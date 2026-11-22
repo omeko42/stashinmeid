@@ -40,15 +40,21 @@ export function formatMoney(
   currency = 'IDR',
   locale: Locale = 'id'
 ): string {
-  const isZeroDec = currency === 'IDR' || currency === 'JPY';
+  const code = (currency || 'IDR').toUpperCase();
+  const isZeroDec = code === 'IDR' || code === 'JPY';
+  // IDR selalu diformat dengan gaya 'id-ID' agar tampil rapi "Rp 146.000" (bukan "IDR 146,000")
+  const fmtLocale =
+    code === 'IDR' ? 'id-ID' : locale === 'en' ? 'en-US' : 'id-ID';
+  const isWhole = Math.abs(amount - Math.round(amount)) < 0.005;
   try {
-    return new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'id-ID', {
+    return new Intl.NumberFormat(fmtLocale, {
       style: 'currency',
-      currency,
+      currency: code,
+      minimumFractionDigits: isZeroDec || isWhole ? 0 : 2,
       maximumFractionDigits: isZeroDec ? 0 : 2,
     }).format(amount);
   } catch {
-    return `${currency} ${amount.toLocaleString(locale === 'en' ? 'en-US' : 'id-ID')}`;
+    return `${code} ${amount.toLocaleString(fmtLocale)}`;
   }
 }
 

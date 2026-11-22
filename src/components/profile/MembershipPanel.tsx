@@ -23,13 +23,13 @@ import {
   MEMBERSHIP_PLANS,
   MEMBERSHIP_TIER_ORDER,
   YEARLY_DISCOUNT_PCT,
-  getPlanPrice,
+  computePlanDisplayPricing,
   type BillingCycle,
   type EnterpriseInquiry,
   type MembershipOrder,
   type MembershipTier,
 } from '@/lib/membership';
-import { formatMoney, formatRp } from '@/lib/format';
+import { formatRp } from '@/lib/format';
 import { useCurrency } from '@/components/ui/CurrencyContext';
 
 export function MembershipPanel() {
@@ -455,23 +455,13 @@ export function MembershipPanel() {
           const plan = MEMBERSHIP_PLANS[planId];
           const isCurrent = tier === planId;
           const features = isEn ? plan.featuresEn : plan.featuresId;
-          const pricing = getPlanPrice(plan, billingCycle);
-          const usdToIdr = idrPerUnit.USD || 15865;
-          const targetPerIdr = idrPerUnit[primaryCurrency] || 1;
-          const fmtPlan = (usdVal: number) => {
-            if (usdVal === 0) return formatMoney(0, primaryCurrency, isEn ? 'en' : 'id');
-            if (primaryCurrency === 'USD') return `$${usdVal}`;
-            const inIdr = usdVal * usdToIdr;
-            const inTarget =
-              primaryCurrency === 'IDR'
-                ? Math.round(inIdr / 1000) * 1000
-                : inIdr / targetPerIdr;
-            return formatMoney(inTarget, primaryCurrency, isEn ? 'en' : 'id');
-          };
-          const priceLabel =
-            pricing.usdMonthlyEffective === 0
-              ? fmtPlan(0)
-              : `${fmtPlan(pricing.usdMonthlyEffective)}${isEn ? '/mo' : '/bln'}`;
+          const p = computePlanDisplayPricing({
+            plan,
+            cycle: billingCycle,
+            currency: primaryCurrency,
+            idrPerUnit,
+            locale: isEn ? 'en' : 'id',
+          });
 
           return (
             <div
@@ -487,29 +477,52 @@ export function MembershipPanel() {
                   <h4 className="text-[15px] font-semibold text-[var(--text)]">
                     {isEn ? plan.labelEn : plan.labelId}
                   </h4>
-                  <span className="rounded-full bg-[var(--surface-2)] px-2.5 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                  <span className="shrink-0 rounded-full bg-[var(--surface-2)] px-2.5 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
                     {isEn ? plan.badgeEn : plan.badgeId}
                   </span>
                 </div>
 
-                <div className="mt-2 flex items-baseline gap-2">
-                  <p className="tnum text-[20px] font-bold text-[var(--text)]">
-                    {priceLabel}
-                  </p>
-                  {billingCycle === 'yearly' && plan.priceUsdMonthly > 0 && (
-                    <span className="tnum text-[11px] text-[var(--text-faint)] line-through">
-                      {fmtPlan(plan.priceUsdMonthly)}
+                <div className="mt-2.5 min-h-[68px]">
+                  <div className="flex flex-wrap items-baseline gap-x-1">
+                    <span className="tnum text-[20px] font-bold leading-tight text-[var(--text)]">
+                      {p.formattedMonthlyEffective}
                     </span>
+                    {plan.priceUsdMonthly > 0 && (
+                      <span className="text-[11px] font-medium text-[var(--text-muted)]">
+                        {isEn ? '/mo' : '/bln'}
+                      </span>
+                    )}
+                  </div>
+                  {billingCycle === 'yearly' && plan.priceUsdMonthly > 0 ? (
+                    <div className="mt-1 space-y-0.5">
+                      <div className="flex items-center gap-1.5 text-[11px]">
+                        <span className="tnum text-[var(--text-faint)] line-through">
+                          {p.formattedMonthlyRegular}
+                          {isEn ? '/mo' : '/bln'}
+                        </span>
+                        <span className="rounded bg-[var(--brand-soft)] px-1.5 py-0.5 text-[9px] font-bold text-[var(--brand)]">
+                          -{YEARLY_DISCOUNT_PCT}%
+                        </span>
+                      </div>
+                      <p className="tnum text-[11px] font-medium text-[var(--brand)]">
+                        {isEn
+                          ? `Billed ${p.formattedYearlyTotal}/yr`
+                          : `Ditagih ${p.formattedYearlyTotal}/thn`}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="mt-1 text-[11px] text-[var(--text-faint)]">
+                      {plan.priceUsdMonthly === 0
+                        ? isEn
+                          ? 'Free forever'
+                          : 'Gratis selamanya'
+                        : isEn
+                          ? 'Billed monthly'
+                          : 'Tagihan bulanan'}
+                    </p>
                   )}
                 </div>
-                {billingCycle === 'yearly' && plan.priceUsdMonthly > 0 && (
-                  <p className="tnum mt-0.5 text-[11px] font-medium text-[var(--brand)]">
-                    {isEn
-                      ? `${fmtPlan(pricing.usdTotalBilled)}/yr · 20% OFF`
-                      : `${fmtPlan(pricing.usdTotalBilled)}/thn · Hemat 20%`}
-                  </p>
-                )}
-                <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                <p className="mt-1 min-h-[32px] text-[12px] text-[var(--text-muted)]">
                   {isEn ? plan.summaryEn : plan.summaryId}
                 </p>
 
@@ -758,10 +771,16 @@ export function MembershipPanel() {
                       }`}
                     >
                       {inq.status === 'new'
-                        ? 'Baru'
+                        ? isEn
+                          ? 'New'
+                          : 'Baru'
                         : inq.status === 'contacted'
-                          ? 'Dihubungi'
-                          : 'Selesai'}
+                          ? isEn
+                            ? 'Contacted'
+                            : 'Dihubungi'
+                          : isEn
+                            ? 'Closed'
+                            : 'Selesai'}
                     </span>
                   </div>
 
@@ -772,7 +791,7 @@ export function MembershipPanel() {
                         variant="secondary"
                         onClick={() => handleInquiryStatus(inq.id, 'contacted')}
                       >
-                        Tandai Dihubungi
+                        {isEn ? 'Mark Contacted' : 'Tandai Dihubungi'}
                       </Button>
                     )}
                     {inq.status !== 'closed' && (
@@ -781,13 +800,13 @@ export function MembershipPanel() {
                         variant="ghost"
                         onClick={() => handleInquiryStatus(inq.id, 'closed')}
                       >
-                        Selesai
+                        {isEn ? 'Close' : 'Selesai'}
                       </Button>
                     )}
                   </div>
                 </div>
                 <p className="text-[11px] font-medium text-[var(--brand)]">
-                  Kontak: {inq.contact}
+                  {isEn ? 'Contact' : 'Kontak'}: {inq.contact}
                 </p>
                 <p className="rounded-lg bg-[var(--surface-2)]/70 p-2.5 text-[12px] leading-relaxed text-[var(--text)]">
                   {inq.requirements}
@@ -978,10 +997,18 @@ export function MembershipPanel() {
                   </p>
                 </div>
                 <span className="tnum text-[16px] font-bold text-[var(--brand)]">
-                  {formatRp(
-                    getPlanPrice(MEMBERSHIP_PLANS[checkoutTier], billingCycle)
-                      .idrTotalBilled
-                  )}
+                  {(() => {
+                    const cp = computePlanDisplayPricing({
+                      plan: MEMBERSHIP_PLANS[checkoutTier],
+                      cycle: billingCycle,
+                      currency: primaryCurrency,
+                      idrPerUnit,
+                      locale: isEn ? 'en' : 'id',
+                    });
+                    return billingCycle === 'yearly'
+                      ? cp.formattedYearlyTotal
+                      : cp.formattedMonthlyEffective;
+                  })()}
                 </span>
               </div>
 

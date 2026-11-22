@@ -33,11 +33,10 @@ import {
   MEMBERSHIP_PLANS,
   MEMBERSHIP_TIER_ORDER,
   YEARLY_DISCOUNT_PCT,
-  getPlanPrice,
+  computePlanDisplayPricing,
   type BillingCycle,
   type MembershipTier,
 } from '@/lib/membership';
-import { formatMoney } from '@/lib/format';
 
 interface LandingPageProps {
   defaultModalOpen?: boolean;
@@ -342,7 +341,9 @@ export function LandingPage({
   const [entName, setEntName] = useState('');
   const [entContact, setEntContact] = useState('');
   const [entCompany, setEntCompany] = useState('');
-  const [entGroups, setEntGroups] = useState('16 - 30 Grup');
+  const [entGroups, setEntGroups] = useState(
+    isEn ? '16 - 30 Groups' : '16 - 30 Grup'
+  );
   const [entNeeds, setEntNeeds] = useState('');
   const [entSending, setEntSending] = useState(false);
   const [entFeedback, setEntFeedback] = useState<{
@@ -482,9 +483,60 @@ export function LandingPage({
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [authModalOpen]);
 
+  const passwordChecks = {
+    len: password.length >= 8,
+    letter: /[A-Za-z]/.test(password),
+    number: /[0-9]/.test(password),
+    upper: /[A-Z]/.test(password),
+    symbol: /[^A-Za-z0-9]/.test(password),
+  };
+  const passwordScore = (() => {
+    if (!password) return 0;
+    let s = 0;
+    if (passwordChecks.len) s += 1;
+    if (passwordChecks.letter && passwordChecks.number) s += 1;
+    if (passwordChecks.upper) s += 1;
+    if (passwordChecks.symbol || password.length >= 12) s += 1;
+    return s;
+  })();
+  const passwordStrengthMeta =
+    passwordScore <= 1
+      ? {
+          label: isEn ? 'Weak' : 'Lemah',
+          bar: 'bg-rose-500',
+          text: 'text-rose-400',
+        }
+      : passwordScore === 2
+        ? {
+            label: isEn ? 'Fair' : 'Cukup',
+            bar: 'bg-amber-400',
+            text: 'text-amber-300',
+          }
+        : passwordScore === 3
+          ? {
+              label: isEn ? 'Good' : 'Baik',
+              bar: 'bg-cyan-400',
+              text: 'text-cyan-300',
+            }
+          : {
+              label: isEn ? 'Strong' : 'Kuat',
+              bar: 'bg-[#22c58b]',
+              text: 'text-emerald-400',
+            };
+
   const handleNextStep = (e: React.FormEvent) => {
     e.preventDefault();
     setMessage(null);
+
+    if (!email.trim() || !email.includes('@')) {
+      setMessage({
+        type: 'error',
+        text: isEn
+          ? 'Please enter a valid email address.'
+          : 'Masukkan alamat email yang valid.',
+      });
+      return;
+    }
 
     if (
       password.length < 8 ||
@@ -497,6 +549,11 @@ export function LandingPage({
 
     if (password !== confirmPassword) {
       setMessage({ type: 'error', text: t('auth.passwordMismatch') });
+      return;
+    }
+
+    if (captchaEnabled && !captchaToken) {
+      setMessage({ type: 'error', text: t('auth.captchaRequired') });
       return;
     }
 
@@ -1251,71 +1308,90 @@ export function LandingPage({
                 {MEMBERSHIP_TIER_ORDER.map((tierId: MembershipTier) => {
                   const plan = MEMBERSHIP_PLANS[tierId];
                   const highlight = tierId === 'pro';
-                  const pricing = getPlanPrice(plan, billingCycle);
-                  const usdToIdr = idrPerUnit.USD || 15865;
-                  const targetPerIdr = idrPerUnit[baseCurrency] || 1;
-                  const formatPlanAmount = (usdVal: number) => {
-                    if (usdVal === 0) {
-                      return formatMoney(0, baseCurrency, isEn ? 'en' : 'id');
-                    }
-                    if (baseCurrency === 'USD') return `$${usdVal}`;
-                    const inIdr = usdVal * usdToIdr;
-                    const inTarget =
-                      baseCurrency === 'IDR'
-                        ? Math.round(inIdr / 1000) * 1000
-                        : inIdr / targetPerIdr;
-                    return formatMoney(inTarget, baseCurrency, isEn ? 'en' : 'id');
-                  };
-
-                  const priceLabel =
-                    pricing.usdMonthlyEffective === 0
-                      ? formatPlanAmount(0)
-                      : `${formatPlanAmount(pricing.usdMonthlyEffective)}${isEn ? '/mo' : '/bln'}`;
+                  const p = computePlanDisplayPricing({
+                    plan,
+                    cycle: billingCycle,
+                    currency: baseCurrency,
+                    idrPerUnit,
+                    locale: isEn ? 'en' : 'id',
+                  });
 
                   return (
                     <SpotlightCard
                       key={tierId}
                       className={`p-5 ${
-                        highlight ? 'border-emerald-500/45' : ''
+                        highlight
+                          ? 'border-emerald-500/50 bg-gradient-to-b from-emerald-500/[0.08] via-[#0f1419]/95 to-[#0f1419]/95 ring-1 ring-emerald-500/25'
+                          : ''
                       }`}
                     >
                       <div className="flex h-full flex-col justify-between">
                         <div>
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-[14px] font-semibold text-white">
-                              {isEn ? plan.labelEn : plan.labelId}
-                            </span>
-                            <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[14px] font-semibold text-white">
+                                {isEn ? plan.labelEn : plan.labelId}
+                              </span>
+                              {highlight && (
+                                <span className="rounded-md bg-emerald-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-emerald-300">
+                                  {isEn ? 'Popular' : 'Populer'}
+                                </span>
+                              )}
+                            </div>
+                            <span className="shrink-0 rounded-full bg-white/[0.06] px-2.5 py-0.5 text-[10px] font-semibold text-emerald-300">
                               {isEn ? plan.badgeEn : plan.badgeId}
                             </span>
                           </div>
 
-                          <div className="mt-2.5 flex items-baseline gap-2">
-                            <p className="tnum text-2xl font-bold text-white">
-                              {priceLabel}
-                            </p>
-                            {billingCycle === 'yearly' &&
-                              plan.priceUsdMonthly > 0 && (
-                                <span className="tnum text-[11px] text-zinc-500 line-through">
-                                  {formatPlanAmount(plan.priceUsdMonthly)}
+                          {/* Blok harga konsisten & bebas terpotong di semua mata uang */}
+                          <div className="mt-3 min-h-[72px]">
+                            <div className="flex flex-wrap items-baseline gap-x-1">
+                              <span className="tnum text-[22px] font-bold leading-tight tracking-tight text-white">
+                                {p.formattedMonthlyEffective}
+                              </span>
+                              {plan.priceUsdMonthly > 0 && (
+                                <span className="text-[12px] font-medium text-zinc-400">
+                                  {isEn ? '/mo' : '/bln'}
                                 </span>
                               )}
-                          </div>
+                            </div>
 
-                          {billingCycle === 'yearly' &&
-                            plan.priceUsdMonthly > 0 && (
-                              <p className="tnum mt-0.5 text-[11px] font-medium text-emerald-400">
-                                {isEn
-                                  ? `${formatPlanAmount(pricing.usdTotalBilled)}/yr · 20% OFF`
-                                  : `${formatPlanAmount(pricing.usdTotalBilled)}/thn · Hemat 20%`}
+                            {billingCycle === 'yearly' &&
+                            plan.priceUsdMonthly > 0 ? (
+                              <div className="mt-1.5 space-y-0.5">
+                                <div className="flex items-center gap-1.5 text-[11px]">
+                                  <span className="tnum text-zinc-500 line-through">
+                                    {p.formattedMonthlyRegular}
+                                    {isEn ? '/mo' : '/bln'}
+                                  </span>
+                                  <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[9px] font-bold text-emerald-300">
+                                    -{YEARLY_DISCOUNT_PCT}%
+                                  </span>
+                                </div>
+                                <p className="tnum text-[11px] font-medium text-emerald-400/90">
+                                  {isEn
+                                    ? `Billed ${p.formattedYearlyTotal}/yr`
+                                    : `Ditagih ${p.formattedYearlyTotal}/thn`}
+                                </p>
+                              </div>
+                            ) : (
+                              <p className="mt-1.5 text-[11px] text-zinc-500">
+                                {plan.priceUsdMonthly === 0
+                                  ? isEn
+                                    ? 'Free forever · No card needed'
+                                    : 'Gratis selamanya · Tanpa kartu'
+                                  : isEn
+                                    ? 'Billed monthly · Cancel anytime'
+                                    : 'Tagihan bulanan · Bebas berhenti'}
                               </p>
                             )}
+                          </div>
 
-                          <p className="mt-1.5 text-[12px] text-zinc-400">
+                          <p className="mt-1 min-h-[34px] text-[12px] leading-relaxed text-zinc-400">
                             {isEn ? plan.summaryEn : plan.summaryId}
                           </p>
 
-                          <ul className="mt-4 space-y-2 border-t border-white/[0.06] pt-3 text-[12px] text-zinc-300">
+                          <ul className="mt-4 space-y-2 border-t border-white/[0.07] pt-3.5 text-[12px] text-zinc-300">
                             {(isEn ? plan.featuresEn : plan.featuresId).map(
                               (f) => (
                                 <li key={f} className="flex items-start gap-2">
@@ -1332,7 +1408,7 @@ export function LandingPage({
                           onClick={() => openAuthModal('signup')}
                           className={`mt-5 w-full rounded-xl py-2.5 text-[12px] font-semibold transition ${
                             highlight
-                              ? 'bg-[#22c58b] text-[#06120d] hover:bg-[#35d69c]'
+                              ? 'bg-[#22c58b] text-[#06120d] shadow-lg shadow-emerald-500/15 hover:bg-[#35d69c]'
                               : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.09]'
                           }`}
                         >
@@ -1477,8 +1553,12 @@ export function LandingPage({
                             onChange={(e) => setEntGroups(e.target.value)}
                             className="mt-1 h-9 w-full rounded-xl border border-white/10 bg-[#0f1419] px-3 text-[13px] text-white focus:border-emerald-400 focus:outline-none"
                           >
-                            <option value="16 - 30 Grup">16 - 30 Grup</option>
-                            <option value="30 - 50 Grup">30 - 50 Grup</option>
+                            <option value={isEn ? '16 - 30 Groups' : '16 - 30 Grup'}>
+                              {isEn ? '16 - 30 Groups' : '16 - 30 Grup'}
+                            </option>
+                            <option value={isEn ? '30 - 50 Groups' : '30 - 50 Grup'}>
+                              {isEn ? '30 - 50 Groups' : '30 - 50 Grup'}
+                            </option>
                             <option value="50+ / Unlimited">50+ / Unlimited</option>
                           </select>
                         </div>
@@ -1772,6 +1852,7 @@ export function LandingPage({
                         setIsSignUp(tab.signup);
                         setSignUpStep(1);
                         setMessage(null);
+                        resetCaptcha();
                       }}
                       className={`relative rounded-lg py-2 text-xs font-semibold transition-colors ${
                         active
@@ -1810,6 +1891,15 @@ export function LandingPage({
 
               {isSignUp && signUpStep === 1 ? (
                 <form onSubmit={handleNextStep} className="space-y-3.5">
+                  <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                    <span>
+                      {isEn ? 'Create your account' : 'Buat akun baru'}
+                    </span>
+                    <span className="font-mono text-emerald-400">
+                      {isEn ? 'Step 1 / 2' : 'Langkah 1 / 2'}
+                    </span>
+                  </div>
+
                   <div>
                     <label
                       htmlFor="signup-email"
@@ -1831,12 +1921,21 @@ export function LandingPage({
                   </div>
 
                   <div>
-                    <label
-                      htmlFor="signup-password"
-                      className="mb-1.5 block text-xs font-medium text-zinc-400"
-                    >
-                      Password
-                    </label>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label
+                        htmlFor="signup-password"
+                        className="block text-xs font-medium text-zinc-400"
+                      >
+                        Password
+                      </label>
+                      {password.length > 0 && (
+                        <span
+                          className={`text-[11px] font-semibold ${passwordStrengthMeta.text}`}
+                        >
+                          {passwordStrengthMeta.label}
+                        </span>
+                      )}
+                    </div>
                     <PasswordInput
                       id="signup-password"
                       name="password"
@@ -1853,15 +1952,82 @@ export function LandingPage({
                       }
                       className="w-full rounded-xl border border-white/10 bg-[#090c10] px-3.5 py-2.5 text-sm text-white focus:border-[#22c58b] focus:outline-none"
                     />
+
+                    {/* Bar Kekuatan Password + Checklist Syarat */}
+                    <div className="mt-2 space-y-2">
+                      <div className="grid grid-cols-4 gap-1.5" aria-hidden>
+                        {[1, 2, 3, 4].map((seg) => (
+                          <div
+                            key={seg}
+                            className={`h-1.5 rounded-full transition-colors duration-200 ${
+                              passwordScore >= seg
+                                ? passwordStrengthMeta.bar
+                                : 'bg-white/10'
+                            }`}
+                          />
+                        ))}
+                      </div>
+                      <div className="flex flex-wrap gap-1.5 text-[10px]">
+                        {[
+                          {
+                            ok: passwordChecks.len,
+                            label: isEn ? '8+ chars' : '8+ karakter',
+                          },
+                          {
+                            ok: passwordChecks.letter && passwordChecks.number,
+                            label: isEn ? 'Letters & numbers' : 'Huruf & angka',
+                          },
+                          {
+                            ok: passwordChecks.upper,
+                            label: isEn ? 'Uppercase' : 'Kapital',
+                          },
+                          {
+                            ok: passwordChecks.symbol,
+                            label: isEn ? 'Symbol (!@#)' : 'Simbol (!@#)',
+                          },
+                        ].map((req) => (
+                          <span
+                            key={req.label}
+                            className={`inline-flex items-center gap-1 rounded-md px-1.5 py-0.5 font-medium transition-colors ${
+                              req.ok
+                                ? 'bg-emerald-500/15 text-emerald-300'
+                                : 'bg-white/[0.04] text-zinc-500'
+                            }`}
+                          >
+                            <Check className="size-2.5" />
+                            {req.label}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
                   </div>
 
                   <div>
-                    <label
-                      htmlFor="signup-confirm-password"
-                      className="mb-1.5 block text-xs font-medium text-zinc-400"
-                    >
-                      {isEn ? 'Confirm Password' : 'Ulangi Password'}
-                    </label>
+                    <div className="mb-1.5 flex items-center justify-between">
+                      <label
+                        htmlFor="signup-confirm-password"
+                        className="block text-xs font-medium text-zinc-400"
+                      >
+                        {isEn ? 'Confirm Password' : 'Ulangi Password'}
+                      </label>
+                      {confirmPassword.length > 0 && (
+                        <span
+                          className={`text-[11px] font-semibold ${
+                            password === confirmPassword
+                              ? 'text-emerald-400'
+                              : 'text-rose-400'
+                          }`}
+                        >
+                          {password === confirmPassword
+                            ? isEn
+                              ? 'Matches'
+                              : 'Cocok'
+                            : isEn
+                              ? 'Not matching'
+                              : 'Belum cocok'}
+                        </span>
+                      )}
+                    </div>
                     <PasswordInput
                       id="signup-confirm-password"
                       name="confirmPassword"
@@ -1875,6 +2041,17 @@ export function LandingPage({
                       className="w-full rounded-xl border border-white/10 bg-[#090c10] px-3.5 py-2.5 text-sm text-white focus:border-[#22c58b] focus:outline-none"
                     />
                   </div>
+
+                  {/* Cloudflare Turnstile Captcha langsung di langkah Daftar */}
+                  {captchaEnabled && (
+                    <div className="pt-0.5">
+                      <TurnstileWidget
+                        resetSignal={captchaResetKey}
+                        onToken={setCaptchaToken}
+                        theme="dark"
+                      />
+                    </div>
+                  )}
 
                   <button
                     type="submit"
@@ -1901,6 +2078,14 @@ export function LandingPage({
                 <form onSubmit={handleSubmit} className="space-y-3.5">
                   {isSignUp ? (
                     <>
+                      <div className="flex items-center justify-between text-[11px] text-zinc-500">
+                        <span>
+                          {isEn ? 'Complete your profile' : 'Lengkapi profilmu'}
+                        </span>
+                        <span className="font-mono text-emerald-400">
+                          {isEn ? 'Step 2 / 2' : 'Langkah 2 / 2'}
+                        </span>
+                      </div>
                       <div>
                         <label
                           htmlFor="signup-full-name"
@@ -1961,11 +2146,29 @@ export function LandingPage({
 
                       {captchaEnabled && (
                         <div className="pt-1">
-                          <TurnstileWidget
-                            resetSignal={captchaResetKey}
-                            onToken={setCaptchaToken}
-                            theme="dark"
-                          />
+                          {captchaToken ? (
+                            <div className="flex items-center justify-between rounded-xl border border-emerald-500/25 bg-emerald-500/10 px-3 py-2 text-[11px] font-medium text-emerald-300">
+                              <span className="inline-flex items-center gap-1.5">
+                                <ShieldCheck className="size-3.5" />
+                                {isEn
+                                  ? 'Verified by Cloudflare Turnstile'
+                                  : 'Terverifikasi oleh Cloudflare Turnstile'}
+                              </span>
+                              <button
+                                type="button"
+                                onClick={resetCaptcha}
+                                className="text-[10px] underline opacity-80 hover:opacity-100"
+                              >
+                                {isEn ? 'Reset' : 'Ulangi'}
+                              </button>
+                            </div>
+                          ) : (
+                            <TurnstileWidget
+                              resetSignal={captchaResetKey}
+                              onToken={setCaptchaToken}
+                              theme="dark"
+                            />
+                          )}
                         </div>
                       )}
 

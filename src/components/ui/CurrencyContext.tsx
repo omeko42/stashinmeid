@@ -7,6 +7,7 @@ import {
   useEffect,
   useState,
 } from 'react';
+import { useLocale } from 'next-intl';
 import { setGlobalDisplayCurrency } from '@/lib/format';
 
 /** Nilai default 1 unit mata uang asing ke IDR (fallback sebelum live ECB/CoinGecko tiba). */
@@ -37,6 +38,7 @@ interface CurrencyContextValue {
 }
 
 const STORAGE_KEY = 'stashinmeid_primary_currency';
+const MANUAL_FLAG_KEY = 'stashinmeid_primary_currency_manual';
 
 const CurrencyContext = createContext<CurrencyContextValue>({
   primaryCurrency: 'IDR',
@@ -47,20 +49,25 @@ const CurrencyContext = createContext<CurrencyContextValue>({
 });
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-  const [primaryCurrency, setPrimaryState] = useState<string>('IDR');
+  const locale = useLocale();
+  const localeDefault = locale === 'en' ? 'USD' : 'IDR';
+  const [primaryCurrency, setPrimaryState] = useState<string>(localeDefault);
   const [idrPerUnit, setIdrPerUnit] =
     useState<Record<string, number>>(DEFAULT_IDR_PER_UNIT);
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setPrimaryState(saved);
-        setGlobalDisplayCurrency(saved, DEFAULT_IDR_PER_UNIT[saved] ?? 1);
-      }
+      const isManual = localStorage.getItem(MANUAL_FLAG_KEY) === '1';
+      const saved = isManual ? localStorage.getItem(STORAGE_KEY) : null;
+      const chosen = saved || localeDefault;
+      setPrimaryState(chosen);
+      setGlobalDisplayCurrency(chosen, idrPerUnit[chosen] ?? DEFAULT_IDR_PER_UNIT[chosen] ?? 1);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [localeDefault]);
 
-    // Ambil kurs live ECB & CoinGecko ke IDR agar konversi aset asing otomatis akurat
+  useEffect(() => {
+    // Ambil kurs live Frankfurter FX & CoinGecko ke IDR agar konversi aset asing otomatis akurat
     let alive = true;
     (async () => {
       try {
@@ -94,10 +101,11 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
 
         if (alive) {
           setIdrPerUnit(nextRates);
+          const isManual =
+            typeof window !== 'undefined' &&
+            localStorage.getItem(MANUAL_FLAG_KEY) === '1';
           const cur =
-            (typeof window !== 'undefined' &&
-              localStorage.getItem(STORAGE_KEY)) ||
-            'IDR';
+            (isManual && localStorage.getItem(STORAGE_KEY)) || localeDefault;
           setGlobalDisplayCurrency(cur, nextRates[cur] ?? 1);
         }
       } catch {
@@ -108,7 +116,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
     return () => {
       alive = false;
     };
-  }, []);
+  }, [localeDefault]);
 
   const setPrimaryCurrency = useCallback(
     (currency: string) => {
@@ -116,6 +124,7 @@ export function CurrencyProvider({ children }: { children: React.ReactNode }) {
       setPrimaryState(normalized);
       if (typeof window !== 'undefined') {
         localStorage.setItem(STORAGE_KEY, normalized);
+        localStorage.setItem(MANUAL_FLAG_KEY, '1');
       }
       setGlobalDisplayCurrency(normalized, idrPerUnit[normalized] ?? 1);
     },
