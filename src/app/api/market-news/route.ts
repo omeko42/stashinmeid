@@ -225,7 +225,7 @@ export async function GET(req: NextRequest) {
             sym: `${target}/${base}`,
             label: `${target} / ${base}`,
             price: formatPriceByBase(valueInBase, base),
-            delta: 'ECB',
+            delta: 'FX',
             up: true,
           });
         }

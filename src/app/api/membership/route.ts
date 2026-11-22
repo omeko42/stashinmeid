@@ -9,6 +9,7 @@ import {
   MEMBERSHIP_PLANS,
   getMaxGroupsForTier,
   normalizeTier,
+  type EnterpriseInquiry,
   type MembershipOrder,
   type MembershipTier,
 } from '@/lib/membership';
@@ -160,6 +161,7 @@ export async function GET() {
     : normalizeTier(userMeta.membership_tier);
 
   let orders: MembershipOrder[] = [];
+  let inquiries: EnterpriseInquiry[] = [];
   let paymentProvider = 'midtrans';
 
   if (primaryAdminId) {
@@ -172,6 +174,9 @@ export async function GET() {
     paymentProvider = integrations.payment.provider || 'midtrans';
     if (Array.isArray(adminMeta.membership_orders)) {
       orders = adminMeta.membership_orders as MembershipOrder[];
+    }
+    if (Array.isArray(adminMeta.enterprise_inquiries)) {
+      inquiries = adminMeta.enterprise_inquiries as EnterpriseInquiry[];
     }
   }
 
@@ -186,16 +191,12 @@ export async function GET() {
     pendingOrder,
     myOrders,
     orders: isAdmin ? orders : [],
+    inquiries: isAdmin ? inquiries : [],
     paymentProvider,
   });
 }
 
 export async function POST(req: NextRequest) {
-  const userId = await getCallerUserId();
-  if (!userId) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-  }
-
   const admin = createAdminClient();
   if (!admin) {
     return NextResponse.json(
@@ -213,6 +214,70 @@ export async function POST(req: NextRequest) {
       { error: 'Akun admin utama tidak ditemukan.' },
       { status: 500 }
     );
+  }
+
+  // ------------------------------------------------------------------
+  // 0. Permintaan Enterprise Custom (boleh dari Landing Page tanpa login)
+  // ------------------------------------------------------------------
+  if (action === 'enterprise_inquiry') {
+    const name = String(body.name || '').trim().slice(0, 120);
+    const contact = String(body.contact || '').trim().slice(0, 160);
+    const company = String(body.company || '').trim().slice(0, 140);
+    const groupEstimate = String(body.groupEstimate || '> 9 grup').trim().slice(0, 60);
+    const requirements = String(body.requirements || '').trim().slice(0, 1500);
+
+    if (!name || !contact || !requirements) {
+      return NextResponse.json(
+        { error: 'Nama, kontak (email/WA), dan kebutuhan aplikasi wajib diisi.' },
+        { status: 400 }
+      );
+    }
+
+    const { data: adminAuth } = await admin.auth.admin.getUserById(primaryAdminId);
+    const adminMeta = (adminAuth?.user?.user_metadata ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const existingInquiries = Array.isArray(adminMeta.enterprise_inquiries)
+      ? (adminMeta.enterprise_inquiries as EnterpriseInquiry[])
+      : [];
+
+    const inquiry: EnterpriseInquiry = {
+      id: crypto.randomUUID(),
+      name,
+      contact,
+      company: company || '-',
+      groupEstimate,
+      requirements,
+      status: 'new',
+      createdAt: new Date().toISOString(),
+    };
+
+    const nextInquiries = [inquiry, ...existingInquiries].slice(0, 100);
+    await admin.auth.admin.updateUserById(primaryAdminId, {
+      user_metadata: {
+        ...adminMeta,
+        enterprise_inquiries: nextInquiries,
+      },
+    });
+
+    const callerId = await getCallerUserId();
+    await notifyMany(
+      admin,
+      [primaryAdminId],
+      callerId || primaryAdminId,
+      'feed_post',
+      `Permintaan Enterprise: ${company || name}`,
+      `${name} (${contact}) · ${groupEstimate} — ${requirements.slice(0, 140)}`,
+      'tab:settings'
+    );
+
+    return NextResponse.json({ ok: true, inquiry });
+  }
+
+  const userId = await getCallerUserId();
+  if (!userId) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
   // ------------------------------------------------------------------
@@ -398,6 +463,34 @@ export async function POST(req: NextRequest) {
       },
     });
     return NextResponse.json({ ok: true, tier });
+  }
+
+  if (action === 'update_inquiry_status') {
+    const inquiryId = String(body.inquiryId || '');
+    const status =
+      body.status === 'closed'
+        ? 'closed'
+        : body.status === 'contacted'
+          ? 'contacted'
+          : 'new';
+    const { data: adminAuth } = await admin.auth.admin.getUserById(primaryAdminId);
+    const adminMeta = (adminAuth?.user?.user_metadata ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const existingInquiries = Array.isArray(adminMeta.enterprise_inquiries)
+      ? (adminMeta.enterprise_inquiries as EnterpriseInquiry[])
+      : [];
+    const nextInquiries = existingInquiries.map((inq) =>
+      inq.id === inquiryId ? { ...inq, status } : inq
+    );
+    await admin.auth.admin.updateUserById(primaryAdminId, {
+      user_metadata: {
+        ...adminMeta,
+        enterprise_inquiries: nextInquiries,
+      },
+    });
+    return NextResponse.json({ ok: true, inquiries: nextInquiries });
   }
 
   return NextResponse.json({ error: 'Action tidak valid.' }, { status: 400 });

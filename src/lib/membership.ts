@@ -32,6 +32,17 @@ export interface MembershipOrder {
   updatedAt?: string | null;
 }
 
+export interface EnterpriseInquiry {
+  id: string;
+  name: string;
+  contact: string;
+  company: string;
+  groupEstimate: string;
+  requirements: string;
+  status: 'new' | 'contacted' | 'closed';
+  createdAt: string;
+}
+
 export const MEMBERSHIP_PLANS: Record<MembershipTier, MembershipPlan> = {
   free: {
     id: 'free',
@@ -82,12 +93,12 @@ export const MEMBERSHIP_PLANS: Record<MembershipTier, MembershipPlan> = {
     maxGroups: 9,
     priceIdr: 149000,
     priceUsd: 12,
-    labelId: 'Enterprise',
-    labelEn: 'Enterprise',
+    labelId: 'Bisnis',
+    labelEn: 'Business',
     badgeId: 'Maks. 9 Grup',
     badgeEn: 'Up to 9 Groups',
-    summaryId: 'Skala holding, grup perusahaan & tim besar.',
-    summaryEn: 'For holdings, multi-entity teams & organizations.',
+    summaryId: 'Paket tertinggi reguler untuk banyak grup & unit usaha.',
+    summaryEn: 'Top standard plan for multi-group teams & business units.',
     featuresId: [
       'Maksimal 9 grup perusahaan & keluarga',
       'Semua fitur paket Pro',

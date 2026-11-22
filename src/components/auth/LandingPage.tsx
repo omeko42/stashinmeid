@@ -17,7 +17,8 @@ import {
   Lock,
   Mail,
   MessageSquare,
-  Plug,
+  Send,
+  ShieldCheck,
   X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -50,32 +51,32 @@ const FALLBACK_TICKERS: Record<BaseCurrency, TickerItem[]> = {
     { sym: 'ETH/IDR', price: 'Rp 49,3 Jt', delta: '+1.8%', up: true },
     { sym: 'SOL/IDR', price: 'Rp 3,42 Jt', delta: '+4.1%', up: true },
     { sym: 'USDT/IDR', price: 'Rp 15.870', delta: '+0.1%', up: true },
-    { sym: 'USD/IDR', price: 'Rp 15.865', delta: 'ECB', up: true },
-    { sym: 'EUR/IDR', price: 'Rp 16.920', delta: 'ECB', up: true },
-    { sym: 'SGD/IDR', price: 'Rp 11.820', delta: 'ECB', up: true },
+    { sym: 'USD/IDR', price: 'Rp 15.865', delta: 'FX', up: true },
+    { sym: 'EUR/IDR', price: 'Rp 16.920', delta: 'FX', up: true },
+    { sym: 'SGD/IDR', price: 'Rp 11.820', delta: 'FX', up: true },
   ],
   USD: [
     { sym: 'BTC/USD', price: '$97,200', delta: '+2.4%', up: true },
     { sym: 'ETH/USD', price: '$3,110', delta: '+1.8%', up: true },
     { sym: 'SOL/USD', price: '$216.00', delta: '+4.1%', up: true },
-    { sym: 'EUR/USD', price: '$1.07', delta: 'ECB', up: true },
-    { sym: 'GBP/USD', price: '$1.27', delta: 'ECB', up: true },
-    { sym: 'SGD/USD', price: '$0.74', delta: 'ECB', up: true },
-    { sym: 'IDR/USD', price: '$0.0001', delta: 'ECB', up: true },
+    { sym: 'EUR/USD', price: '$1.07', delta: 'FX', up: true },
+    { sym: 'GBP/USD', price: '$1.27', delta: 'FX', up: true },
+    { sym: 'SGD/USD', price: '$0.74', delta: 'FX', up: true },
+    { sym: 'IDR/USD', price: '$0.0001', delta: 'FX', up: true },
   ],
   EUR: [
     { sym: 'BTC/EUR', price: '€91,100', delta: '+2.4%', up: true },
     { sym: 'ETH/EUR', price: '€2,915', delta: '+1.8%', up: true },
-    { sym: 'USD/EUR', price: '€0.94', delta: 'ECB', up: true },
-    { sym: 'GBP/EUR', price: '€1.19', delta: 'ECB', up: true },
-    { sym: 'SGD/EUR', price: '€0.70', delta: 'ECB', up: true },
+    { sym: 'USD/EUR', price: '€0.94', delta: 'FX', up: true },
+    { sym: 'GBP/EUR', price: '€1.19', delta: 'FX', up: true },
+    { sym: 'SGD/EUR', price: '€0.70', delta: 'FX', up: true },
   ],
   SGD: [
     { sym: 'BTC/SGD', price: 'S$130,400', delta: '+2.4%', up: true },
     { sym: 'ETH/SGD', price: 'S$4,170', delta: '+1.8%', up: true },
-    { sym: 'USD/SGD', price: 'S$1.34', delta: 'ECB', up: true },
-    { sym: 'EUR/SGD', price: 'S$1.43', delta: 'ECB', up: true },
-    { sym: 'GBP/SGD', price: 'S$1.70', delta: 'ECB', up: true },
+    { sym: 'USD/SGD', price: 'S$1.34', delta: 'FX', up: true },
+    { sym: 'EUR/SGD', price: 'S$1.43', delta: 'FX', up: true },
+    { sym: 'GBP/SGD', price: 'S$1.70', delta: 'FX', up: true },
   ],
 };
 
@@ -329,11 +330,68 @@ export function LandingPage({
     FALLBACK_TICKERS[isEn ? 'USD' : 'IDR']
   );
   const [marketLiveOk, setMarketLiveOk] = useState(false);
-  const [apiSwitches, setApiSwitches] = useState<Record<string, boolean>>({
-    news: true,
-    kyc: true,
-    payment: true,
-  });
+  const [enterpriseMode, setEnterpriseMode] = useState(false);
+  const [entName, setEntName] = useState('');
+  const [entContact, setEntContact] = useState('');
+  const [entCompany, setEntCompany] = useState('');
+  const [entGroups, setEntGroups] = useState('10 - 25 Grup');
+  const [entNeeds, setEntNeeds] = useState('');
+  const [entSending, setEntSending] = useState(false);
+  const [entFeedback, setEntFeedback] = useState<{
+    type: 'ok' | 'err';
+    text: string;
+  } | null>(null);
+
+  const handleSubmitEnterprise = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setEntFeedback(null);
+    if (!entName.trim() || !entContact.trim() || !entNeeds.trim()) {
+      setEntFeedback({
+        type: 'err',
+        text: isEn
+          ? 'Please fill in your name, contact, and app requirements.'
+          : 'Isi nama, kontak (email/WA), dan kebutuhan aplikasi terlebih dahulu.',
+      });
+      return;
+    }
+    setEntSending(true);
+    try {
+      const res = await fetch('/api/membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'enterprise_inquiry',
+          name: entName.trim(),
+          contact: entContact.trim(),
+          company: entCompany.trim(),
+          groupEstimate: entGroups.trim(),
+          requirements: entNeeds.trim(),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setEntFeedback({
+          type: 'err',
+          text:
+            json.error ||
+            (isEn ? 'Failed to send request.' : 'Gagal mengirim permintaan.'),
+        });
+        return;
+      }
+      setEntName('');
+      setEntContact('');
+      setEntCompany('');
+      setEntNeeds('');
+      setEntFeedback({
+        type: 'ok',
+        text: isEn
+          ? 'Request received! Our team will reach out to discuss your custom setup.'
+          : 'Permintaan terkirim! Tim kami akan segera menghubungi untuk diskusi kebutuhanmu.',
+      });
+    } finally {
+      setEntSending(false);
+    }
+  };
 
   const fetchLiveMarket = useCallback(async (base: BaseCurrency) => {
     try {
@@ -996,77 +1054,67 @@ export function LandingPage({
             </div>
           </SpotlightCard>
 
-          {/* Tile 2: API Connectors */}
+          {/* Tile 2: Control & Security */}
           <SpotlightCard className="p-5 lg:col-span-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Plug className="size-4 text-emerald-400" />
+                <ShieldCheck className="size-4 text-emerald-400" />
                 <h2 className="text-[14px] font-semibold text-white">
-                  {isEn ? 'API Connectors' : 'Koneksi API'}
+                  {isEn ? 'Control & Security' : 'Kontrol & Keamanan'}
                 </h2>
               </div>
               <span className="font-mono text-[10px] text-zinc-400">
-                {isEn ? 'Free · Modular' : 'Gratis · Modular'}
+                {isEn ? '2-Way Log' : 'Log 2 Arah'}
               </span>
             </div>
 
             <div className="mt-4 space-y-2">
               {[
                 {
-                  id: 'news',
-                  name: isEn ? 'Live News & FX' : 'Berita & Kurs Live',
-                  sub: 'CoinGecko · ECB · RSS',
+                  id: 'audit',
+                  name: isEn ? 'Action Confirm & Audit' : 'Konfirmasi & Audit Log',
+                  sub: isEn
+                    ? 'Every key change logged cleanly'
+                    : 'Setiap perubahan tercatat rapi',
                 },
                 {
-                  id: 'kyc',
-                  name: isEn ? 'Identity KYC' : 'Verifikasi KYC',
-                  sub: 'Didit.me · Verihubs',
+                  id: 'pin',
+                  name: isEn ? 'PIN Lock & 2FA' : 'Kunci PIN & 2FA',
+                  sub: isEn
+                    ? 'Device lock and two-step sign-in'
+                    : 'Proteksi perangkat & autentikasi',
                 },
                 {
-                  id: 'payment',
-                  name: isEn ? 'Payments' : 'Pembayaran',
-                  sub: 'Midtrans · Xendit · Tripay',
+                  id: 'scope',
+                  name: isEn ? 'Isolated Workspaces' : 'Ruang Terpisah',
+                  sub: isEn
+                    ? 'Personal, family & business never mix'
+                    : 'Kas pribadi & grup tidak tercampur',
                 },
-              ].map((api) => {
-                const on = apiSwitches[api.id];
-                return (
-                  <button
-                    key={api.id}
-                    type="button"
-                    onClick={() =>
-                      setApiSwitches((prev) => ({
-                        ...prev,
-                        [api.id]: !prev[api.id],
-                      }))
-                    }
-                    className="flex w-full items-center justify-between rounded-2xl border border-white/[0.06] bg-[#0a0d11]/85 px-3.5 py-2.5 text-left transition hover:border-white/15"
-                  >
-                    <div>
-                      <p className="text-[12px] font-semibold text-white">
-                        {api.name}
-                      </p>
-                      <p className="text-[10px] text-zinc-500">{api.sub}</p>
-                    </div>
-                    <span
-                      className={`size-2 rounded-full transition ${
-                        on
-                          ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]'
-                          : 'bg-zinc-600'
-                      }`}
-                    />
-                  </button>
-                );
-              })}
+              ].map((item) => (
+                <div
+                  key={item.id}
+                  className="flex w-full items-center justify-between rounded-2xl border border-white/[0.06] bg-[#0a0d11]/85 px-3.5 py-2.5"
+                >
+                  <div>
+                    <p className="text-[12px] font-semibold text-white">
+                      {item.name}
+                    </p>
+                    <p className="text-[10px] text-zinc-500">{item.sub}</p>
+                  </div>
+                  <span className="size-2 rounded-full bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.6)]" />
+                </div>
+              ))}
             </div>
           </SpotlightCard>
 
-          {/* Tile 3: Social & Colleagues */}
+          {/* Tile 3: Social */}
           <SpotlightCard className="flex flex-col justify-between p-5 lg:col-span-3">
             <div>
               <div className="flex items-center gap-2">
                 <MessageSquare className="size-4 text-cyan-400" />
                 <h2 className="text-[14px] font-semibold text-white">
-                  {isEn ? 'Social & Groups' : 'Sosial & Kolega'}
+                  {isEn ? 'Social' : 'Sosial'}
                 </h2>
               </div>
               <p className="mt-2 text-[12px] leading-relaxed text-zinc-400">
@@ -1092,7 +1140,7 @@ export function LandingPage({
           </SpotlightCard>
         </motion.section>
 
-        {/* Membership Plans (Free 3 Groups · Pro 5 Groups · Enterprise 9 Groups) */}
+        {/* Membership Plans (Reguler 3–9 Grup ↔ Slide Switch Enterprise Custom) */}
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1100,91 +1148,334 @@ export function LandingPage({
           transition={{ duration: 0.4 }}
           className="mt-14"
         >
-          <div className="mb-5 flex flex-wrap items-end justify-between gap-2">
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-4">
             <div>
               <h2 className="text-lg font-bold text-white sm:text-xl">
                 {isEn ? 'Membership Plans' : 'Paket Membership'}
               </h2>
               <p className="mt-0.5 text-[12px] text-zinc-400">
-                {isEn
-                  ? 'Start free with up to 3 groups, upgrade anytime.'
-                  : 'Mulai gratis hingga 3 grup, upgrade kapan saja.'}
+                {enterpriseMode
+                  ? isEn
+                    ? 'Tailored for businesses needing more than 9 groups or custom features.'
+                    : 'Khusus pebisnis yang butuh lebih dari 9 grup atau permintaan fitur custom.'
+                  : isEn
+                    ? 'Start free with up to 3 groups, up to 9 groups on our top plan.'
+                    : 'Mulai gratis hingga 3 grup, sampai 9 grup di paket tertinggi reguler.'}
               </p>
+            </div>
+
+            {/* Slide Switch: Reguler ↔ Enterprise Custom */}
+            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0f1419] px-3.5 py-2">
+              <span
+                className={`text-[12px] font-semibold transition-colors ${
+                  !enterpriseMode ? 'text-white' : 'text-zinc-500'
+                }`}
+              >
+                {isEn ? 'Standard (3–9)' : 'Reguler (3–9)'}
+              </span>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={enterpriseMode}
+                aria-label={
+                  isEn
+                    ? 'Switch to Enterprise Custom'
+                    : 'Geser ke Enterprise Custom'
+                }
+                onClick={() => setEnterpriseMode((v) => !v)}
+                className={`relative h-6 w-12 rounded-full transition-colors ${
+                  enterpriseMode ? 'bg-[#22c58b]' : 'bg-white/15'
+                }`}
+              >
+                <motion.span
+                  layout
+                  transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                  className={`block size-5 rounded-full bg-white shadow-md ${
+                    enterpriseMode ? 'ml-[26px]' : 'ml-[2px]'
+                  }`}
+                />
+              </button>
+              <span
+                className={`text-[12px] font-semibold transition-colors ${
+                  enterpriseMode ? 'text-emerald-400' : 'text-zinc-500'
+                }`}
+              >
+                Enterprise Custom
+              </span>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            {(['free', 'pro', 'enterprise'] as MembershipTier[]).map(
-              (tierId) => {
-                const plan = MEMBERSHIP_PLANS[tierId];
-                const highlight = tierId === 'pro';
-                const price = isEn
-                  ? plan.priceUsd === 0
-                    ? '$0'
-                    : `$${plan.priceUsd}/mo`
-                  : plan.priceIdr === 0
-                    ? 'Rp 0'
-                    : `${formatRp(plan.priceIdr)}/bln`;
+          <AnimatePresence mode="wait">
+            {!enterpriseMode ? (
+              <motion.div
+                key="plans-standard"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+                className="grid grid-cols-1 gap-4 md:grid-cols-3"
+              >
+                {(['free', 'pro', 'enterprise'] as MembershipTier[]).map(
+                  (tierId) => {
+                    const plan = MEMBERSHIP_PLANS[tierId];
+                    const highlight = tierId === 'pro';
+                    const price = isEn
+                      ? plan.priceUsd === 0
+                        ? '$0'
+                        : `$${plan.priceUsd}/mo`
+                      : plan.priceIdr === 0
+                        ? 'Rp 0'
+                        : `${formatRp(plan.priceIdr)}/bln`;
 
-                return (
-                  <SpotlightCard
-                    key={tierId}
-                    className={`p-5 ${
-                      highlight ? 'border-emerald-500/40' : ''
-                    }`}
-                  >
-                    <div className="flex h-full flex-col justify-between">
-                      <div>
-                        <div className="flex items-center justify-between gap-2">
-                          <span className="text-[14px] font-semibold text-white">
-                            {isEn ? plan.labelEn : plan.labelId}
-                          </span>
-                          <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-300">
-                            {isEn ? plan.badgeEn : plan.badgeId}
-                          </span>
+                    return (
+                      <SpotlightCard
+                        key={tierId}
+                        className={`p-5 ${
+                          highlight ? 'border-emerald-500/40' : ''
+                        }`}
+                      >
+                        <div className="flex h-full flex-col justify-between">
+                          <div>
+                            <div className="flex items-center justify-between gap-2">
+                              <span className="text-[14px] font-semibold text-white">
+                                {isEn ? plan.labelEn : plan.labelId}
+                              </span>
+                              <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                                {isEn ? plan.badgeEn : plan.badgeId}
+                              </span>
+                            </div>
+                            <p className="tnum mt-2 text-2xl font-bold text-white">
+                              {price}
+                            </p>
+                            <p className="mt-1 text-[12px] text-zinc-400">
+                              {isEn ? plan.summaryEn : plan.summaryId}
+                            </p>
+
+                            <ul className="mt-4 space-y-2 border-t border-white/[0.06] pt-3 text-[12px] text-zinc-300">
+                              {(isEn ? plan.featuresEn : plan.featuresId).map(
+                                (f) => (
+                                  <li key={f} className="flex items-start gap-2">
+                                    <Check className="mt-0.5 size-3.5 shrink-0 text-[#22c58b]" />
+                                    <span>{f}</span>
+                                  </li>
+                                )
+                              )}
+                            </ul>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => openAuthModal('signup')}
+                            className={`mt-5 w-full rounded-xl py-2.5 text-[12px] font-semibold transition ${
+                              highlight
+                                ? 'bg-[#22c58b] text-[#06120d] hover:bg-[#35d69c]'
+                                : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.09]'
+                            }`}
+                          >
+                            {tierId === 'free'
+                              ? isEn
+                                ? 'Start Free'
+                                : 'Mulai Gratis'
+                              : isEn
+                                ? `Choose ${plan.labelEn}`
+                                : `Pilih ${plan.labelId}`}
+                          </button>
                         </div>
-                        <p className="tnum mt-2 text-2xl font-bold text-white">
-                          {price}
-                        </p>
-                        <p className="mt-1 text-[12px] text-zinc-400">
-                          {isEn ? plan.summaryEn : plan.summaryId}
+                      </SpotlightCard>
+                    );
+                  }
+                )}
+              </motion.div>
+            ) : (
+              <motion.div
+                key="plans-enterprise"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -8 }}
+                transition={{ duration: 0.2 }}
+              >
+                <SpotlightCard className="border-emerald-500/35 p-6">
+                  <div className="grid grid-cols-1 gap-6 lg:grid-cols-12">
+                    <div className="flex flex-col justify-between lg:col-span-5">
+                      <div>
+                        <span className="inline-flex rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold text-emerald-300">
+                          {isEn ? 'Bespoke · > 9 Groups' : 'Pesanan Khusus · > 9 Grup'}
+                        </span>
+                        <h3 className="mt-3 text-xl font-bold text-white">
+                          Enterprise Custom
+                        </h3>
+                        <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
+                          {isEn
+                            ? 'Built for businesses that need more than 9 groups, custom modules, tailored workflows, or dedicated onboarding.'
+                            : 'Untuk perusahaan atau pebisnis yang butuh lebih dari 9 grup, tambahan fitur sesuai alur kerja, atau setup khusus.'}
                         </p>
 
-                        <ul className="mt-4 space-y-2 border-t border-white/[0.06] pt-3 text-[12px] text-zinc-300">
-                          {(isEn ? plan.featuresEn : plan.featuresId).map(
-                            (f) => (
-                              <li key={f} className="flex items-start gap-2">
-                                <Check className="mt-0.5 size-3.5 shrink-0 text-[#22c58b]" />
-                                <span>{f}</span>
-                              </li>
-                            )
-                          )}
+                        <ul className="mt-4 space-y-2 border-t border-white/[0.06] pt-4 text-[12px] text-zinc-300">
+                          {(isEn
+                            ? [
+                                'Unlimited / custom group workspaces (> 9 groups)',
+                                'Request bespoke features tailored to your business',
+                                'Direct collaboration with the founder & engineering',
+                              ]
+                            : [
+                                'Kuota grup tak terbatas (> 9 grup / multi-entitas)',
+                                'Request penambahan fitur khusus sesuai kebutuhan bisnis',
+                                'Diskusi & pengembangan langsung bersama tim inti',
+                              ]
+                          ).map((item) => (
+                            <li key={item} className="flex items-start gap-2">
+                              <Check className="mt-0.5 size-3.5 shrink-0 text-[#22c58b]" />
+                              <span>{item}</span>
+                            </li>
+                          ))}
                         </ul>
                       </div>
 
-                      <button
-                        type="button"
-                        onClick={() => openAuthModal('signup')}
-                        className={`mt-5 w-full rounded-xl py-2.5 text-[12px] font-semibold transition ${
-                          highlight
-                            ? 'bg-[#22c58b] text-[#06120d] hover:bg-[#35d69c]'
-                            : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.09]'
-                        }`}
-                      >
-                        {tierId === 'free'
-                          ? isEn
-                            ? 'Start Free'
-                            : 'Mulai Gratis'
-                          : isEn
-                            ? `Choose ${plan.labelEn}`
-                            : `Pilih ${plan.labelId}`}
-                      </button>
+                      <div className="mt-5 pt-4 text-[12px] text-zinc-400">
+                        {isEn ? 'Prefer direct email?' : 'Lebih suka email langsung?'}{' '}
+                        <a
+                          href="mailto:stashinmeid@gmail.com?subject=Enterprise%20Custom%20stashinmeid"
+                          className="font-semibold text-emerald-400 hover:underline"
+                        >
+                          stashinmeid@gmail.com
+                        </a>
+                      </div>
                     </div>
-                  </SpotlightCard>
-                );
-              }
+
+                    <form
+                      onSubmit={handleSubmitEnterprise}
+                      className="space-y-3 rounded-2xl border border-white/[0.07] bg-[#0a0d11]/90 p-5 lg:col-span-7"
+                    >
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label
+                            htmlFor="ent-name"
+                            className="block text-[11px] font-semibold text-zinc-400"
+                          >
+                            {isEn ? 'Your Name' : 'Nama Lengkap'}
+                          </label>
+                          <input
+                            id="ent-name"
+                            name="entName"
+                            value={entName}
+                            onChange={(e) => setEntName(e.target.value)}
+                            placeholder={isEn ? 'e.g. Alex Carter' : 'Mis. Budi Santoso'}
+                            required
+                            className="mt-1 h-9 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 text-[13px] text-white placeholder:text-zinc-600 focus:border-emerald-400 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="ent-contact"
+                            className="block text-[11px] font-semibold text-zinc-400"
+                          >
+                            {isEn ? 'Email / WhatsApp' : 'Email / WhatsApp'}
+                          </label>
+                          <input
+                            id="ent-contact"
+                            name="entContact"
+                            value={entContact}
+                            onChange={(e) => setEntContact(e.target.value)}
+                            placeholder="email@perusahaan.com / 0812..."
+                            required
+                            className="mt-1 h-9 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 text-[13px] text-white placeholder:text-zinc-600 focus:border-emerald-400 focus:outline-none"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <div>
+                          <label
+                            htmlFor="ent-company"
+                            className="block text-[11px] font-semibold text-zinc-400"
+                          >
+                            {isEn ? 'Company / Organization' : 'Nama Bisnis / Perusahaan'}
+                          </label>
+                          <input
+                            id="ent-company"
+                            name="entCompany"
+                            value={entCompany}
+                            onChange={(e) => setEntCompany(e.target.value)}
+                            placeholder={isEn ? 'e.g. Acme Holdings' : 'Mis. PT Maju Bersama'}
+                            className="mt-1 h-9 w-full rounded-xl border border-white/10 bg-white/[0.03] px-3 text-[13px] text-white placeholder:text-zinc-600 focus:border-emerald-400 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="ent-groups"
+                            className="block text-[11px] font-semibold text-zinc-400"
+                          >
+                            {isEn ? 'Estimated Groups' : 'Estimasi Jumlah Grup'}
+                          </label>
+                          <select
+                            id="ent-groups"
+                            name="entGroups"
+                            value={entGroups}
+                            onChange={(e) => setEntGroups(e.target.value)}
+                            className="mt-1 h-9 w-full rounded-xl border border-white/10 bg-[#0f1419] px-3 text-[13px] text-white focus:border-emerald-400 focus:outline-none"
+                          >
+                            <option value="10 - 25 Grup">10 - 25 Grup</option>
+                            <option value="25 - 50 Grup">25 - 50 Grup</option>
+                            <option value="50+ / Unlimited">50+ / Unlimited</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label
+                          htmlFor="ent-needs"
+                          className="block text-[11px] font-semibold text-zinc-400"
+                        >
+                          {isEn
+                            ? 'App Requirements & Custom Features'
+                            : 'Kebutuhan Aplikasi & Permintaan Fitur Tambahan'}
+                        </label>
+                        <textarea
+                          id="ent-needs"
+                          name="entNeeds"
+                          rows={3}
+                          value={entNeeds}
+                          onChange={(e) => setEntNeeds(e.target.value)}
+                          required
+                          placeholder={
+                            isEn
+                              ? 'Describe the groups, custom modules, approval flows, or integrations you need...'
+                              : 'Ceritakan kebutuhan bisnismu: misal jumlah divisi/PT, fitur tambahan, laporan khusus, atau alur approval...'
+                          }
+                          className="mt-1 w-full rounded-xl border border-white/10 bg-white/[0.03] p-3 text-[13px] text-white placeholder:text-zinc-600 focus:border-emerald-400 focus:outline-none"
+                        />
+                      </div>
+
+                      {entFeedback && (
+                        <div
+                          className={`rounded-xl px-3 py-2 text-[12px] ${
+                            entFeedback.type === 'ok'
+                              ? 'border border-emerald-500/30 bg-emerald-500/10 text-emerald-300'
+                              : 'border border-rose-500/30 bg-rose-500/10 text-rose-300'
+                          }`}
+                        >
+                          {entFeedback.text}
+                        </div>
+                      )}
+
+                      <button
+                        type="submit"
+                        disabled={entSending}
+                        className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-[#22c58b] py-2.5 text-[13px] font-semibold text-[#06120d] transition hover:bg-[#35d69c] disabled:opacity-60"
+                      >
+                        {entSending ? (
+                          <Loader2 className="size-4 animate-spin" />
+                        ) : (
+                          <Send className="size-4" />
+                        )}
+                        {isEn ? 'Send Enterprise Request' : 'Kirim Permintaan Enterprise'}
+                      </button>
+                    </form>
+                  </div>
+                </SpotlightCard>
+              </motion.div>
             )}
-          </div>
+          </AnimatePresence>
         </motion.section>
 
         {/* Minimalist Release Rail: v3.0 Live + Next TBA */}
@@ -1202,8 +1493,8 @@ export function LandingPage({
               </span>
               <p className="mt-0.5 text-[13px] font-medium text-zinc-200">
                 {isEn
-                  ? 'Multi-group cashflow · FX & crypto · OCR · API hub'
-                  : 'Multi-ruang kas · Valas & crypto · OCR struk · Koneksi API'}
+                  ? 'Multi-space cashflow · FX & crypto · AI receipt scan · Audit log'
+                  : 'Multi-ruang kas · Valas & crypto · Pindai struk AI · Audit log'}
               </p>
             </div>
             <span className="size-2 shrink-0 rounded-full bg-emerald-400" />

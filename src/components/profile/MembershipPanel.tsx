@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useLocale } from 'next-intl';
 import {
+  Building2,
   Check,
   CheckCircle2,
   Clock,
@@ -10,6 +11,7 @@ import {
   ExternalLink,
   Loader2,
   RefreshCw,
+  Send,
   ShieldCheck,
   XCircle,
 } from 'lucide-react';
@@ -19,6 +21,7 @@ import { Modal } from '@/components/ui/Modal';
 import { useConfirm } from '@/components/ui/ConfirmProvider';
 import {
   MEMBERSHIP_PLANS,
+  type EnterpriseInquiry,
   type MembershipOrder,
   type MembershipTier,
 } from '@/lib/membership';
@@ -37,6 +40,16 @@ export function MembershipPanel() {
   const [paymentProvider, setPaymentProvider] = useState('midtrans');
   const [pendingOrder, setPendingOrder] = useState<MembershipOrder | null>(null);
   const [orders, setOrders] = useState<MembershipOrder[]>([]);
+  const [inquiries, setInquiries] = useState<EnterpriseInquiry[]>([]);
+
+  // Slide Switch: Reguler (3-9 Grup) vs Enterprise Custom (> 9 Grup / Pesanan Fitur)
+  const [enterpriseMode, setEnterpriseMode] = useState(false);
+  const [entName, setEntName] = useState('');
+  const [entContact, setEntContact] = useState('');
+  const [entCompany, setEntCompany] = useState('');
+  const [entGroups, setEntGroups] = useState('10 - 25 Grup');
+  const [entNeeds, setEntNeeds] = useState('');
+  const [entSending, setEntSending] = useState(false);
 
   // Checkout Modal State
   const [checkoutTier, setCheckoutTier] = useState<'pro' | 'enterprise' | null>(
@@ -61,6 +74,7 @@ export function MembershipPanel() {
         setPaymentProvider(json.paymentProvider || 'midtrans');
         setPendingOrder(json.pendingOrder ?? null);
         setOrders(Array.isArray(json.orders) ? json.orders : []);
+        setInquiries(Array.isArray(json.inquiries) ? json.inquiries : []);
       }
     } finally {
       setLoading(false);
@@ -167,6 +181,87 @@ export function MembershipPanel() {
     }
   };
 
+  const handleSubmitEnterprise = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!entName.trim() || !entContact.trim() || !entNeeds.trim()) {
+      toast.error(
+        isEn
+          ? 'Please fill in your name, contact, and custom requirements.'
+          : 'Nama, kontak (email/WA), dan kebutuhan aplikasi wajib diisi.'
+      );
+      return;
+    }
+    const ok = await confirm({
+      title: isEn
+        ? 'Submit Enterprise Custom request?'
+        : 'Kirim permintaan Enterprise Custom?',
+      description: isEn
+        ? 'Your custom app requirements will be sent directly to the owner.'
+        : 'Kebutuhan aplikasi & fitur custommu akan langsung diteruskan ke pemilik aplikasi.',
+      audit: {
+        action: 'Kirim Permintaan Enterprise',
+        category: 'membership',
+        detail: `${entCompany || entName} · ${entGroups}`,
+      },
+    });
+    if (!ok) return;
+
+    setEntSending(true);
+    try {
+      const res = await fetch('/api/membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'enterprise_inquiry',
+          name: entName.trim(),
+          contact: entContact.trim(),
+          company: entCompany.trim(),
+          groupEstimate: entGroups.trim(),
+          requirements: entNeeds.trim(),
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error || 'Gagal mengirim permintaan.');
+        return;
+      }
+      setEntName('');
+      setEntContact('');
+      setEntCompany('');
+      setEntNeeds('');
+      toast.success(
+        isEn
+          ? 'Enterprise request sent! We will contact you shortly.'
+          : 'Permintaan Enterprise terkirim! Kami akan segera menghubungimu.'
+      );
+      await loadMembership();
+    } finally {
+      setEntSending(false);
+    }
+  };
+
+  const handleInquiryStatus = async (
+    inquiryId: string,
+    status: 'contacted' | 'closed'
+  ) => {
+    const res = await fetch('/api/membership', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        action: 'update_inquiry_status',
+        inquiryId,
+        status,
+      }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok && Array.isArray(json.inquiries)) {
+      setInquiries(json.inquiries);
+      toast.success(
+        status === 'contacted' ? 'Ditandai sudah dihubungi.' : 'Permintaan ditutup.'
+      );
+    }
+  };
+
   const activePlan = MEMBERSHIP_PLANS[tier];
   const usagePct = Math.min(100, Math.round((ownedGroups / Math.max(1, maxGroups)) * 100));
 
@@ -256,7 +351,65 @@ export function MembershipPanel() {
         )}
       </div>
 
-      {/* 3 Pilihan Paket Membership */}
+      {/* Slide Switch: Paket Reguler (3-9 Grup) ↔ Enterprise Custom */}
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] px-4 py-3">
+        <div>
+          <p className="text-[13px] font-semibold text-[var(--text)]">
+            {enterpriseMode
+              ? 'Enterprise Custom (> 9 Grup & Request Fitur)'
+              : isEn
+                ? 'Standard Plans (Up to 9 Groups)'
+                : 'Paket Reguler (Maksimal 9 Grup)'}
+          </p>
+          <p className="text-[11px] text-[var(--text-muted)]">
+            {enterpriseMode
+              ? isEn
+                ? 'Need more than 9 groups or bespoke modules? Tell us your business requirements.'
+                : 'Butuh lebih dari 9 grup atau ingin pesan fitur tambahan khusus bisnismu? Tulis kebutuhanmu di bawah.'
+              : isEn
+                ? 'Toggle switch if your business needs more than 9 groups or custom features.'
+                : 'Geser tombol jika bisnismu butuh lebih dari 9 grup atau fitur custom pesanan.'}
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <span
+            className={`text-[12px] font-semibold ${
+              !enterpriseMode ? 'text-[var(--text)]' : 'text-[var(--text-muted)]'
+            }`}
+          >
+            {isEn ? 'Standard' : 'Reguler'}
+          </span>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enterpriseMode}
+            aria-label={
+              isEn ? 'Switch to Enterprise Custom' : 'Geser ke Enterprise Custom'
+            }
+            onClick={() => setEnterpriseMode((v) => !v)}
+            className={`relative h-6 w-12 rounded-full transition-colors ${
+              enterpriseMode ? 'bg-[var(--brand)]' : 'bg-[var(--surface-2)] border border-[var(--line)]'
+            }`}
+          >
+            <span
+              className={`block size-4.5 rounded-full bg-white shadow transition-transform ${
+                enterpriseMode ? 'translate-x-6' : 'translate-x-0.5'
+              }`}
+            />
+          </button>
+          <span
+            className={`text-[12px] font-semibold ${
+              enterpriseMode ? 'text-[var(--brand)]' : 'text-[var(--text-muted)]'
+            }`}
+          >
+            Enterprise
+          </span>
+        </div>
+      </div>
+
+      {/* 3 Pilihan Paket Membership Reguler ATAU Form Enterprise Custom */}
+      {!enterpriseMode ? (
       <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
         {(['free', 'pro', 'enterprise'] as MembershipTier[]).map((planId) => {
           const plan = MEMBERSHIP_PLANS[planId];
@@ -334,6 +487,252 @@ export function MembershipPanel() {
           );
         })}
       </div>
+      ) : (
+        <div className="rounded-xl border border-[var(--brand)]/40 bg-[var(--surface-1)] p-5">
+          <div className="grid grid-cols-1 gap-5 lg:grid-cols-12">
+            <div className="lg:col-span-5">
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--brand)]">
+                <Building2 className="size-3.5" />
+                {isEn ? 'Custom · > 9 Groups' : 'Pesanan Khusus · > 9 Grup'}
+              </span>
+              <h4 className="mt-2.5 text-[16px] font-bold text-[var(--text)]">
+                Enterprise Custom
+              </h4>
+              <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-muted)]">
+                {isEn
+                  ? 'For companies needing more than 9 groups, custom features, dedicated approval flows, or private integrations.'
+                  : 'Dirancang untuk pebisnis yang butuh lebih dari 9 grup, tambahan fitur sesuai alur kerja perusahaan, atau integrasi khusus.'}
+              </p>
+              <ul className="mt-4 space-y-2 border-t border-[var(--line)] pt-3 text-[12px] text-[var(--text-muted)]">
+                {(isEn
+                  ? [
+                      'Unlimited / > 9 group workspaces',
+                      'Custom feature development on request',
+                      'Direct coordination with the founder',
+                    ]
+                  : [
+                      'Kuota grup > 9 / sesuai skala perusahaan',
+                      'Bisa request fitur tambahan khusus bisnismu',
+                      'Koordinasi langsung dengan pengembang',
+                    ]
+                ).map((item) => (
+                  <li key={item} className="flex items-start gap-2">
+                    <Check className="mt-0.5 size-3.5 shrink-0 text-[var(--brand)]" />
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-4 text-[11px] text-[var(--text-muted)]">
+                Email:{' '}
+                <a
+                  href="mailto:stashinmeid@gmail.com?subject=Enterprise%20Custom%20stashinmeid"
+                  className="font-semibold text-[var(--brand)] hover:underline"
+                >
+                  stashinmeid@gmail.com
+                </a>
+              </p>
+            </div>
+
+            <form
+              onSubmit={handleSubmitEnterprise}
+              className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)]/60 p-4 lg:col-span-7"
+            >
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="panel-ent-name"
+                    className="text-[11px] font-semibold text-[var(--text-muted)]"
+                  >
+                    {isEn ? 'Your Name' : 'Nama Lengkap'}
+                  </label>
+                  <input
+                    id="panel-ent-name"
+                    name="panelEntName"
+                    value={entName}
+                    onChange={(e) => setEntName(e.target.value)}
+                    required
+                    placeholder={isEn ? 'Your name' : 'Nama Anda'}
+                    className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="panel-ent-contact"
+                    className="text-[11px] font-semibold text-[var(--text-muted)]"
+                  >
+                    Email / WhatsApp
+                  </label>
+                  <input
+                    id="panel-ent-contact"
+                    name="panelEntContact"
+                    value={entContact}
+                    onChange={(e) => setEntContact(e.target.value)}
+                    required
+                    placeholder="email@bisnis.com / 0812..."
+                    className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="panel-ent-company"
+                    className="text-[11px] font-semibold text-[var(--text-muted)]"
+                  >
+                    {isEn ? 'Company / Business' : 'Nama Perusahaan / Bisnis'}
+                  </label>
+                  <input
+                    id="panel-ent-company"
+                    name="panelEntCompany"
+                    value={entCompany}
+                    onChange={(e) => setEntCompany(e.target.value)}
+                    placeholder={isEn ? 'e.g. Acme Holdings' : 'Mis. PT Nusantara'}
+                    className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="panel-ent-groups"
+                    className="text-[11px] font-semibold text-[var(--text-muted)]"
+                  >
+                    {isEn ? 'Estimated Groups' : 'Estimasi Jumlah Grup'}
+                  </label>
+                  <select
+                    id="panel-ent-groups"
+                    name="panelEntGroups"
+                    value={entGroups}
+                    onChange={(e) => setEntGroups(e.target.value)}
+                    className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                  >
+                    <option value="10 - 25 Grup">10 - 25 Grup</option>
+                    <option value="25 - 50 Grup">25 - 50 Grup</option>
+                    <option value="50+ / Unlimited">50+ / Unlimited</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label
+                  htmlFor="panel-ent-needs"
+                  className="text-[11px] font-semibold text-[var(--text-muted)]"
+                >
+                  {isEn
+                    ? 'App Needs & Custom Feature Requests'
+                    : 'Kebutuhan Aplikasi & Request Fitur Tambahan'}
+                </label>
+                <textarea
+                  id="panel-ent-needs"
+                  name="panelEntNeeds"
+                  rows={3}
+                  value={entNeeds}
+                  onChange={(e) => setEntNeeds(e.target.value)}
+                  required
+                  placeholder={
+                    isEn
+                      ? 'Tell us what groups, workflows, or custom features your team needs...'
+                      : 'Tulis kebutuhan aplikasi, jumlah grup/cabang, atau fitur tambahan yang ingin dibuatkan...'
+                  }
+                  className="mt-1 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] p-2.5 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                />
+              </div>
+
+              <Button
+                type="submit"
+                size="sm"
+                fullWidth
+                loading={entSending}
+                icon={<Send className="size-3.5" />}
+              >
+                {isEn ? 'Send Enterprise Request' : 'Kirim Permintaan Enterprise'}
+              </Button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Panel Admin: Permintaan Enterprise Custom Masuk */}
+      {isAdmin && inquiries.length > 0 && (
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+          <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
+            <div className="flex items-center gap-2">
+              <Building2 className="size-4 text-[var(--brand)]" />
+              <h4 className="text-[14px] font-semibold text-[var(--text)]">
+                {isEn
+                  ? 'Enterprise Custom Inquiries (Admin)'
+                  : 'Permintaan Enterprise Custom Masuk (Admin)'}
+              </h4>
+            </div>
+            <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--brand)]">
+              {inquiries.length}
+            </span>
+          </div>
+
+          <div className="mt-3 divide-y divide-[var(--line)]">
+            {inquiries.map((inq) => (
+              <div key={inq.id} className="space-y-2 py-3">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-[13px] font-semibold text-[var(--text)]">
+                      {inq.name}
+                    </span>
+                    {inq.company && inq.company !== '-' && (
+                      <span className="text-[12px] text-[var(--text-muted)]">
+                        · {inq.company}
+                      </span>
+                    )}
+                    <span className="rounded bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                      {inq.groupEstimate}
+                    </span>
+                    <span
+                      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        inq.status === 'new'
+                          ? 'bg-[var(--due-soft)] text-[var(--due)]'
+                          : inq.status === 'contacted'
+                            ? 'bg-[var(--in-soft)] text-[var(--in)]'
+                            : 'bg-[var(--surface-2)] text-[var(--text-muted)]'
+                      }`}
+                    >
+                      {inq.status === 'new'
+                        ? 'Baru'
+                        : inq.status === 'contacted'
+                          ? 'Dihubungi'
+                          : 'Selesai'}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    {inq.status === 'new' && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleInquiryStatus(inq.id, 'contacted')}
+                      >
+                        Tandai Dihubungi
+                      </Button>
+                    )}
+                    {inq.status !== 'closed' && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => handleInquiryStatus(inq.id, 'closed')}
+                      >
+                        Selesai
+                      </Button>
+                    )}
+                  </div>
+                </div>
+                <p className="text-[11px] font-medium text-[var(--brand)]">
+                  Kontak: {inq.contact}
+                </p>
+                <p className="rounded-lg bg-[var(--surface-2)]/70 p-2.5 text-[12px] leading-relaxed text-[var(--text)]">
+                  {inq.requirements}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Panel Admin: Daftar Pembayaran Masuk & Aktivasi Paket */}
       {isAdmin && (

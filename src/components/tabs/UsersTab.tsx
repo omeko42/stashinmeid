@@ -300,7 +300,7 @@ export function UsersTab({
                       >
                         <option value="free">Gratis (3 Grup)</option>
                         <option value="pro">Pro (5 Grup)</option>
-                        <option value="enterprise">Enterprise (9 Grup)</option>
+                        <option value="enterprise">Bisnis (9 Grup)</option>
                       </select>
                     </>
                   )}

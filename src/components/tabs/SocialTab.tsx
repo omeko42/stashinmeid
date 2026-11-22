@@ -115,8 +115,8 @@ const FALLBACK_TICKERS: MarketTicker[] = [
   { label: 'ETH / IDR', price: 'Rp 49,3 Jt', delta: '+1,4%', up: true },
   { label: 'SOL / IDR', price: 'Rp 3,42 Jt', delta: '+3,8%', up: true },
   { label: 'USDT / IDR', price: 'Rp 15.870', delta: '+0,1%', up: true },
-  { label: 'USD / IDR', price: 'Rp 15.865', delta: 'ECB', up: true },
-  { label: 'SGD / IDR', price: 'Rp 11.820', delta: 'ECB', up: true },
+  { label: 'USD / IDR', price: 'Rp 15.865', delta: 'FX', up: true },
+  { label: 'SGD / IDR', price: 'Rp 11.820', delta: 'FX', up: true },
 ];
 
 export function SocialTab({
