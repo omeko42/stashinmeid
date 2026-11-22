@@ -299,8 +299,9 @@ export function UsersTab({
                         className="h-8 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
                       >
                         <option value="free">Gratis (3 Grup)</option>
-                        <option value="pro">Pro (5 Grup)</option>
-                        <option value="enterprise">Bisnis (9 Grup)</option>
+                        <option value="standard">Standard (5 Grup)</option>
+                        <option value="pro">Pro (9 Grup)</option>
+                        <option value="business">Business (15 Grup)</option>
                       </select>
                     </>
                   )}

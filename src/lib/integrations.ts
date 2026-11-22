@@ -6,6 +6,7 @@ export interface SingleIntegrationConfig {
   publicKey: string;
   secretKey: string;
   webhookUrl: string;
+  webhookSecret?: string;
   extraOption: string;
   lastTestedAt?: string | null;
   lastTestStatus?: 'ok' | 'error' | null;
@@ -27,7 +28,8 @@ export const DEFAULT_API_INTEGRATIONS: ApiIntegrationsState = {
     baseUrl: 'https://api.sandbox.midtrans.com/v2',
     publicKey: '',
     secretKey: '',
-    webhookUrl: 'https://stashinmeid.vercel.app/api/integrations?webhook=payment',
+    webhookUrl: 'https://stashinmeid.vercel.app/api/membership/webhook',
+    webhookSecret: '',
     extraOption: 'QRIS & Virtual Account (Rp 0 biaya bulanan)',
     lastTestedAt: null,
     lastTestStatus: null,
@@ -54,7 +56,7 @@ export const DEFAULT_API_INTEGRATIONS: ApiIntegrationsState = {
     publicKey: '',
     secretKey: '',
     webhookUrl: '',
-    extraOption: 'Gratis tanpa API Key · CNBC ID, Antara, CoinGecko & ECB',
+    extraOption: 'Gratis tanpa API Key · CNBC ID, Antara, CoinGecko & Kurs FX',
     lastTestedAt: null,
     lastTestStatus: 'ok',
     lastLatencyMs: 140,

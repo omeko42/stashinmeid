@@ -1,10 +1,15 @@
-export type MembershipTier = 'free' | 'pro' | 'enterprise';
+export type MembershipTier = 'free' | 'standard' | 'pro' | 'business';
+export type BillingCycle = 'monthly' | 'yearly';
+
+export const YEARLY_DISCOUNT_PCT = 20;
 
 export interface MembershipPlan {
   id: MembershipTier;
   maxGroups: number;
-  priceIdr: number;
-  priceUsd: number;
+  /** Harga bulanan dasar dalam USD. */
+  priceUsdMonthly: number;
+  /** Harga bulanan dasar dalam IDR. */
+  priceIdrMonthly: number;
   labelId: string;
   labelEn: string;
   badgeId: string;
@@ -22,7 +27,9 @@ export interface MembershipOrder {
   userEmail: string;
   userName: string;
   requestedTier: Exclude<MembershipTier, 'free'>;
+  billingCycle?: BillingCycle;
   amountIdr: number;
+  amountUsd?: number;
   paymentProvider: string;
   paymentMethod: string;
   paymentRef: string;
@@ -43,12 +50,19 @@ export interface EnterpriseInquiry {
   createdAt: string;
 }
 
+export const MEMBERSHIP_TIER_ORDER: MembershipTier[] = [
+  'free',
+  'standard',
+  'pro',
+  'business',
+];
+
 export const MEMBERSHIP_PLANS: Record<MembershipTier, MembershipPlan> = {
   free: {
     id: 'free',
     maxGroups: 3,
-    priceIdr: 0,
-    priceUsd: 0,
+    priceUsdMonthly: 0,
+    priceIdrMonthly: 0,
     labelId: 'Gratis',
     labelEn: 'Free',
     badgeId: 'Maks. 3 Grup',
@@ -66,54 +80,92 @@ export const MEMBERSHIP_PLANS: Record<MembershipTier, MembershipPlan> = {
       'Social hub, fast chat & market news',
     ],
   },
-  pro: {
-    id: 'pro',
+  standard: {
+    id: 'standard',
     maxGroups: 5,
-    priceIdr: 49000,
-    priceUsd: 4,
-    labelId: 'Pro',
-    labelEn: 'Pro',
+    priceUsdMonthly: 10,
+    priceIdrMonthly: 159000,
+    labelId: 'Standard',
+    labelEn: 'Standard',
     badgeId: 'Maks. 5 Grup',
     badgeEn: 'Up to 5 Groups',
-    summaryId: 'Untuk keluarga besar & multi-unit usaha.',
-    summaryEn: 'For growing families & multiple business units.',
+    summaryId: 'Untuk keluarga besar & multi-unit usaha awal.',
+    summaryEn: 'For growing families & small multi-unit teams.',
     featuresId: [
       'Maksimal 5 grup kolega & bisnis',
       'Semua fitur paket Gratis',
-      'Ekspor laporan PDF/Word & API pihak ketiga',
+      'Ekspor laporan PDF/Word & Excel/CSV',
     ],
     featuresEn: [
       'Up to 5 colleague & business groups',
       'Everything in Free',
-      'Full PDF/Word export & 3rd-party API hub',
+      'Full PDF/Word & CSV report export',
     ],
   },
-  enterprise: {
-    id: 'enterprise',
+  pro: {
+    id: 'pro',
     maxGroups: 9,
-    priceIdr: 149000,
-    priceUsd: 12,
-    labelId: 'Bisnis',
-    labelEn: 'Business',
+    priceUsdMonthly: 30,
+    priceIdrMonthly: 479000,
+    labelId: 'Pro',
+    labelEn: 'Pro',
     badgeId: 'Maks. 9 Grup',
     badgeEn: 'Up to 9 Groups',
-    summaryId: 'Paket tertinggi reguler untuk banyak grup & unit usaha.',
-    summaryEn: 'Top standard plan for multi-group teams & business units.',
+    summaryId: 'Untuk pebisnis aktif dengan banyak cabang & proyek.',
+    summaryEn: 'For active operators managing multiple ventures.',
     featuresId: [
       'Maksimal 9 grup perusahaan & keluarga',
-      'Semua fitur paket Pro',
-      'Prioritas verifikasi KYC & dukungan khusus',
+      'Semua fitur paket Standard',
+      'Prioritas verifikasi KYC & dukungan cepat',
     ],
     featuresEn: [
       'Up to 9 company & family groups',
+      'Everything in Standard',
+      'Priority KYC verification & fast support',
+    ],
+  },
+  business: {
+    id: 'business',
+    maxGroups: 15,
+    priceUsdMonthly: 100,
+    priceIdrMonthly: 1590000,
+    labelId: 'Business',
+    labelEn: 'Business',
+    badgeId: 'Maks. 15 Grup',
+    badgeEn: 'Up to 15 Groups',
+    summaryId: 'Paket tertinggi reguler untuk holding & grup bisnis besar.',
+    summaryEn: 'Top standard plan for holdings & multi-entity organizations.',
+    featuresId: [
+      'Maksimal 15 grup perusahaan & tim',
+      'Semua fitur paket Pro',
+      'Audit log lengkap & dukungan prioritas',
+    ],
+    featuresEn: [
+      'Up to 15 company & team groups',
       'Everything in Pro',
-      'Priority KYC verification & dedicated support',
+      'Full audit trail & priority support',
     ],
   },
 };
 
+export function getPlanPrice(plan: MembershipPlan, cycle: BillingCycle) {
+  const mult = cycle === 'yearly' ? (100 - YEARLY_DISCOUNT_PCT) / 100 : 1;
+  const usdMonthlyEffective = Math.round(plan.priceUsdMonthly * mult);
+  const idrMonthlyEffective = Math.round(plan.priceIdrMonthly * mult);
+  return {
+    usdMonthlyEffective,
+    usdTotalBilled: cycle === 'yearly' ? usdMonthlyEffective * 12 : usdMonthlyEffective,
+    idrMonthlyEffective,
+    idrTotalBilled: cycle === 'yearly' ? idrMonthlyEffective * 12 : idrMonthlyEffective,
+  };
+}
+
 export function normalizeTier(raw: unknown): MembershipTier {
-  if (raw === 'pro' || raw === 'enterprise' || raw === 'free') return raw;
+  if (raw === 'standard' || raw === 'pro' || raw === 'business' || raw === 'free') {
+    return raw;
+  }
+  // Backward compatibility untuk akun lama yang tersimpan sebagai 'enterprise'
+  if (raw === 'enterprise') return 'business';
   return 'free';
 }
 

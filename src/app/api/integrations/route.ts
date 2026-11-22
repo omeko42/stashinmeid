@@ -1,11 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCallerUserId } from '@/lib/currentUser';
+import { verifySuperadminToken } from '@/lib/jwt';
+import { getOrCreateSuperadminUserId } from '@/lib/superadminUser';
 import {
   DEFAULT_API_INTEGRATIONS,
   mergeIntegrations,
   type SingleIntegrationConfig,
 } from '@/lib/integrations';
+
+async function isCallerAdmin(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  userId: string
+): Promise<boolean> {
+  const cookieStore = await cookies();
+  const token = cookieStore.get('stashinme_session')?.value;
+  if (await verifySuperadminToken(token)) return true;
+
+  const { data } = await admin
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle();
+  return data?.role === 'admin';
+}
 
 export async function GET() {
   const userId = await getCallerUserId();
@@ -21,21 +40,40 @@ export async function GET() {
     });
   }
 
-  const { data, error } = await admin.auth.admin.getUserById(userId);
-  if (error || !data?.user) {
-    return NextResponse.json({
-      integrations: DEFAULT_API_INTEGRATIONS,
-      updatedAt: null,
-    });
-  }
+  const callerIsAdmin = await isCallerAdmin(admin, userId);
+  const superId = callerIsAdmin ? await getOrCreateSuperadminUserId() : null;
 
-  const meta = (data.user.user_metadata ?? {}) as Record<string, unknown>;
+  // Admin membaca konfigurasi global dari akun admin utama (fallback ke akun sendiri)
+  const [{ data: selfData }, globalRes] = await Promise.all([
+    admin.auth.admin.getUserById(userId),
+    superId && superId !== userId
+      ? admin.auth.admin.getUserById(superId)
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const selfMeta = (selfData?.user?.user_metadata ?? {}) as Record<
+    string,
+    unknown
+  >;
+  const globalMeta = (globalRes?.data?.user?.user_metadata ?? {}) as Record<
+    string,
+    unknown
+  >;
+
+  const rawConfig =
+    (callerIsAdmin && globalMeta.api_integrations) || selfMeta.api_integrations;
+  const updatedAt =
+    (callerIsAdmin &&
+      typeof globalMeta.api_integrations_updated_at === 'string' &&
+      globalMeta.api_integrations_updated_at) ||
+    (typeof selfMeta.api_integrations_updated_at === 'string'
+      ? selfMeta.api_integrations_updated_at
+      : null);
+
   return NextResponse.json({
-    integrations: mergeIntegrations(meta.api_integrations),
-    updatedAt:
-      typeof meta.api_integrations_updated_at === 'string'
-        ? meta.api_integrations_updated_at
-        : null,
+    integrations: mergeIntegrations(rawConfig),
+    updatedAt,
+    isAdmin: callerIsAdmin,
   });
 }
 
@@ -112,6 +150,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  const callerIsAdmin = await isCallerAdmin(admin, userId);
   const { data: current } = await admin.auth.admin.getUserById(userId);
   const existingMeta = (current?.user?.user_metadata ?? {}) as Record<
     string,
@@ -131,6 +170,26 @@ export async function POST(req: NextRequest) {
 
   if (updateErr) {
     return NextResponse.json({ error: updateErr.message }, { status: 500 });
+  }
+
+  // Sinkronkan juga ke akun global primaryAdmin supaya pembayaran membership & KYC
+  // yang diatur oleh Admin (mis. agungkrisdianto98@gmail.com) langsung aktif app-wide!
+  if (callerIsAdmin) {
+    const superId = await getOrCreateSuperadminUserId();
+    if (superId && superId !== userId) {
+      const { data: superAuth } = await admin.auth.admin.getUserById(superId);
+      const superMeta = (superAuth?.user?.user_metadata ?? {}) as Record<
+        string,
+        unknown
+      >;
+      await admin.auth.admin.updateUserById(superId, {
+        user_metadata: {
+          ...superMeta,
+          api_integrations: merged,
+          api_integrations_updated_at: now,
+        },
+      });
+    }
   }
 
   return NextResponse.json({

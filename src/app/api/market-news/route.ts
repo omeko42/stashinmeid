@@ -19,7 +19,7 @@ export interface LiveNewsItem {
   publishedAt: string;
 }
 
-const ALLOWED_BASES = ['IDR', 'USD', 'EUR', 'SGD'] as const;
+const ALLOWED_BASES = ['IDR', 'USD', 'EUR', 'SGD', 'GBP', 'JPY', 'AUD', 'MYR'] as const;
 type BaseCurrency = (typeof ALLOWED_BASES)[number];
 
 function formatPriceByBase(num: number, base: BaseCurrency): string {
@@ -33,7 +33,19 @@ function formatPriceByBase(num: number, base: BaseCurrency): string {
     }
     return `Rp ${Math.round(num).toLocaleString('id-ID')}`;
   }
-  const symbol = base === 'USD' ? '$' : base === 'EUR' ? '€' : 'S$';
+  const symbols: Record<Exclude<BaseCurrency, 'IDR'>, string> = {
+    USD: '$',
+    EUR: '€',
+    SGD: 'S$',
+    GBP: '£',
+    JPY: '¥',
+    AUD: 'A$',
+    MYR: 'RM ',
+  };
+  const symbol = symbols[base];
+  if (base === 'JPY') {
+    return `${symbol}${Math.round(num).toLocaleString('en-US')}`;
+  }
   if (num >= 1000) {
     return `${symbol}${Math.round(num).toLocaleString('en-US')}`;
   }

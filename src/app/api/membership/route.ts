@@ -8,7 +8,9 @@ import { notifyMany } from '@/lib/notifications';
 import {
   MEMBERSHIP_PLANS,
   getMaxGroupsForTier,
+  getPlanPrice,
   normalizeTier,
+  type BillingCycle,
   type EnterpriseInquiry,
   type MembershipOrder,
   type MembershipTier,
@@ -51,6 +53,7 @@ async function createThirdPartyCheckoutUrl(opts: {
   secretKey: string;
   invoiceNo: string;
   amountIdr: number;
+  amountUsd: number;
   planName: string;
   customerEmail: string;
   customerName: string;
@@ -78,7 +81,7 @@ async function createThirdPartyCheckoutUrl(opts: {
           },
           item_details: [
             {
-              id: opts.planName.toLowerCase(),
+              id: opts.planName.toLowerCase().replace(/\s+/g, '-'),
               price: opts.amountIdr,
               quantity: 1,
               name: `stashinmeid ${opts.planName} Membership`,
@@ -115,6 +118,37 @@ async function createThirdPartyCheckoutUrl(opts: {
       if (res.ok) {
         const json = (await res.json()) as { invoice_url?: string };
         return json.invoice_url || null;
+      }
+    }
+
+    if (opts.provider === 'stripe') {
+      const params = new URLSearchParams();
+      params.set('mode', 'payment');
+      params.set('client_reference_id', opts.invoiceNo);
+      params.set('customer_email', opts.customerEmail);
+      params.set('success_url', 'https://stashinmeid.vercel.app/?payment=success');
+      params.set('cancel_url', 'https://stashinmeid.vercel.app/?payment=cancelled');
+      params.set('line_items[0][quantity]', '1');
+      params.set('line_items[0][price_data][currency]', 'usd');
+      params.set(
+        'line_items[0][price_data][unit_amount]',
+        String(Math.max(100, Math.round(opts.amountUsd * 100)))
+      );
+      params.set(
+        'line_items[0][price_data][product_data][name]',
+        `stashinmeid ${opts.planName} Membership`
+      );
+      const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${opts.secretKey}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: params.toString(),
+      });
+      if (res.ok) {
+        const json = (await res.json()) as { url?: string };
+        return json.url || null;
       }
     }
   } catch {
@@ -157,7 +191,7 @@ export async function GET() {
     unknown
   >;
   const tier: MembershipTier = isAdmin
-    ? normalizeTier(userMeta.membership_tier ?? 'enterprise')
+    ? normalizeTier(userMeta.membership_tier ?? 'business')
     : normalizeTier(userMeta.membership_tier);
 
   let orders: MembershipOrder[] = [];
@@ -284,8 +318,15 @@ export async function POST(req: NextRequest) {
   // 1. User mengajukan upgrade paket via Payment Gateway / Konfirmasi
   // ------------------------------------------------------------------
   if (action === 'checkout') {
-    const requestedTier =
-      body.requestedTier === 'enterprise' ? 'enterprise' : 'pro';
+    const rawTier = String(body.requestedTier || 'standard');
+    const requestedTier: Exclude<MembershipTier, 'free'> =
+      rawTier === 'business' || rawTier === 'enterprise'
+        ? 'business'
+        : rawTier === 'pro'
+          ? 'pro'
+          : 'standard';
+    const billingCycle: BillingCycle =
+      body.billingCycle === 'yearly' ? 'yearly' : 'monthly';
     const paymentMethod = String(body.paymentMethod || 'QRIS / Virtual Account').trim();
     const paymentRef = String(body.paymentRef || '').trim();
 
@@ -307,6 +348,7 @@ export async function POST(req: NextRequest) {
     const integrations = mergeIntegrations(adminMeta.api_integrations);
     const paymentCfg = integrations.payment;
     const plan = MEMBERSHIP_PLANS[requestedTier];
+    const pricing = getPlanPrice(plan, billingCycle);
 
     const invoiceNo = `INV-${Date.now().toString(36).toUpperCase()}`;
     const customerEmail =
@@ -314,16 +356,17 @@ export async function POST(req: NextRequest) {
     const customerName =
       profile?.client_name || customerEmail.split('@')[0] || 'Pengguna';
 
-    // Jika Admin sudah mengisi Secret Key Midtrans/Xendit di Pengaturan -> Koneksi API,
-    // coba buat tautan pembayaran pihak ketiga sungguhan.
+    // Jika Admin sudah mengisi Secret Key Midtrans/Xendit/Stripe di Pengaturan -> Koneksi API,
+    // buat tautan pembayaran pihak ketiga sungguhan.
     const checkoutUrl = paymentCfg.enabled
       ? await createThirdPartyCheckoutUrl({
           provider: paymentCfg.provider,
           environment: paymentCfg.environment,
           secretKey: paymentCfg.secretKey,
           invoiceNo,
-          amountIdr: plan.priceIdr,
-          planName: plan.labelId,
+          amountIdr: pricing.idrTotalBilled,
+          amountUsd: pricing.usdTotalBilled,
+          planName: `${plan.labelEn} (${billingCycle})`,
           customerEmail,
           customerName,
         })
@@ -336,7 +379,9 @@ export async function POST(req: NextRequest) {
       userEmail: customerEmail,
       userName: customerName,
       requestedTier,
-      amountIdr: plan.priceIdr,
+      billingCycle,
+      amountIdr: pricing.idrTotalBilled,
+      amountUsd: pricing.usdTotalBilled,
       paymentProvider: paymentCfg.provider || 'midtrans',
       paymentMethod,
       paymentRef: paymentRef || 'Menunggu verifikasi pembayaran',

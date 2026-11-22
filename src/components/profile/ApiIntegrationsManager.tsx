@@ -150,6 +150,14 @@ const PROVIDER_PRESETS: Record<IntegrationKey, ProviderPreset[]> = {
       defaultExtra: 'QRIS, VA, OVO, DANA',
     },
     {
+      id: 'stripe',
+      label: 'Stripe Checkout (Global USD)',
+      tier: 'Pay-per-tx · Global',
+      sandboxUrl: 'https://api.stripe.com/v1',
+      productionUrl: 'https://api.stripe.com/v1',
+      defaultExtra: 'Kartu Kredit/Debit Global, Apple Pay, Google Pay (USD)',
+    },
+    {
       id: 'tripay',
       label: 'Tripay / Duitku Starter',
       tier: 'Ramah Pemula & UMKM',
@@ -616,6 +624,32 @@ export function ApiIntegrationsManager() {
               </label>
             </div>
 
+            {activeCategory === 'payment' && (
+              <div className="mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)]/15 px-3.5 py-2.5 text-[12px]">
+                <div className="min-w-0">
+                  <p className="font-semibold text-[var(--text)]">
+                    URL Webhook Pembayaran (Tempel di Dashboard Midtrans / Xendit / Stripe):
+                  </p>
+                  <p className="mt-0.5 truncate font-mono text-[11px] text-[var(--brand)]">
+                    https://stashinmeid.vercel.app/api/membership/webhook
+                  </p>
+                </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<Copy className="size-3.5" />}
+                  onClick={() => {
+                    void navigator.clipboard.writeText(
+                      'https://stashinmeid.vercel.app/api/membership/webhook'
+                    );
+                    toast.success('URL Webhook disalin!');
+                  }}
+                >
+                  Salin URL
+                </Button>
+              </div>
+            )}
+
             <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
               <div>
                 <label
@@ -752,39 +786,56 @@ export function ApiIntegrationsManager() {
             </div>
 
             {activeCategory !== 'news' && (
-              <div className="mt-4">
-                <label
-                  htmlFor={`api-webhook-${activeCategory}`}
-                  className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
-                >
-                  Callback URL
-                </label>
-                <div className="mt-1 flex gap-2">
-                  <input
-                    id={`api-webhook-${activeCategory}`}
-                    name={`apiWebhook_${activeCategory}`}
-                    type="url"
-                    value={currentConfig.webhookUrl}
+              <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor={`api-webhook-${activeCategory}`}
+                    className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+                  >
+                    Callback URL
+                  </label>
+                  <div className="mt-1 flex gap-2">
+                    <input
+                      id={`api-webhook-${activeCategory}`}
+                      name={`apiWebhook_${activeCategory}`}
+                      type="url"
+                      value={currentConfig.webhookUrl}
+                      onChange={(e) =>
+                        updateCategory(activeCategory, {
+                          webhookUrl: e.target.value,
+                        })
+                      }
+                      placeholder="https://stashinmeid.vercel.app/api/membership/webhook"
+                      className="h-9 flex-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 font-mono text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                    />
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={<Copy className="size-3.5" />}
+                      onClick={() => {
+                        if (!currentConfig.webhookUrl) return;
+                        navigator.clipboard.writeText(currentConfig.webhookUrl);
+                        toast.success('URL disalin.');
+                      }}
+                    >
+                      Salin
+                    </Button>
+                  </div>
+                </div>
+                <div>
+                  <PasswordInput
+                    id={`api-webhook-secret-${activeCategory}`}
+                    name={`apiWebhookSecret_${activeCategory}`}
+                    label="Webhook Secret / Callback Token (Opsional)"
+                    value={currentConfig.webhookSecret || ''}
                     onChange={(e) =>
                       updateCategory(activeCategory, {
-                        webhookUrl: e.target.value,
+                        webhookSecret: e.target.value,
                       })
                     }
-                    placeholder="https://stashinmeid.vercel.app/api/integrations?webhook=..."
-                    className="h-9 flex-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 font-mono text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                    placeholder="whsec_... / Xendit callback token"
+                    autoComplete="new-password"
                   />
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    icon={<Copy className="size-3.5" />}
-                    onClick={() => {
-                      if (!currentConfig.webhookUrl) return;
-                      navigator.clipboard.writeText(currentConfig.webhookUrl);
-                      toast.success('URL disalin.');
-                    }}
-                  >
-                    Salin
-                  </Button>
                 </div>
               </div>
             )}

@@ -24,11 +24,20 @@ import {
 import { createClient } from '@/lib/supabase/client';
 import { BrandLogo } from '@/components/BrandLogo';
 import { LocaleSwitcher } from '@/components/shell/LocaleSwitcher';
+import { CurrencySwitcher } from '@/components/shell/CurrencySwitcher';
+import { useCurrency } from '@/components/ui/CurrencyContext';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
 import { GoogleButton } from '@/components/auth/GoogleButton';
-import { MEMBERSHIP_PLANS, type MembershipTier } from '@/lib/membership';
-import { formatRp } from '@/lib/format';
+import {
+  MEMBERSHIP_PLANS,
+  MEMBERSHIP_TIER_ORDER,
+  YEARLY_DISCOUNT_PCT,
+  getPlanPrice,
+  type BillingCycle,
+  type MembershipTier,
+} from '@/lib/membership';
+import { formatMoney } from '@/lib/format';
 
 interface LandingPageProps {
   defaultModalOpen?: boolean;
@@ -42,8 +51,7 @@ interface TickerItem {
   up: boolean;
 }
 
-const BASE_CURRENCIES = ['IDR', 'USD', 'EUR', 'SGD'] as const;
-type BaseCurrency = (typeof BASE_CURRENCIES)[number];
+type BaseCurrency = 'IDR' | 'USD' | 'EUR' | 'SGD';
 
 const FALLBACK_TICKERS: Record<BaseCurrency, TickerItem[]> = {
   IDR: [
@@ -320,21 +328,21 @@ export function LandingPage({
   const t = useTranslations();
   const router = useRouter();
 
+  const { primaryCurrency, idrPerUnit } = useCurrency();
   const [authModalOpen, setAuthModalOpen] = useState(defaultModalOpen);
   const [demoScope, setDemoScope] = useState<DemoScopeKey>('personal');
   const [hoveredBarIdx, setHoveredBarIdx] = useState<number | null>(null);
-  const [baseCurrency, setBaseCurrency] = useState<BaseCurrency>(
-    isEn ? 'USD' : 'IDR'
-  );
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
+  const baseCurrency: string = primaryCurrency || (isEn ? 'USD' : 'IDR');
   const [liveMarket, setLiveMarket] = useState<TickerItem[]>(
-    FALLBACK_TICKERS[isEn ? 'USD' : 'IDR']
+    FALLBACK_TICKERS[(baseCurrency in FALLBACK_TICKERS ? baseCurrency : 'USD') as BaseCurrency]
   );
   const [marketLiveOk, setMarketLiveOk] = useState(false);
   const [enterpriseMode, setEnterpriseMode] = useState(false);
   const [entName, setEntName] = useState('');
   const [entContact, setEntContact] = useState('');
   const [entCompany, setEntCompany] = useState('');
-  const [entGroups, setEntGroups] = useState('10 - 25 Grup');
+  const [entGroups, setEntGroups] = useState('16 - 30 Grup');
   const [entNeeds, setEntNeeds] = useState('');
   const [entSending, setEntSending] = useState(false);
   const [entFeedback, setEntFeedback] = useState<{
@@ -393,9 +401,9 @@ export function LandingPage({
     }
   };
 
-  const fetchLiveMarket = useCallback(async (base: BaseCurrency) => {
+  const fetchLiveMarket = useCallback(async (base: string) => {
     try {
-      const res = await fetch(`/api/market-news?base=${base}&news=0`, {
+      const res = await fetch(`/api/market-news?base=${encodeURIComponent(base)}&news=0`, {
         cache: 'no-store',
       });
       if (!res.ok) return;
@@ -419,7 +427,10 @@ export function LandingPage({
   }, []);
 
   useEffect(() => {
-    setLiveMarket(FALLBACK_TICKERS[baseCurrency]);
+    const fbKey = (
+      baseCurrency in FALLBACK_TICKERS ? baseCurrency : 'USD'
+    ) as BaseCurrency;
+    setLiveMarket(FALLBACK_TICKERS[fbKey]);
     void fetchLiveMarket(baseCurrency);
     const interval = setInterval(() => {
       void fetchLiveMarket(baseCurrency);
@@ -691,7 +702,8 @@ export function LandingPage({
           </div>
 
           <div className="flex items-center gap-2">
-            <LocaleSwitcher />
+            <CurrencySwitcher compact />
+            <LocaleSwitcher compact />
             <Link
               href="/demo"
               className="hidden items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.05] hover:text-white sm:inline-flex"
@@ -719,7 +731,7 @@ export function LandingPage({
           </div>
         </div>
 
-        {/* Live Auto-Scrolling Market Strip dengan Pilihan Mata Uang Dasar */}
+        {/* Live Auto-Scrolling Market Strip mengikuti mata uang yang dipilih di header */}
         <div className="border-t border-white/[0.05] bg-[#080c10]">
           <div className="mx-auto flex max-w-6xl items-center gap-3 px-4 py-1.5 sm:px-6">
             <div className="flex shrink-0 items-center gap-2 border-r border-white/10 pr-3">
@@ -729,26 +741,8 @@ export function LandingPage({
                     marketLiveOk ? 'animate-pulse' : ''
                   }`}
                 />
-                LIVE
+                LIVE · {baseCurrency}
               </span>
-              <label htmlFor="landing-base-currency" className="sr-only">
-                Base currency
-              </label>
-              <select
-                id="landing-base-currency"
-                name="landingBaseCurrency"
-                value={baseCurrency}
-                onChange={(e) =>
-                  setBaseCurrency(e.target.value as BaseCurrency)
-                }
-                className="rounded-md border border-white/10 bg-white/[0.04] px-1.5 py-0.5 font-mono text-[10px] font-semibold text-zinc-200 focus:border-emerald-400 focus:outline-none"
-              >
-                {BASE_CURRENCIES.map((c) => (
-                  <option key={c} value={c} className="bg-[#0b0f13]">
-                    {c}
-                  </option>
-                ))}
-              </select>
             </div>
 
             <div className="relative min-w-0 flex-1 overflow-hidden">
@@ -1140,7 +1134,7 @@ export function LandingPage({
           </SpotlightCard>
         </motion.section>
 
-        {/* Membership Plans (Reguler 3–9 Grup ↔ Slide Switch Enterprise Custom) */}
+        {/* Membership Plans (Reguler 3–15 Grup · Bulanan / Tahunan -20% ↔ Slide Switch Enterprise Custom) */}
         <motion.section
           initial={{ opacity: 0, y: 16 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1156,135 +1150,204 @@ export function LandingPage({
               <p className="mt-0.5 text-[12px] text-zinc-400">
                 {enterpriseMode
                   ? isEn
-                    ? 'Tailored for businesses needing more than 9 groups or custom features.'
-                    : 'Khusus pebisnis yang butuh lebih dari 9 grup atau permintaan fitur custom.'
+                    ? 'Tailored for businesses needing more than 15 groups or custom app features.'
+                    : 'Khusus pebisnis yang butuh lebih dari 15 grup atau permintaan fitur custom.'
                   : isEn
-                    ? 'Start free with up to 3 groups, up to 9 groups on our top plan.'
-                    : 'Mulai gratis hingga 3 grup, sampai 9 grup di paket tertinggi reguler.'}
+                    ? 'Start free with up to 3 groups, scale up to 15 groups. Save 20% on yearly billing.'
+                    : 'Mulai gratis hingga 3 grup, skala hingga 15 grup. Hemat 20% dengan paket tahunan.'}
               </p>
             </div>
 
-            {/* Slide Switch: Reguler ↔ Enterprise Custom */}
-            <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0f1419] px-3.5 py-2">
-              <span
-                className={`text-[12px] font-semibold transition-colors ${
-                  !enterpriseMode ? 'text-white' : 'text-zinc-500'
-                }`}
-              >
-                {isEn ? 'Standard (3–9)' : 'Reguler (3–9)'}
-              </span>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={enterpriseMode}
-                aria-label={
-                  isEn
-                    ? 'Switch to Enterprise Custom'
-                    : 'Geser ke Enterprise Custom'
-                }
-                onClick={() => setEnterpriseMode((v) => !v)}
-                className={`relative h-6 w-12 rounded-full transition-colors ${
-                  enterpriseMode ? 'bg-[#22c58b]' : 'bg-white/15'
-                }`}
-              >
-                <motion.span
-                  layout
-                  transition={{ type: 'spring', stiffness: 500, damping: 32 }}
-                  className={`block size-5 rounded-full bg-white shadow-md ${
-                    enterpriseMode ? 'ml-[26px]' : 'ml-[2px]'
+            <div className="flex flex-wrap items-center gap-2.5">
+              {/* Toggle Bulanan vs Tahunan (20% OFF) saat mode Reguler */}
+              {!enterpriseMode && (
+                <div className="inline-flex items-center rounded-2xl border border-white/10 bg-[#0f1419] p-1 text-[11px] font-semibold">
+                  <button
+                    type="button"
+                    onClick={() => setBillingCycle('monthly')}
+                    className={`rounded-xl px-3 py-1.5 transition ${
+                      billingCycle === 'monthly'
+                        ? 'bg-white/10 text-white'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    {isEn ? 'Monthly' : 'Bulanan'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setBillingCycle('yearly')}
+                    className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-1.5 transition ${
+                      billingCycle === 'yearly'
+                        ? 'bg-[#22c58b] text-[#06120d]'
+                        : 'text-zinc-400 hover:text-white'
+                    }`}
+                  >
+                    <span>{isEn ? 'Yearly' : 'Tahunan'}</span>
+                    <span
+                      className={`rounded-full px-1.5 py-0.5 text-[9px] font-bold ${
+                        billingCycle === 'yearly'
+                          ? 'bg-black/20 text-[#06120d]'
+                          : 'bg-emerald-500/15 text-emerald-300'
+                      }`}
+                    >
+                      -{YEARLY_DISCOUNT_PCT}%
+                    </span>
+                  </button>
+                </div>
+              )}
+
+              {/* Slide Switch: Reguler (3–15) ↔ Enterprise Custom */}
+              <div className="flex items-center gap-3 rounded-2xl border border-white/10 bg-[#0f1419] px-3.5 py-2">
+                <span
+                  className={`text-[12px] font-semibold transition-colors ${
+                    !enterpriseMode ? 'text-white' : 'text-zinc-500'
                   }`}
-                />
-              </button>
-              <span
-                className={`text-[12px] font-semibold transition-colors ${
-                  enterpriseMode ? 'text-emerald-400' : 'text-zinc-500'
-                }`}
-              >
-                Enterprise Custom
-              </span>
+                >
+                  {isEn ? 'Plans (3–15)' : 'Reguler (3–15)'}
+                </span>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={enterpriseMode}
+                  aria-label={
+                    isEn
+                      ? 'Switch to Enterprise Custom'
+                      : 'Geser ke Enterprise Custom'
+                  }
+                  onClick={() => setEnterpriseMode((v) => !v)}
+                  className={`relative h-6 w-12 rounded-full transition-colors ${
+                    enterpriseMode ? 'bg-[#22c58b]' : 'bg-white/15'
+                  }`}
+                >
+                  <motion.span
+                    layout
+                    transition={{ type: 'spring', stiffness: 500, damping: 32 }}
+                    className={`block size-5 rounded-full bg-white shadow-md ${
+                      enterpriseMode ? 'ml-[26px]' : 'ml-[2px]'
+                    }`}
+                  />
+                </button>
+                <span
+                  className={`text-[12px] font-semibold transition-colors ${
+                    enterpriseMode ? 'text-emerald-400' : 'text-zinc-500'
+                  }`}
+                >
+                  Enterprise Custom
+                </span>
+              </div>
             </div>
           </div>
 
           <AnimatePresence mode="wait">
             {!enterpriseMode ? (
               <motion.div
-                key="plans-standard"
+                key={`plans-standard-${billingCycle}`}
                 initial={{ opacity: 0, y: 10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -8 }}
                 transition={{ duration: 0.2 }}
-                className="grid grid-cols-1 gap-4 md:grid-cols-3"
+                className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
               >
-                {(['free', 'pro', 'enterprise'] as MembershipTier[]).map(
-                  (tierId) => {
-                    const plan = MEMBERSHIP_PLANS[tierId];
-                    const highlight = tierId === 'pro';
-                    const price = isEn
-                      ? plan.priceUsd === 0
-                        ? '$0'
-                        : `$${plan.priceUsd}/mo`
-                      : plan.priceIdr === 0
-                        ? 'Rp 0'
-                        : `${formatRp(plan.priceIdr)}/bln`;
+                {MEMBERSHIP_TIER_ORDER.map((tierId: MembershipTier) => {
+                  const plan = MEMBERSHIP_PLANS[tierId];
+                  const highlight = tierId === 'pro';
+                  const pricing = getPlanPrice(plan, billingCycle);
+                  const usdToIdr = idrPerUnit.USD || 15865;
+                  const targetPerIdr = idrPerUnit[baseCurrency] || 1;
+                  const formatPlanAmount = (usdVal: number) => {
+                    if (usdVal === 0) {
+                      return formatMoney(0, baseCurrency, isEn ? 'en' : 'id');
+                    }
+                    if (baseCurrency === 'USD') return `$${usdVal}`;
+                    const inIdr = usdVal * usdToIdr;
+                    const inTarget =
+                      baseCurrency === 'IDR'
+                        ? Math.round(inIdr / 1000) * 1000
+                        : inIdr / targetPerIdr;
+                    return formatMoney(inTarget, baseCurrency, isEn ? 'en' : 'id');
+                  };
 
-                    return (
-                      <SpotlightCard
-                        key={tierId}
-                        className={`p-5 ${
-                          highlight ? 'border-emerald-500/40' : ''
-                        }`}
-                      >
-                        <div className="flex h-full flex-col justify-between">
-                          <div>
-                            <div className="flex items-center justify-between gap-2">
-                              <span className="text-[14px] font-semibold text-white">
-                                {isEn ? plan.labelEn : plan.labelId}
-                              </span>
-                              <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-300">
-                                {isEn ? plan.badgeEn : plan.badgeId}
-                              </span>
-                            </div>
-                            <p className="tnum mt-2 text-2xl font-bold text-white">
-                              {price}
-                            </p>
-                            <p className="mt-1 text-[12px] text-zinc-400">
-                              {isEn ? plan.summaryEn : plan.summaryId}
-                            </p>
+                  const priceLabel =
+                    pricing.usdMonthlyEffective === 0
+                      ? formatPlanAmount(0)
+                      : `${formatPlanAmount(pricing.usdMonthlyEffective)}${isEn ? '/mo' : '/bln'}`;
 
-                            <ul className="mt-4 space-y-2 border-t border-white/[0.06] pt-3 text-[12px] text-zinc-300">
-                              {(isEn ? plan.featuresEn : plan.featuresId).map(
-                                (f) => (
-                                  <li key={f} className="flex items-start gap-2">
-                                    <Check className="mt-0.5 size-3.5 shrink-0 text-[#22c58b]" />
-                                    <span>{f}</span>
-                                  </li>
-                                )
-                              )}
-                            </ul>
+                  return (
+                    <SpotlightCard
+                      key={tierId}
+                      className={`p-5 ${
+                        highlight ? 'border-emerald-500/45' : ''
+                      }`}
+                    >
+                      <div className="flex h-full flex-col justify-between">
+                        <div>
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-[14px] font-semibold text-white">
+                              {isEn ? plan.labelEn : plan.labelId}
+                            </span>
+                            <span className="rounded-full bg-emerald-500/15 px-2.5 py-0.5 text-[10px] font-semibold text-emerald-300">
+                              {isEn ? plan.badgeEn : plan.badgeId}
+                            </span>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => openAuthModal('signup')}
-                            className={`mt-5 w-full rounded-xl py-2.5 text-[12px] font-semibold transition ${
-                              highlight
-                                ? 'bg-[#22c58b] text-[#06120d] hover:bg-[#35d69c]'
-                                : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.09]'
-                            }`}
-                          >
-                            {tierId === 'free'
-                              ? isEn
-                                ? 'Start Free'
-                                : 'Mulai Gratis'
-                              : isEn
-                                ? `Choose ${plan.labelEn}`
-                                : `Pilih ${plan.labelId}`}
-                          </button>
+                          <div className="mt-2.5 flex items-baseline gap-2">
+                            <p className="tnum text-2xl font-bold text-white">
+                              {priceLabel}
+                            </p>
+                            {billingCycle === 'yearly' &&
+                              plan.priceUsdMonthly > 0 && (
+                                <span className="tnum text-[11px] text-zinc-500 line-through">
+                                  {formatPlanAmount(plan.priceUsdMonthly)}
+                                </span>
+                              )}
+                          </div>
+
+                          {billingCycle === 'yearly' &&
+                            plan.priceUsdMonthly > 0 && (
+                              <p className="tnum mt-0.5 text-[11px] font-medium text-emerald-400">
+                                {isEn
+                                  ? `${formatPlanAmount(pricing.usdTotalBilled)}/yr · 20% OFF`
+                                  : `${formatPlanAmount(pricing.usdTotalBilled)}/thn · Hemat 20%`}
+                              </p>
+                            )}
+
+                          <p className="mt-1.5 text-[12px] text-zinc-400">
+                            {isEn ? plan.summaryEn : plan.summaryId}
+                          </p>
+
+                          <ul className="mt-4 space-y-2 border-t border-white/[0.06] pt-3 text-[12px] text-zinc-300">
+                            {(isEn ? plan.featuresEn : plan.featuresId).map(
+                              (f) => (
+                                <li key={f} className="flex items-start gap-2">
+                                  <Check className="mt-0.5 size-3.5 shrink-0 text-[#22c58b]" />
+                                  <span>{f}</span>
+                                </li>
+                              )
+                            )}
+                          </ul>
                         </div>
-                      </SpotlightCard>
-                    );
-                  }
-                )}
+
+                        <button
+                          type="button"
+                          onClick={() => openAuthModal('signup')}
+                          className={`mt-5 w-full rounded-xl py-2.5 text-[12px] font-semibold transition ${
+                            highlight
+                              ? 'bg-[#22c58b] text-[#06120d] hover:bg-[#35d69c]'
+                              : 'border border-white/10 bg-white/[0.04] text-white hover:bg-white/[0.09]'
+                          }`}
+                        >
+                          {tierId === 'free'
+                            ? isEn
+                              ? 'Start Free'
+                              : 'Mulai Gratis'
+                            : isEn
+                              ? `Choose ${plan.labelEn}`
+                              : `Pilih ${plan.labelId}`}
+                        </button>
+                      </div>
+                    </SpotlightCard>
+                  );
+                })}
               </motion.div>
             ) : (
               <motion.div
@@ -1299,26 +1362,26 @@ export function LandingPage({
                     <div className="flex flex-col justify-between lg:col-span-5">
                       <div>
                         <span className="inline-flex rounded-full bg-emerald-500/15 px-3 py-1 text-[11px] font-semibold text-emerald-300">
-                          {isEn ? 'Bespoke · > 9 Groups' : 'Pesanan Khusus · > 9 Grup'}
+                          {isEn ? 'Bespoke · > 15 Groups' : 'Pesanan Khusus · > 15 Grup'}
                         </span>
                         <h3 className="mt-3 text-xl font-bold text-white">
                           Enterprise Custom
                         </h3>
                         <p className="mt-2 text-[13px] leading-relaxed text-zinc-400">
                           {isEn
-                            ? 'Built for businesses that need more than 9 groups, custom modules, tailored workflows, or dedicated onboarding.'
-                            : 'Untuk perusahaan atau pebisnis yang butuh lebih dari 9 grup, tambahan fitur sesuai alur kerja, atau setup khusus.'}
+                            ? 'Built for businesses that need more than 15 groups, custom modules, tailored workflows, or dedicated onboarding.'
+                            : 'Untuk perusahaan atau pebisnis yang butuh lebih dari 15 grup, tambahan fitur sesuai alur kerja, atau setup khusus.'}
                         </p>
 
                         <ul className="mt-4 space-y-2 border-t border-white/[0.06] pt-4 text-[12px] text-zinc-300">
                           {(isEn
                             ? [
-                                'Unlimited / custom group workspaces (> 9 groups)',
+                                'Unlimited / custom group workspaces (> 15 groups)',
                                 'Request bespoke features tailored to your business',
                                 'Direct collaboration with the founder & engineering',
                               ]
                             : [
-                                'Kuota grup tak terbatas (> 9 grup / multi-entitas)',
+                                'Kuota grup tak terbatas (> 15 grup / multi-entitas)',
                                 'Request penambahan fitur khusus sesuai kebutuhan bisnis',
                                 'Diskusi & pengembangan langsung bersama tim inti',
                               ]
@@ -1414,8 +1477,8 @@ export function LandingPage({
                             onChange={(e) => setEntGroups(e.target.value)}
                             className="mt-1 h-9 w-full rounded-xl border border-white/10 bg-[#0f1419] px-3 text-[13px] text-white focus:border-emerald-400 focus:outline-none"
                           >
-                            <option value="10 - 25 Grup">10 - 25 Grup</option>
-                            <option value="25 - 50 Grup">25 - 50 Grup</option>
+                            <option value="16 - 30 Grup">16 - 30 Grup</option>
+                            <option value="30 - 50 Grup">30 - 50 Grup</option>
                             <option value="50+ / Unlimited">50+ / Unlimited</option>
                           </select>
                         </div>

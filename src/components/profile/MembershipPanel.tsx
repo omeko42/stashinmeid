@@ -21,19 +21,26 @@ import { Modal } from '@/components/ui/Modal';
 import { useConfirm } from '@/components/ui/ConfirmProvider';
 import {
   MEMBERSHIP_PLANS,
+  MEMBERSHIP_TIER_ORDER,
+  YEARLY_DISCOUNT_PCT,
+  getPlanPrice,
+  type BillingCycle,
   type EnterpriseInquiry,
   type MembershipOrder,
   type MembershipTier,
 } from '@/lib/membership';
-import { formatRp } from '@/lib/format';
+import { formatMoney, formatRp } from '@/lib/format';
+import { useCurrency } from '@/components/ui/CurrencyContext';
 
 export function MembershipPanel() {
   const locale = useLocale();
   const isEn = locale === 'en';
   const { confirm } = useConfirm();
+  const { primaryCurrency, idrPerUnit } = useCurrency();
 
   const [loading, setLoading] = useState(true);
   const [tier, setTier] = useState<MembershipTier>('free');
+  const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [maxGroups, setMaxGroups] = useState(3);
   const [ownedGroups, setOwnedGroups] = useState(0);
   const [isAdmin, setIsAdmin] = useState(false);
@@ -42,19 +49,19 @@ export function MembershipPanel() {
   const [orders, setOrders] = useState<MembershipOrder[]>([]);
   const [inquiries, setInquiries] = useState<EnterpriseInquiry[]>([]);
 
-  // Slide Switch: Reguler (3-9 Grup) vs Enterprise Custom (> 9 Grup / Pesanan Fitur)
+  // Slide Switch: Reguler (3-15 Grup) vs Enterprise Custom (> 15 Grup / Pesanan Fitur)
   const [enterpriseMode, setEnterpriseMode] = useState(false);
   const [entName, setEntName] = useState('');
   const [entContact, setEntContact] = useState('');
   const [entCompany, setEntCompany] = useState('');
-  const [entGroups, setEntGroups] = useState('10 - 25 Grup');
+  const [entGroups, setEntGroups] = useState('16 - 30 Grup');
   const [entNeeds, setEntNeeds] = useState('');
   const [entSending, setEntSending] = useState(false);
 
   // Checkout Modal State
-  const [checkoutTier, setCheckoutTier] = useState<'pro' | 'enterprise' | null>(
-    null
-  );
+  const [checkoutTier, setCheckoutTier] = useState<
+    Exclude<MembershipTier, 'free'> | null
+  >(null);
   const [paymentMethod, setPaymentMethod] = useState('QRIS');
   const [paymentRef, setPaymentRef] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -96,6 +103,7 @@ export function MembershipPanel() {
         body: JSON.stringify({
           action: 'checkout',
           requestedTier: checkoutTier,
+          billingCycle,
           paymentMethod,
           paymentRef,
         }),
@@ -351,77 +359,119 @@ export function MembershipPanel() {
         )}
       </div>
 
-      {/* Slide Switch: Paket Reguler (3-9 Grup) ↔ Enterprise Custom */}
+      {/* Slide Switch: Paket Reguler (3-15 Grup) ↔ Enterprise Custom */}
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] px-4 py-3">
         <div>
           <p className="text-[13px] font-semibold text-[var(--text)]">
             {enterpriseMode
-              ? 'Enterprise Custom (> 9 Grup & Request Fitur)'
+              ? 'Enterprise Custom (> 15 Grup & Request Fitur)'
               : isEn
-                ? 'Standard Plans (Up to 9 Groups)'
-                : 'Paket Reguler (Maksimal 9 Grup)'}
+                ? 'Standard Plans (Up to 15 Groups)'
+                : 'Paket Reguler (Maksimal 15 Grup)'}
           </p>
           <p className="text-[11px] text-[var(--text-muted)]">
             {enterpriseMode
               ? isEn
-                ? 'Need more than 9 groups or bespoke modules? Tell us your business requirements.'
-                : 'Butuh lebih dari 9 grup atau ingin pesan fitur tambahan khusus bisnismu? Tulis kebutuhanmu di bawah.'
+                ? 'Need more than 15 groups or bespoke modules? Tell us your business requirements.'
+                : 'Butuh lebih dari 15 grup atau ingin pesan fitur tambahan khusus bisnismu? Tulis kebutuhanmu di bawah.'
               : isEn
-                ? 'Toggle switch if your business needs more than 9 groups or custom features.'
-                : 'Geser tombol jika bisnismu butuh lebih dari 9 grup atau fitur custom pesanan.'}
+                ? 'Save 20% with yearly billing, or toggle Enterprise Custom for > 15 groups.'
+                : 'Hemat 20% dengan paket tahunan, atau geser ke Enterprise Custom untuk > 15 grup.'}
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          <span
-            className={`text-[12px] font-semibold ${
-              !enterpriseMode ? 'text-[var(--text)]' : 'text-[var(--text-muted)]'
-            }`}
-          >
-            {isEn ? 'Standard' : 'Reguler'}
-          </span>
-          <button
-            type="button"
-            role="switch"
-            aria-checked={enterpriseMode}
-            aria-label={
-              isEn ? 'Switch to Enterprise Custom' : 'Geser ke Enterprise Custom'
-            }
-            onClick={() => setEnterpriseMode((v) => !v)}
-            className={`relative h-6 w-12 rounded-full transition-colors ${
-              enterpriseMode ? 'bg-[var(--brand)]' : 'bg-[var(--surface-2)] border border-[var(--line)]'
-            }`}
-          >
+        <div className="flex flex-wrap items-center gap-3">
+          {!enterpriseMode && (
+            <div className="inline-flex items-center rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-0.5 text-[11px] font-semibold">
+              <button
+                type="button"
+                onClick={() => setBillingCycle('monthly')}
+                className={`rounded-lg px-2.5 py-1 transition ${
+                  billingCycle === 'monthly'
+                    ? 'bg-[var(--surface-1)] text-[var(--text)] shadow-sm'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+                }`}
+              >
+                {isEn ? 'Monthly' : 'Bulanan'}
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('yearly')}
+                className={`inline-flex items-center gap-1 rounded-lg px-2.5 py-1 transition ${
+                  billingCycle === 'yearly'
+                    ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
+                    : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+                }`}
+              >
+                <span>{isEn ? 'Yearly' : 'Tahunan'}</span>
+                <span className="text-[9px] font-bold">-{YEARLY_DISCOUNT_PCT}%</span>
+              </button>
+            </div>
+          )}
+
+          <div className="flex items-center gap-2.5">
             <span
-              className={`block size-4.5 rounded-full bg-white shadow transition-transform ${
-                enterpriseMode ? 'translate-x-6' : 'translate-x-0.5'
+              className={`text-[12px] font-semibold ${
+                !enterpriseMode ? 'text-[var(--text)]' : 'text-[var(--text-muted)]'
               }`}
-            />
-          </button>
-          <span
-            className={`text-[12px] font-semibold ${
-              enterpriseMode ? 'text-[var(--brand)]' : 'text-[var(--text-muted)]'
-            }`}
-          >
-            Enterprise
-          </span>
+            >
+              {isEn ? 'Plans (3–15)' : 'Reguler (3–15)'}
+            </span>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={enterpriseMode}
+              aria-label={
+                isEn ? 'Switch to Enterprise Custom' : 'Geser ke Enterprise Custom'
+              }
+              onClick={() => setEnterpriseMode((v) => !v)}
+              className={`relative h-6 w-12 rounded-full transition-colors ${
+                enterpriseMode
+                  ? 'bg-[var(--brand)]'
+                  : 'border border-[var(--line)] bg-[var(--surface-2)]'
+              }`}
+            >
+              <span
+                className={`block size-4.5 rounded-full bg-white shadow transition-transform ${
+                  enterpriseMode ? 'translate-x-6' : 'translate-x-0.5'
+                }`}
+              />
+            </button>
+            <span
+              className={`text-[12px] font-semibold ${
+                enterpriseMode ? 'text-[var(--brand)]' : 'text-[var(--text-muted)]'
+              }`}
+            >
+              Enterprise
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* 3 Pilihan Paket Membership Reguler ATAU Form Enterprise Custom */}
+      {/* 4 Pilihan Paket Membership Reguler ATAU Form Enterprise Custom */}
       {!enterpriseMode ? (
-      <div className="grid grid-cols-1 gap-3.5 md:grid-cols-3">
-        {(['free', 'pro', 'enterprise'] as MembershipTier[]).map((planId) => {
+      <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
+        {MEMBERSHIP_TIER_ORDER.map((planId) => {
           const plan = MEMBERSHIP_PLANS[planId];
           const isCurrent = tier === planId;
           const features = isEn ? plan.featuresEn : plan.featuresId;
-          const priceLabel = isEn
-            ? plan.priceUsd === 0
-              ? '$0'
-              : `$${plan.priceUsd}/mo`
-            : plan.priceIdr === 0
-              ? 'Rp 0'
-              : `${formatRp(plan.priceIdr)}/bln`;
+          const pricing = getPlanPrice(plan, billingCycle);
+          const usdToIdr = idrPerUnit.USD || 15865;
+          const targetPerIdr = idrPerUnit[primaryCurrency] || 1;
+          const fmtPlan = (usdVal: number) => {
+            if (usdVal === 0) return formatMoney(0, primaryCurrency, isEn ? 'en' : 'id');
+            if (primaryCurrency === 'USD') return `$${usdVal}`;
+            const inIdr = usdVal * usdToIdr;
+            const inTarget =
+              primaryCurrency === 'IDR'
+                ? Math.round(inIdr / 1000) * 1000
+                : inIdr / targetPerIdr;
+            return formatMoney(inTarget, primaryCurrency, isEn ? 'en' : 'id');
+          };
+          const priceLabel =
+            pricing.usdMonthlyEffective === 0
+              ? fmtPlan(0)
+              : `${fmtPlan(pricing.usdMonthlyEffective)}${isEn ? '/mo' : '/bln'}`;
 
           return (
             <div
@@ -442,9 +492,23 @@ export function MembershipPanel() {
                   </span>
                 </div>
 
-                <p className="tnum mt-2 text-[22px] font-bold text-[var(--text)]">
-                  {priceLabel}
-                </p>
+                <div className="mt-2 flex items-baseline gap-2">
+                  <p className="tnum text-[20px] font-bold text-[var(--text)]">
+                    {priceLabel}
+                  </p>
+                  {billingCycle === 'yearly' && plan.priceUsdMonthly > 0 && (
+                    <span className="tnum text-[11px] text-[var(--text-faint)] line-through">
+                      {fmtPlan(plan.priceUsdMonthly)}
+                    </span>
+                  )}
+                </div>
+                {billingCycle === 'yearly' && plan.priceUsdMonthly > 0 && (
+                  <p className="tnum mt-0.5 text-[11px] font-medium text-[var(--brand)]">
+                    {isEn
+                      ? `${fmtPlan(pricing.usdTotalBilled)}/yr · 20% OFF`
+                      : `${fmtPlan(pricing.usdTotalBilled)}/thn · Hemat 20%`}
+                  </p>
+                )}
                 <p className="mt-1 text-[12px] text-[var(--text-muted)]">
                   {isEn ? plan.summaryEn : plan.summaryId}
                 </p>
@@ -493,25 +557,25 @@ export function MembershipPanel() {
             <div className="lg:col-span-5">
               <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--brand-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--brand)]">
                 <Building2 className="size-3.5" />
-                {isEn ? 'Custom · > 9 Groups' : 'Pesanan Khusus · > 9 Grup'}
+                {isEn ? 'Custom · > 15 Groups' : 'Pesanan Khusus · > 15 Grup'}
               </span>
               <h4 className="mt-2.5 text-[16px] font-bold text-[var(--text)]">
                 Enterprise Custom
               </h4>
               <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-muted)]">
                 {isEn
-                  ? 'For companies needing more than 9 groups, custom features, dedicated approval flows, or private integrations.'
-                  : 'Dirancang untuk pebisnis yang butuh lebih dari 9 grup, tambahan fitur sesuai alur kerja perusahaan, atau integrasi khusus.'}
+                  ? 'For companies needing more than 15 groups, custom features, dedicated approval flows, or private integrations.'
+                  : 'Dirancang untuk pebisnis yang butuh lebih dari 15 grup, tambahan fitur sesuai alur kerja perusahaan, atau integrasi khusus.'}
               </p>
               <ul className="mt-4 space-y-2 border-t border-[var(--line)] pt-3 text-[12px] text-[var(--text-muted)]">
                 {(isEn
                   ? [
-                      'Unlimited / > 9 group workspaces',
+                      'Unlimited / > 15 group workspaces',
                       'Custom feature development on request',
                       'Direct coordination with the founder',
                     ]
                   : [
-                      'Kuota grup > 9 / sesuai skala perusahaan',
+                      'Kuota grup > 15 / sesuai skala perusahaan',
                       'Bisa request fitur tambahan khusus bisnismu',
                       'Koordinasi langsung dengan pengembang',
                     ]
@@ -605,8 +669,8 @@ export function MembershipPanel() {
                     onChange={(e) => setEntGroups(e.target.value)}
                     className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
                   >
-                    <option value="10 - 25 Grup">10 - 25 Grup</option>
-                    <option value="25 - 50 Grup">25 - 50 Grup</option>
+                    <option value="16 - 30 Grup">16 - 30 Grup</option>
+                    <option value="30 - 50 Grup">30 - 50 Grup</option>
                     <option value="50+ / Unlimited">50+ / Unlimited</option>
                   </select>
                 </div>
@@ -903,11 +967,21 @@ export function MembershipPanel() {
                       : MEMBERSHIP_PLANS[checkoutTier].badgeId})
                   </p>
                   <p className="text-[11px] text-[var(--text-muted)]">
-                    Gateway: {paymentProvider.toUpperCase()}
+                    Gateway: {paymentProvider.toUpperCase()} ·{' '}
+                    {billingCycle === 'yearly'
+                      ? isEn
+                        ? 'Yearly (-20%)'
+                        : 'Tahunan (-20%)'
+                      : isEn
+                        ? 'Monthly'
+                        : 'Bulanan'}
                   </p>
                 </div>
                 <span className="tnum text-[16px] font-bold text-[var(--brand)]">
-                  {formatRp(MEMBERSHIP_PLANS[checkoutTier].priceIdr)}
+                  {formatRp(
+                    getPlanPrice(MEMBERSHIP_PLANS[checkoutTier], billingCycle)
+                      .idrTotalBilled
+                  )}
                 </span>
               </div>
 
