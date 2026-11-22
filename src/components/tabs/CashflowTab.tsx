@@ -4,7 +4,7 @@ import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { ArrowDown, ArrowUp, Download, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types/finance';
-import { formatDate, formatRp } from '@/lib/format';
+import { formatFullDate, formatRp } from '@/lib/format';
 import { getCategory } from '@/lib/categories';
 import { Amount, Label } from '@/components/ui/Surface';
 import { Button, IconButton } from '@/components/ui/Button';
@@ -75,6 +75,8 @@ export function CashflowTab({
 
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const PAGE_STEP = 50;
+  const [visibleLimit, setVisibleLimit] = useState(PAGE_STEP);
 
   const sorted = useMemo(() => {
     const rows = [...filteredTransactions];
@@ -88,6 +90,12 @@ export function CashflowTab({
     });
     return rows;
   }, [filteredTransactions, sortKey, sortDir]);
+
+  const visibleRows = useMemo(
+    () => sorted.slice(0, visibleLimit),
+    [sorted, visibleLimit]
+  );
+  const remainingCount = Math.max(0, sorted.length - visibleRows.length);
 
   const toggleSort = (key: SortKey) => {
     if (key === sortKey) {
@@ -204,7 +212,7 @@ export function CashflowTab({
               sama supaya tidak ada kolom yang terpotong di layar sempit.
               Desktop: tabel ledger sungguhan. */}
           <div className="divide-y divide-[var(--line)] sm:hidden">
-            {sorted.map((tx) => {
+            {visibleRows.map((tx) => {
               const meta = getCategory(tx.category);
               const Icon = meta.icon;
               return (
@@ -218,7 +226,7 @@ export function CashflowTab({
                       {tx.description || tx.category}
                     </p>
                     <p className="tnum truncate text-[11px] text-[var(--text-faint)]">
-                      {formatDate(tx.transaction_date)} · {tx.category} · {walletLabel(tx)}
+                      {formatFullDate(tx.transaction_date)} · {tx.category} · {walletLabel(tx)}
                       {tx.group_id && groupById.get(tx.group_id)
                         ? ` · Grup ${groupById.get(tx.group_id)}`
                         : ''}
@@ -300,7 +308,7 @@ export function CashflowTab({
               </tr>
             </thead>
             <tbody>
-              {sorted.map((tx) => {
+              {visibleRows.map((tx) => {
                 const meta = getCategory(tx.category);
                 const Icon = meta.icon;
                 return (
@@ -309,7 +317,7 @@ export function CashflowTab({
                     className="border-b border-[var(--line)] last:border-b-0 hover:bg-[var(--surface-2)]"
                   >
                     <td className="tnum whitespace-nowrap px-4 py-2.5 text-[12px] text-[var(--text-muted)]">
-                      {formatDate(tx.transaction_date)}
+                      {formatFullDate(tx.transaction_date)}
                     </td>
                     <td className="px-4 py-2.5">
                       <div className="flex min-w-0 items-center gap-2.5">
@@ -381,6 +389,33 @@ export function CashflowTab({
               })}
             </tbody>
           </table>
+
+          {remainingCount > 0 && (
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] bg-[var(--surface-2)]/60 px-4 py-3">
+              <p className="tnum text-[12px] text-[var(--text-muted)]">
+                Menampilkan {visibleRows.length.toLocaleString('id-ID')} dari{' '}
+                {sorted.length.toLocaleString('id-ID')} transaksi
+              </p>
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => setVisibleLimit((prev) => prev + PAGE_STEP)}
+                >
+                  Muat {Math.min(PAGE_STEP, remainingCount)} lagi
+                </Button>
+                {remainingCount > PAGE_STEP && (
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => setVisibleLimit(sorted.length)}
+                  >
+                    Tampilkan semua ({sorted.length.toLocaleString('id-ID')})
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

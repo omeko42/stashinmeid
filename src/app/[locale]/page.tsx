@@ -20,6 +20,43 @@ interface HomePageProps {
   params: Promise<{ locale: string }>;
 }
 
+/**
+ * Supabase PostgREST membatasi 1.000 baris per query secara default.
+ * Helper ini mempaginasi otomatis agar riwayat transaksi multi-tahun
+ * (>1.000 baris) tidak terpotong di dashboard.
+ */
+async function fetchAllTransactions(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  client: any,
+  scopeFilter?: string
+): Promise<Transaction[]> {
+  const PAGE_SIZE = 1000;
+  const MAX_PAGES = 20;
+  const all: Transaction[] = [];
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const from = page * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+    let query = client
+      .from('transactions')
+      .select('*')
+      .order('transaction_date', { ascending: false })
+      .order('id', { ascending: false })
+      .range(from, to);
+
+    if (scopeFilter) {
+      query = query.or(scopeFilter);
+    }
+
+    const { data, error } = await query;
+    if (error || !data || data.length === 0) break;
+    all.push(...(data as Transaction[]));
+    if (data.length < PAGE_SIZE) break;
+  }
+
+  return all;
+}
+
 async function DashboardLoader({ locale }: { locale: Locale }) {
   setRequestLocale(locale);
   const cookieStore = await cookies();
@@ -55,17 +92,13 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
             ? `user_id.eq.${targetUserId},group_id.in.(${groupIds.join(',')})`
             : `user_id.eq.${targetUserId}`;
 
-        const [{ data: profile }, { data: transactions }, { data: debts }] = await Promise.all([
+        const [{ data: profile }, transactions, { data: debts }] = await Promise.all([
           adminClient
             .from('profiles')
             .select('email, client_name, bio, avatar_url, banner_url')
             .eq('id', targetUserId)
             .single(),
-          adminClient
-            .from('transactions')
-            .select('*')
-            .or(scopeFilter)
-            .order('transaction_date', { ascending: false }),
+          fetchAllTransactions(adminClient, scopeFilter),
           adminClient
             .from('debts')
             .select('*')
@@ -74,7 +107,7 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
         ]);
 
         loadedData = {
-          transactions: (transactions as Transaction[]) || [],
+          transactions,
           debts: (debts as Debt[]) || [],
           userEmail:
             superadminSession.impersonateEmail ?? profile?.email ?? superadminSession.sub,
@@ -161,23 +194,20 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
     let debts: Debt[] = [];
 
     try {
-      const [profileRes, txRes, debtRes] = await Promise.all([
+      const [profileRes, allTx, debtRes] = await Promise.all([
         supabase
           .from('profiles')
           .select('client_name, role, bio, avatar_url, banner_url')
           .eq('id', user.id)
           .single(),
-        supabase
-          .from('transactions')
-          .select('*')
-          .order('transaction_date', { ascending: false }),
+        fetchAllTransactions(supabase),
         supabase
           .from('debts')
           .select('*')
           .order('created_at', { ascending: false }),
       ]);
       profile = (profileRes.data as Record<string, unknown> | null) ?? null;
-      transactions = (txRes.data as Transaction[]) || [];
+      transactions = allTx;
       debts = (debtRes.data as Debt[]) || [];
     } catch (err) {
       console.error('[stashinmeid] user dashboard loader error:', err);
