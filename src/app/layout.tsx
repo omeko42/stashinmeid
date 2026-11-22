@@ -12,7 +12,19 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? 'https://stashinmeid.vercel.app';
+const DEFAULT_SITE_URL = 'https://stashinmeid.vercel.app';
+const SITE_URL = (() => {
+  const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim();
+  if (raw) {
+    try {
+      new URL(raw);
+      return raw;
+    } catch {
+      // Fallback jika env tidak valid.
+    }
+  }
+  return DEFAULT_SITE_URL;
+})();
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

@@ -24,28 +24,33 @@ async function requireSuperadmin() {
 }
 
 export async function GET() {
-  const admin = createAdminClient();
-  if (!admin) {
-    return NextResponse.json({ error: 'Server config' }, { status: 500 });
+  try {
+    const admin = createAdminClient();
+    if (!admin) {
+      return NextResponse.json({ error: 'Server config' }, { status: 500 });
+    }
+
+    const { data, error } = await admin
+      .from('announcements')
+      .select('id, text, active, created_at')
+      .eq('active', true)
+      .order('created_at', { ascending: false })
+      .limit(1);
+
+    if (error) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
+
+    const latest = data?.[0] ?? null;
+    return NextResponse.json({
+      announcement: latest
+        ? { id: latest.id, text: latest.text }
+        : null,
+    });
+  } catch (err) {
+    console.error('[stashinmeid] announcements GET error:', err);
+    return NextResponse.json({ announcement: null }, { status: 200 });
   }
-
-  const { data, error } = await admin
-    .from('announcements')
-    .select('id, text, active, created_at')
-    .eq('active', true)
-    .order('created_at', { ascending: false })
-    .limit(1);
-
-  if (error) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  }
-
-  const latest = data?.[0] ?? null;
-  return NextResponse.json({
-    announcement: latest
-      ? { id: latest.id, text: latest.text }
-      : null,
-  });
 }
 
 /** Buat pengumuman baru. Menggantikan yang aktif sebelumnya. */

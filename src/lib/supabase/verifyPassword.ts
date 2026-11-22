@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/supabase/project';
+import { resolveSupabaseAnonKey, resolveSupabaseUrl } from '@/lib/supabase/project';
 
 /**
  * Verifikasi password user dengan meniru percobaan login.
@@ -15,8 +15,8 @@ export async function verifyUserPassword(
   email: string,
   password: string
 ): Promise<{ valid: boolean; reason?: string }> {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY;
+  const url = resolveSupabaseUrl();
+  const key = resolveSupabaseAnonKey();
 
   if (!url || !key) {
     return { valid: false, reason: 'Supabase belum dikonfigurasi.' };

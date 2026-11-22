@@ -1,12 +1,10 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
-import { SUPABASE_ANON_KEY, SUPABASE_URL } from '@/lib/supabase/project';
+import { resolveSupabaseAnonKey, resolveSupabaseUrl } from '@/lib/supabase/project';
 
 export async function createClient() {
-  // Env var jadi override kalau di-set; kalau tidak, pakai konstanta di
-  // repo supaya app tetap jalan tanpa setting manual di hosting.
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY;
+  const url = resolveSupabaseUrl();
+  const key = resolveSupabaseAnonKey();
 
   if (!url || !key) {
     return null;

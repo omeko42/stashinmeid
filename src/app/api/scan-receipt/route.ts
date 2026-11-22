@@ -56,9 +56,9 @@ async function getAuthorizedUserId(req: NextRequest): Promise<string | null> {
   const authorization = req.headers.get('authorization');
   if (authorization?.startsWith('Bearer ')) {
     const { createClient: createSupabaseClient } = await import('@supabase/supabase-js');
-    const { SUPABASE_ANON_KEY, SUPABASE_URL } = await import('@/lib/supabase/project');
-    const url = process.env.NEXT_PUBLIC_SUPABASE_URL || SUPABASE_URL;
-    const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || SUPABASE_ANON_KEY;
+    const { resolveSupabaseAnonKey, resolveSupabaseUrl } = await import('@/lib/supabase/project');
+    const url = resolveSupabaseUrl();
+    const anonKey = resolveSupabaseAnonKey();
 
     if (url && anonKey) {
       const bearerClient = createSupabaseClient(url, anonKey, {

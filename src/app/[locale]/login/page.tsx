@@ -379,7 +379,7 @@ export default function LoginPage() {
                 {captchaEnabled && (
                   <div className="pt-1">
                     <TurnstileWidget
-                      key={captchaResetKey}
+                      resetSignal={captchaResetKey}
                       onToken={setCaptchaToken}
                       theme="dark"
                     />
@@ -443,7 +443,7 @@ export default function LoginPage() {
                 {captchaEnabled && (
                   <div className="pt-1">
                     <TurnstileWidget
-                      key={captchaResetKey}
+                      resetSignal={captchaResetKey}
                       onToken={setCaptchaToken}
                       theme="dark"
                     />

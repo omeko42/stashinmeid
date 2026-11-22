@@ -28,8 +28,8 @@ declare global {
 interface TurnstileWidgetProps {
   /** Callback dipanggil dengan token kalau captcha berhasil. */
   onToken: (token: string | null) => void;
-  /** Server key untuk render explicit (opsional, dipakai untuk reset). */
-  widgetId?: string;
+  /** Naikkan angka ini untuk mereset widget tanpa unmount DOM. */
+  resetSignal?: number;
   theme?: 'light' | 'dark' | 'auto';
 }
 
@@ -45,6 +45,7 @@ interface TurnstileWidgetProps {
  */
 export function TurnstileWidget({
   onToken,
+  resetSignal = 0,
   theme = 'dark',
 }: TurnstileWidgetProps) {
   const t = useTranslations('auth');
@@ -57,6 +58,16 @@ export function TurnstileWidget({
   useEffect(() => {
     onTokenRef.current = onToken;
   }, [onToken]);
+
+  useEffect(() => {
+    if (resetSignal > 0 && widgetIdRef.current && window.turnstile) {
+      try {
+        window.turnstile.reset(widgetIdRef.current);
+      } catch {
+        // Widget mungkin sudah dibersihkan saat navigasi.
+      }
+    }
+  }, [resetSignal]);
 
   const siteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim();
 
