@@ -27,5 +27,8 @@ export async function getCallerUserId(): Promise<string | null> {
   );
   if (!session) return null;
 
-  return session.impersonateUserId ?? getOrCreateSuperadminUserId();
+  // `await` wajib: fungsi ini async, jadi tanpa await hasilnya Promise
+  // (bukan string id). Route yang memakainya sebagai `.eq('user_id', ...)`
+  // akan gagal dengan error yang membingungkan.
+  return session.impersonateUserId ?? (await getOrCreateSuperadminUserId());
 }

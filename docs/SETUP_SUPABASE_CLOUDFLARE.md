@@ -107,9 +107,18 @@ perubahan env tidak terpakai kalau tidak rebuild.
 
 ### 2.3 Kalau env-nya belum diset
 
-Aplikasi tetap jalan normal, captcha dilewati. Ini praktis untuk
-localhost. Di production sebaiknya selalu diset - tanpa itu, login
-superadmin tidak punya lapisan kedua.
+Ada dua kondisi, dan bedanya penting:
+
+| Kondisi | Yang terjadi |
+|---------|--------------|
+| **Dua-duanya belum diset** | Aplikasi jalan normal, captcha dilewati. Praktis untuk localhost. |
+| **Site key diset, secret key belum** | **Semua login gagal** dengan pesan "Verifikasi captcha gagal." |
+
+Jadi kalau captcha tiba-tiba tidak bisa dipakai, cek dulu apakah
+`TURNSTILE_SECRET_KEY` ikut ter-set. Keduanya harus diisi bareng.
+
+> Jangan commit nilai aslinya ke repo. Site key aman untuk ditulis di
+> dokumentasi, tapi **secret key tidak boleh** - simpan di Vercel saja.
 
 ### 2.4 Yang dilindungi
 
@@ -149,6 +158,23 @@ Opsional:
 
 > `SUPERADMIN_PASSWORD_HASH` lebih aman daripada password polos.
 > Generate dengan `npm run hash-password -- "passwordmu"`.
+>
+> **Hash itu opsional.** Pilih salah satu:
+>
+> | Cara | Env var | Catatan |
+> |------|---------|---------|
+> | Hash (disarankan) | `SUPERADMIN_PASSWORD_HASH` | Nilai dari `npm run hash-password` |
+> | Password polos | `SUPERADMIN_PASSWORD` | Langsung isi, tanpa hashing |
+>
+> Kalau keduanya ter-set, **hash yang dipakai** dan `_PASSWORD` diabaikan.
+>
+> `npm run hash-password` mensyaratkan password **minimal 12 karakter**.
+> Kalau password lu lebih pendek, pakai saja mode password polos - itu
+> tetap jalan, hanya perlu diisi di Vercel.
+>
+> Password ini terpisah dari password akun user di aplikasi. Login
+> superadmin lewat form login dengan **username** (tanpa `@`), bukan
+> email.
 
 ---
 
@@ -158,32 +184,78 @@ Sudah ada di kode - tombol **"Lupa Password?"** di halaman login, dan
 halaman `reset-password` untuk membuat password baru. Yang perlu
 dikonfigurasi di sisi Supabase:
 
-**Supabase > Authentication > Email Templates > Reset Password**:
+### 4.1 URL Configuration
 
-```
-Redirect URL: {{ .SiteURL }}/reset-password
-```
+**Supabase > Authentication > URL Configuration**:
 
-Dan pastikan di **Authentication > URL Configuration > Redirect URLs** ada:
+- **Site URL**: `https://stashinmeid.vercel.app`
+- **Redirect URLs** - tambahkan satu per baris:
+  - `https://stashinmeid.vercel.app/reset-password`
+  - `http://localhost:3000/reset-password`
 
-```
-https://stashinmeid.vercel.app/reset-password
-http://localhost:3000/reset-password
-```
+Kalau mau otomatis mencakup semua path preview deployment, pakai wildcard:
+`https://stashinmeid-*.vercel.app/reset-password`.
 
-Kalau `SiteURL` di template tidak diisi, link resetnya akan mengarah ke
-domain yang salah dan user akan melihat halaman error.
+### 4.2 Template email
+
+**Supabase > Authentication > Emails > Templates > Reset password**.
+
+> **Jangan edit template ini.** Template bawaan Supabase sudah pakai
+> `{{ .ConfirmationURL }}`, yang otomatis membawa `redirectTo` dari
+> aplikasi. Mengeditnya butuh custom SMTP, dan kalau salah, link resetnya
+> mengarah ke domain yang salah sehingga user lihat halaman error.
+
+Kalau nanti mau customize tampilan email (misal bahasa Indonesia), barulah
+set up custom SMTP di tab **SMTP Settings**, lalu template bisa diedit.
+
+### 4.3 Tes
+
+1. Di halaman login, isi email lalu klik **Lupa Password?**
+2. Cek inbox (dan folder spam) - email titled "Reset your password"
+3. Klik linknya - harus mendarat di halaman **Buat Password Baru**
+4. Kalau muncul "redirect URL not allowed", berarti URL di 4.1 belum lengkap
 
 ---
 
 ## 5. Menjalankan migrasi di production
 
-Kalau ada environment database lain (mis. development), migrasi yang sama
-harus dijalankan di sana juga - SQL di repo ini memang idempotent, jadi
-aman untuk development, staging, dan production.
+### Kalau cuma punya satu database (kasus lu)
 
-Urutan yang aman: ** Development -> Staging -> Production**, supaya
-kamu bisa cek dulu sebelum kena data asli.
+Kalau project Supabase lu cuma satu, tidak ada "migrasi production" yang
+perlu dijalankan terpisah. **Migrasi = copy-paste file SQL ke SQL Editor
+project itu sendiri**, sekali saja.
+
+Artinya:
+
+- SQL Editor > New query > isi isi file > Run
+- Ulangi untuk file berikutnya, sesuai urutan di bagian 1
+
+Kalau file `2026-11-21_bootstrap_new_project.sql` dan
+`2026-11-23_fix_missing_grants.sql` sudah pernah dijalankan, database
+production lu **sudah siap**. Yang tersisa cuma:
+
+1. `2026-11-22_connections_notifications.sql` - tabel kolega & notifikasi
+2. `2026-11-22_oauth_profile_trigger.sql` - trigger profil untuk Google OAuth
+3. `2026-11-22_social_feed_chat.sql` - feed & chat (kalau belum)
+
+Cek pakai query di bagian 1.1 - kalau 5 baris keluar, sudah beres.
+
+### Kalau punya beberapa database
+
+Biasanya ada **development**, **staging**, dan **production**. Kalau memang
+punya, jalankan file SQL yang sama di semuanya, urutan
+**Development -> Staging -> Production**, supaya bisa dicek dulu sebelum
+kena data asli.
+
+Semua file migrasi di repo ini ditulis idempotent (aman diulang), jadi
+kena error di tengah tidak merusak apa yang sudah jadi - tinggal jalankan
+ulang.
+
+### Kalau nanti nambah file baru
+
+Setiap kali ada file baru di `supabase/migrations/`, salin ke SQL Editor
+project yang dipakai aplikasi, lalu jalankan. Kalau lupa, fitur baru bakal
+error dengan "relation does not exist" atau "permission denied".
 
 ---
 

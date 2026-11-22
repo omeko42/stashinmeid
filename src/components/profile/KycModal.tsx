@@ -139,7 +139,15 @@ export function KycModal({
       <div className="space-y-3">
         <div className="flex items-center gap-2">
           <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-            {t('status.' + (status as 'unverified' | 'pending' | 'verified'))}
+            {/* Fallback dipakai supaya status yang belum punya terjemahan
+                (mis. nilai baru dari server) tidak membuat halaman crash. */}
+            {(() => {
+              try {
+                return t('status.' + status);
+              } catch {
+                return status;
+              }
+            })()}
           </span>
         </div>
         <Input

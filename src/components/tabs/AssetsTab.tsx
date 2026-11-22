@@ -184,7 +184,17 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
                     {a.name}
                   </p>
                   <p className="truncate text-[11px] text-[var(--text-muted)]">
-                    {t('kind.' + a.kind)}
+                    {/* `a.kind` datang dari database, jadi bisa nilai apa
+                        saja. Fallback ke label mentahnya supaya halaman
+                        tidak crash kalau ada jenis yang belum punya
+                        terjemahan. */}
+                    {(() => {
+                      try {
+                        return t('kind.' + a.kind);
+                      } catch {
+                        return a.kind;
+                      }
+                    })()}
                     {a.institution ? ` · ${a.institution}` : ''}
                   </p>
                 </div>

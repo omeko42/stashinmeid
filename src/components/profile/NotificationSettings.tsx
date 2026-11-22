@@ -19,6 +19,26 @@ const NOTIFICATION_TYPES = [
 type NotificationType = (typeof NOTIFICATION_TYPES)[number];
 
 /**
+ * Ambil teks terjemahan dengan fallback.
+ *
+ * next-intl melempar error kalau key-nya tidak ada, dan itu terjadi saat
+ * render di server - hasilnya seluruh halaman crash, bukan cuma komponen
+ * ini yang kosong. Jadi di sini aman: kalau key hilang, pakai teks
+ * cadangan yang masih terbaca.
+ */
+function safeTranslate(
+  t: (key: string) => string,
+  key: string,
+  fallback: string
+): string {
+  try {
+    return t(key);
+  } catch {
+    return fallback;
+  }
+}
+
+/**
  * Preferensi notifikasi per user.
  *
  * Tiap jenis notifikasi bisa dimatikan sendiri-sendiri. Kalau dimatikan,
@@ -90,17 +110,17 @@ export function NotificationPreferences() {
         >
           <div className="min-w-0">
             <p className="text-[13px] font-medium text-[var(--text)]">
-              {t(`types.${type}.title`)}
+              {safeTranslate(t, `types.${type}.title`, type)}
             </p>
             <p className="mt-0.5 text-[12px] leading-snug text-[var(--text-muted)]">
-              {t(`types.${type}.hint`)}
+              {safeTranslate(t, `types.${type}.hint`, '')}
             </p>
           </div>
           <Toggle
             checked={preferences[type] !== false}
             onChange={(checked) => toggle(type, checked)}
             disabled={saving === type}
-            label={t(`types.${type}.title`)}
+            label={safeTranslate(t, `types.${type}.title`, type)}
           />
         </div>
       ))}

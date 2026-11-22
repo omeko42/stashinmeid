@@ -330,7 +330,8 @@
       "status": {
         "unverified": "Belum terverifikasi",
         "pending": "Menunggu verifikasi",
-        "verified": "Terverifikasi"
+        "verified": "Terverifikasi",
+        "rejected": "Ditolak"
       },
       "save": "Simpan data KYC",
       "saved": "Data KYC berhasil disimpan.",
@@ -376,7 +377,29 @@
     },
     "notifications": {
       "title": "Notifikasi",
-      "hint": "Pilih notifikasi mana yang mau kamu terima."
+      "hint": "Pilih notifikasi mana yang mau kamu terima.",
+      "types": {
+        "connection_requested": {
+          "title": "Permintaan koneksi",
+          "hint": "Saat ada yang mengirim permintaan become kolega."
+        },
+        "connection_accepted": {
+          "title": "Koneksi diterima",
+          "hint": "Saat permintaan koneksimu diterima."
+        },
+        "group_member_joined": {
+          "title": "Anggota grup bergabung",
+          "hint": "Saat ada anggota baru masuk ke grup keuangan."
+        },
+        "feed_post": {
+          "title": "Postingan di feed",
+          "hint": "Saat kolega kamu memposting sesuatu di feed."
+        },
+        "chat_message": {
+          "title": "Pesan chat",
+          "hint": "Saat ada pesan masuk untukmu."
+        }
+      }
     },
     "danger": {
       "title": "Zona Berbahaya",

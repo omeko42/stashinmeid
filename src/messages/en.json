@@ -330,7 +330,8 @@
       "status": {
         "unverified": "Unverified",
         "pending": "Pending",
-        "verified": "Verified"
+        "verified": "Verified",
+        "rejected": "Rejected"
       },
       "save": "Save KYC data",
       "saved": "KYC data saved.",
@@ -376,7 +377,29 @@
     },
     "notifications": {
       "title": "Notifications",
-      "hint": "Choose which notifications you want to receive."
+      "hint": "Choose which notifications you want to receive.",
+      "types": {
+        "connection_requested": {
+          "title": "Connection requests",
+          "hint": "When someone sends you a connection request."
+        },
+        "connection_accepted": {
+          "title": "Accepted connections",
+          "hint": "When your connection request is accepted."
+        },
+        "group_member_joined": {
+          "title": "New group members",
+          "hint": "When someone joins a finance group you are part of."
+        },
+        "feed_post": {
+          "title": "Feed posts",
+          "hint": "When a connection posts something in the feed."
+        },
+        "chat_message": {
+          "title": "Chat messages",
+          "hint": "When you receive a chat message."
+        }
+      }
     },
     "danger": {
       "title": "Danger zone",
