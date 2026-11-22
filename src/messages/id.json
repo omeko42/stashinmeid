@@ -106,8 +106,8 @@
     "balanceLabel": "Saldo",
     "balanceHint": "Jumlah semua dompet",
     "assetTooltip": "Saldo dompet",
-    "assetPhysical": "Fisik (kas)",
-    "assetNonPhysical": "Non-fisik (bank/e-wallet/crypto)",
+    "assetPhysical": "Tunai (kas)",
+    "assetNonPhysical": "Non-tunai (bank/e-wallet/crypto)",
     "assetTotal": "Total",
     "savingsRate": "Tingkat tabung",
     "inflow": "Masuk",
@@ -473,9 +473,9 @@
   "saldo": {
     "totalLabel": "Total saldo",
     "totalHint": "Semua dompet (dalam {currency})",
-    "physical": "Saldo fisik",
+    "physical": "Saldo tunai",
     "physicalHint": "Kas & lainnya · {count} dompet",
-    "nonPhysical": "Non-fisik",
+    "nonPhysical": "Non-tunai",
     "nonPhysicalHint": "Bank/e-wallet/crypto · {count} dompet",
     "subLabel": "Bagian saldo",
     "sub": {

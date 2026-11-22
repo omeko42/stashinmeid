@@ -179,8 +179,8 @@ export function QuickAddSheet({
             value={state.accountId}
             onChange={(e) => set('accountId', e.target.value)}
           >
-            <option value="">Kas Tunai (Saldo Fisik)</option>
-            <option value="__non_physical__">Bank / E-Wallet (Non-Fisik)</option>
+            <option value="">Kas Tunai</option>
+            <option value="__non_physical__">Non-Tunai (Bank / E-Wallet)</option>
             {accounts.map((acc) => (
               <option key={acc.id} value={acc.id}>
                 {acc.name} ({acc.currency})

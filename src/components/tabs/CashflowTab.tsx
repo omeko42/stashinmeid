@@ -66,8 +66,8 @@ export function CashflowTab({
       const acc = accountById.get(tx.account_id);
       if (acc) return acc.name;
     }
-    if (tx.source === 'manual_non_physical') return 'Non-Fisik';
-    return 'Kas Fisik';
+    if (tx.source === 'manual_non_physical') return 'Non-Tunai';
+    return 'Tunai';
   };
   const t = useTranslations();
   const tCashflow = useTranslations('cashflow');

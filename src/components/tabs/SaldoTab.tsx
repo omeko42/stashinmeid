@@ -108,10 +108,22 @@ export function SaldoTab({
           <div className="mt-1.5">
             <Amount value={formatRp(physicalTotal)} size="lg" />
           </div>
-          <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-            {physical.length === 0 && physicalTotal !== 0
-              ? 'Dari arus kas tunai · 0 dompet terdaftar'
-              : t('physicalHint', { count: physical.length })}
+          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+            {physical.length === 0 ? (
+              <>
+                <span>Kas tunai</span>
+                <span>·</span>
+                <button
+                  type="button"
+                  onClick={() => onSubChange('assets')}
+                  className="font-semibold text-[var(--brand)] hover:underline"
+                >
+                  + Tambah dompet
+                </button>
+              </>
+            ) : (
+              t('physicalHint', { count: physical.length })
+            )}
           </p>
         </section>
         <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
@@ -119,10 +131,22 @@ export function SaldoTab({
           <div className="mt-1.5">
             <Amount value={formatRp(nonPhysicalTotal)} size="lg" />
           </div>
-          <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-            {nonPhysical.length === 0 && nonPhysicalTotal !== 0
-              ? 'Dari arus kas non-fisik · 0 dompet terdaftar'
-              : t('nonPhysicalHint', { count: nonPhysical.length })}
+          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
+            {nonPhysical.length === 0 ? (
+              <>
+                <span>Bank / e-wallet</span>
+                <span>·</span>
+                <button
+                  type="button"
+                  onClick={() => onSubChange('assets')}
+                  className="font-semibold text-[var(--brand)] hover:underline"
+                >
+                  + Tambah dompet
+                </button>
+              </>
+            ) : (
+              t('nonPhysicalHint', { count: nonPhysical.length })
+            )}
           </p>
         </section>
       </div>

@@ -879,7 +879,7 @@ export function LandingPage({
             <p className="max-w-md text-[15px] leading-relaxed text-zinc-400">
               {isEn
                 ? 'Keep personal, family, and company finances separate. Track cash, bank, FX, and crypto in one screen.'
-                : 'Pisahkan keuangan pribadi, keluarga, dan bisnis. Pantau saldo fisik, bank, valas, sampai crypto dari satu layar.'}
+                : 'Pisahkan keuangan pribadi, keluarga, dan bisnis. Pantau saldo tunai, bank, valas, sampai crypto dari satu layar.'}
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">

@@ -106,8 +106,8 @@
     "balanceLabel": "Balance",
     "balanceHint": "Across all wallets",
     "assetTooltip": "Wallet balance",
-    "assetPhysical": "Physical (cash)",
-    "assetNonPhysical": "Non-physical (bank/e-wallet/crypto)",
+    "assetPhysical": "Cash",
+    "assetNonPhysical": "Non-cash (bank/e-wallet/crypto)",
     "assetTotal": "Total",
     "savingsRate": "Savings rate",
     "inflow": "Money in",
@@ -473,9 +473,9 @@
   "saldo": {
     "totalLabel": "Total balance",
     "totalHint": "All wallets (in {currency})",
-    "physical": "Physical balance",
+    "physical": "Cash balance",
     "physicalHint": "Cash & other · {count} wallets",
-    "nonPhysical": "Non-physical",
+    "nonPhysical": "Non-cash",
     "nonPhysicalHint": "Bank/e-wallet/crypto · {count} wallets",
     "subLabel": "Balance sections",
     "sub": {
