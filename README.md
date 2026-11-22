@@ -19,8 +19,16 @@
 ---
 
 <p align="center">
-  <img src="docs/github-hero.svg" alt="StashinMe Workspace Preview" width="100%" />
+  <img src="docs/preview-landing.png" alt="StashinMe — Live Landing Page (stashinme.biz.id)" width="100%" />
 </p>
+
+<details>
+  <summary><strong>Lihat Preview Dasbor Aplikasi (Live Workspace)</strong></summary>
+  <br />
+  <p align="center">
+    <img src="docs/preview-dashboard.png" alt="StashinMe — Live Dashboard Workspace" width="100%" />
+  </p>
+</details>
 
 ## Fitur Utama
 
