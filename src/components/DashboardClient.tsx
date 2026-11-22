@@ -1,9 +1,12 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { useRouter } from '@/i18n/navigation';
 import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
+import { useCurrency } from '@/components/ui/CurrencyContext';
 import { useHotkey } from '@/hooks/useHotkey';
 import { useCountUp } from '@/hooks/useCountUp';
 import { useBudgets } from '@/hooks/useBudgets';
@@ -59,13 +62,19 @@ import {
   ArrowLeftRight,
   Bitcoin,
   Building2,
+  Camera,
+  Check,
+  ChevronDown,
   FlaskConical,
   Landmark,
   Layers,
+  Loader2,
+  Plus,
   RotateCcw,
   User,
   UserCheck,
   Wallet,
+  X,
 } from 'lucide-react';
 
 interface DashboardClientProps {
@@ -114,6 +123,8 @@ export default function DashboardClient({
 }: DashboardClientProps) {
   const locale = useLocale();
   const isEn = locale === 'en';
+  const { confirm } = useConfirm();
+  const { primaryCurrency, convertToIdr } = useCurrency();
   const t = useTranslations();
   const tNav = useTranslations('nav');
   const tCashflow = useTranslations('cashflow');
@@ -146,9 +157,11 @@ export default function DashboardClient({
   const [kycOpen, setKycOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [activeScope, setActiveScope] = useState<'personal' | 'all' | string>(
-    'personal'
+  const [activeScope, setActiveScope] = useState<'all' | 'personal' | string>(
+    'all'
   );
+  const [groupPickerOpen, setGroupPickerOpen] = useState(false);
+  const [fabOpen, setFabOpen] = useState(false);
 
   // Simulasi pelunasan
   const [simSelectedIds, setSimSelectedIds] = useState<string[]>([]);
@@ -308,14 +321,15 @@ export default function DashboardClient({
 
   // Split dompet fisik (kas) vs non-fisik (bank/e-wallet/crypto) + transaksi
   // arus kas yang belum dikaitkan ke dompet spesifik (`!tx.account_id`).
-  // Dengan ini, Total Saldo, Saldo Fisik, Non-Fisik, dan Arus Kas selalu sinkron.
+  // Semua nilai internal dihitung dalam basis IDR (aset mata uang asing
+  // otomatis dikonversi memakai kurs live) lalu diformat sesuai mata uang utama.
   const computedTotals = useMemo(() => {
     const includePersonalWallets =
       activeScope === 'personal' || activeScope === 'all';
     const walletPhysical = includePersonalWallets
       ? assets.accounts
           .filter((a) => a.kind === 'cash' || a.kind === 'other')
-          .reduce((s, a) => s + (assets.convert(a.balance, a.currency) ?? 0), 0)
+          .reduce((s, a) => s + convertToIdr(a.balance, a.currency), 0)
       : 0;
     const walletNonPhysical = includePersonalWallets
       ? assets.accounts
@@ -323,7 +337,7 @@ export default function DashboardClient({
             (a) =>
               a.kind === 'bank' || a.kind === 'ewallet' || a.kind === 'crypto'
           )
-          .reduce((s, a) => s + (assets.convert(a.balance, a.currency) ?? 0), 0)
+          .reduce((s, a) => s + convertToIdr(a.balance, a.currency), 0)
       : 0;
 
     let txPhysical = 0;
@@ -348,8 +362,9 @@ export default function DashboardClient({
       physical,
       nonPhysical,
       total: physical + nonPhysical,
+      primaryCurrency,
     };
-  }, [assets, scopedTransactions, activeScope]);
+  }, [assets.accounts, scopedTransactions, activeScope, convertToIdr, primaryCurrency]);
 
   const totalInflow = useMemo(
     () =>
@@ -570,6 +585,18 @@ export default function DashboardClient({
   const handleDeleteTransaction = async (id: string) => {
     const tx = transactions.find((x) => x.id === id);
     if (!tx) return;
+
+    const ok = await confirm({
+      title: isEn ? 'Delete this transaction?' : 'Hapus transaksi ini?',
+      description: `${tx.description || tx.category} (${tx.type === 'inflow' ? '+' : '-'}${tx.amount.toLocaleString('id-ID')})`,
+      tone: 'danger',
+      audit: {
+        action: 'Hapus Transaksi',
+        category: 'finance',
+        detail: `${tx.category}: ${tx.description || '-'} (${tx.amount})`,
+      },
+    });
+    if (!ok) return;
 
     setTransactions((prev) => prev.filter((x) => x.id !== id));
 
@@ -813,6 +840,21 @@ export default function DashboardClient({
         ? Math.min(debt.monthly_installment, debt.remaining_balance)
         : debt.remaining_balance;
 
+    const ok = await confirm({
+      title: isEn
+        ? `Pay installment for ${debt.platform}?`
+        : `Bayar cicilan ${debt.platform}?`,
+      description: isEn
+        ? `An outflow transaction will be recorded and the remaining balance will be reduced.`
+        : `Pengeluaran sebesar Rp ${payAmount.toLocaleString('id-ID')} akan dicatat dan sisa pinjaman berkurang.`,
+      audit: {
+        action: 'Bayar Cicilan',
+        category: 'finance',
+        detail: `${debt.platform} · Rp ${payAmount.toLocaleString('id-ID')}`,
+      },
+    });
+    if (!ok) return;
+
     const newBalance = Math.max(0, debt.remaining_balance - payAmount);
     const newTenor = debt.remaining_tenor
       ? Math.max(0, debt.remaining_tenor - 1)
@@ -964,6 +1006,23 @@ export default function DashboardClient({
   };
 
   const handleDeleteDebt = async (id: string) => {
+    const target = debts.find((d) => d.id === id);
+    const ok = await confirm({
+      title: isEn
+        ? `Delete loan "${target?.platform || ''}"?`
+        : `Hapus pinjaman "${target?.platform || ''}"?`,
+      description: isEn
+        ? 'This loan record will be permanently removed.'
+        : 'Catatan pinjaman ini akan dihapus secara permanen.',
+      tone: 'danger',
+      audit: {
+        action: 'Hapus Pinjaman',
+        category: 'finance',
+        detail: target?.platform || id,
+      },
+    });
+    if (!ok) return;
+
     try {
       if (!isDemoMode && isSuperadmin) {
         const res = await fetch('/api/superadmin/finance', {
@@ -1151,6 +1210,22 @@ export default function DashboardClient({
   };
 
   const handleLogout = async () => {
+    const ok = await confirm({
+      title: isEn ? 'Sign out from stashinmeid?' : 'Keluar dari akun?',
+      description: isEn
+        ? 'You will return to the landing page and can sign back in anytime.'
+        : 'Anda akan kembali ke halaman utama dan bisa masuk kembali kapan saja.',
+      confirmLabel: isEn ? 'Sign Out' : 'Ya, Keluar',
+      audit: isDemoMode
+        ? undefined
+        : {
+            action: 'Keluar Akun',
+            category: 'auth',
+            detail: profileEmail || profileUsername,
+          },
+    });
+    if (!ok) return;
+
     if (isDemoMode) {
       if (supabase) await supabase.auth.signOut().catch(() => {});
       router.push('/');
@@ -1264,6 +1339,23 @@ export default function DashboardClient({
   };
 
   const handleChangeUserRole = async (userId: string, role: UserRole) => {
+    const u = managedUsers.find((x) => x.id === userId);
+    const ok = await confirm({
+      title: isEn
+        ? `Change role of ${u?.client_name || 'user'} to ${role.toUpperCase()}?`
+        : `Ubah peran ${u?.client_name || 'pengguna'} menjadi ${role.toUpperCase()}?`,
+      description: isEn
+        ? 'This permission change takes effect immediately and is recorded in the audit log.'
+        : 'Perubahan hak akses langsung berlaku dan tercatat di log audit 2 arah.',
+      audit: {
+        action: 'Ubah Peran Pengguna',
+        category: 'admin',
+        detail: `${u?.client_name || userId} → ${role}`,
+        targetUserId: userId,
+      },
+    });
+    if (!ok) return;
+
     const res = await fetch('/api/admin/users', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -1279,6 +1371,23 @@ export default function DashboardClient({
   };
 
   const handleChangeUserTier = async (userId: string, tier: MembershipTier) => {
+    const u = managedUsers.find((x) => x.id === userId);
+    const ok = await confirm({
+      title: isEn
+        ? `Change plan of ${u?.client_name || 'user'} to ${tier.toUpperCase()}?`
+        : `Ubah paket ${u?.client_name || 'pengguna'} ke ${tier.toUpperCase()}?`,
+      description: isEn
+        ? 'Group quota for this account will update immediately.'
+        : 'Kuota grup akun ini akan langsung menyesuaikan paket yang dipilih.',
+      audit: {
+        action: 'Ubah Paket Membership',
+        category: 'membership',
+        detail: `${u?.client_name || userId} → ${tier.toUpperCase()}`,
+        targetUserId: userId,
+      },
+    });
+    if (!ok) return;
+
     const res = await fetch('/api/admin/users', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
@@ -1333,6 +1442,24 @@ export default function DashboardClient({
   };
 
   const handleDeleteUser = async (userId: string) => {
+    const u = managedUsers.find((x) => x.id === userId);
+    const ok = await confirm({
+      title: isEn
+        ? `Permanently delete ${u?.client_name || 'this user'}?`
+        : `Hapus akun ${u?.client_name || 'ini'} secara permanen?`,
+      description: isEn
+        ? 'All data belonging to this user will be removed and cannot be undone.'
+        : 'Seluruh data milik akun ini akan dihapus permanen dan tidak bisa dibatalkan.',
+      tone: 'danger',
+      audit: {
+        action: 'Hapus Pengguna',
+        category: 'admin',
+        detail: `${u?.client_name || userId} (${u?.email || '-'})`,
+        targetUserId: userId,
+      },
+    });
+    if (!ok) return;
+
     const res = await fetch('/api/admin/users', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
@@ -1546,81 +1673,102 @@ export default function DashboardClient({
             </div>
           )}
 
-          {/* Switcher Ruang Keuangan (Pribadi vs Grup Kolega) agar kas/utang perusahaan & keluarga tidak tercampur */}
+          {/* Switcher Ruang Keuangan (#1 Semua Ruang, #2 Pribadi, #3 Grup via Pop-up List) */}
           {(activeTab === 'overview' ||
             activeTab === 'saldo' ||
-            activeTab === 'debts') && (
-            <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-2.5">
-              <div className="flex flex-wrap items-center gap-1.5">
-                <span className="px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
-                  Ruang Keuangan:
-                </span>
-                <button
-                  type="button"
-                  onClick={() => setActiveScope('personal')}
-                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
-                    activeScope === 'personal'
-                      ? 'bg-[var(--brand)] text-[var(--bg)]'
-                      : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
-                  }`}
-                >
-                  <User className="size-3.5" aria-hidden />
-                  Pribadi
-                </button>
-                {kolega.groups.map((g) => {
-                  const active = activeScope === g.id;
-                  return (
-                    <button
-                      key={g.id}
-                      type="button"
-                      onClick={() => setActiveScope(g.id)}
-                      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
-                        active
-                          ? 'bg-[var(--brand)] text-[var(--bg)]'
-                          : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
-                      }`}
-                    >
-                      <Building2 className="size-3.5" aria-hidden />
-                      Grup: {g.name}
-                    </button>
-                  );
-                })}
-                {kolega.groups.length > 0 && (
+            activeTab === 'debts') && (() => {
+            const activeGroup = kolega.groups.find((g) => g.id === activeScope);
+            const isGroupScope = Boolean(activeGroup);
+            return (
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-2.5">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                    {isEn ? 'Space:' : 'Ruang Keuangan:'}
+                  </span>
+
+                  {/* #1 Semua Ruang */}
                   <button
                     type="button"
                     onClick={() => setActiveScope('all')}
                     className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
                       activeScope === 'all'
-                        ? 'bg-[var(--brand)] text-[var(--bg)]'
+                        ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
                         : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
                     }`}
                   >
                     <Layers className="size-3.5" aria-hidden />
-                    Semua Ruang
+                    {isEn ? 'All Spaces' : 'Semua Ruang'}
                   </button>
-                )}
-              </div>
 
-              <div className="flex items-center gap-2 px-2 text-[11px] text-[var(--text-muted)]">
-                <span>
-                  {scopedTransactions.length} transaksi · {activeDebts.length}{' '}
-                  pinjaman aktif
-                </span>
-                {activeScope !== 'personal' && activeScope !== 'all' && (
+                  {/* #2 Pribadi */}
                   <button
                     type="button"
-                    onClick={() => {
-                      setSosialSub('kolega');
-                      navigate('social');
-                    }}
-                    className="font-semibold text-[var(--brand)] hover:underline"
+                    onClick={() => setActiveScope('personal')}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
+                      activeScope === 'personal'
+                        ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
+                        : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                    }`}
                   >
-                    Buka di Sosial →
+                    <User className="size-3.5" aria-hidden />
+                    {isEn ? 'Personal' : 'Pribadi'}
                   </button>
-                )}
+
+                  {/* #3 Grup — buka Pop-up List agar hemat ruang walau punya banyak grup */}
+                  <button
+                    type="button"
+                    onClick={() => setGroupPickerOpen(true)}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
+                      isGroupScope
+                        ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
+                        : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                    }`}
+                  >
+                    <Building2 className="size-3.5" aria-hidden />
+                    <span>
+                      {activeGroup
+                        ? `${isEn ? 'Group' : 'Grup'}: ${activeGroup.name}`
+                        : isEn
+                          ? 'Groups'
+                          : 'Grup'}
+                    </span>
+                    {kolega.groups.length > 0 && (
+                      <span
+                        className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                          isGroupScope
+                            ? 'bg-black/20 text-[var(--brand-contrast)]'
+                            : 'bg-[var(--surface-1)] text-[var(--text-muted)]'
+                        }`}
+                      >
+                        {kolega.groups.length}
+                      </span>
+                    )}
+                    <ChevronDown className="size-3.5 opacity-80" aria-hidden />
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2 px-2 text-[11px] text-[var(--text-muted)]">
+                  <span>
+                    {scopedTransactions.length}{' '}
+                    {isEn ? 'transactions' : 'transaksi'} · {activeDebts.length}{' '}
+                    {isEn ? 'active loans' : 'pinjaman aktif'}
+                  </span>
+                  {isGroupScope && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setSosialSub('kolega');
+                        navigate('social');
+                      }}
+                      className="font-semibold text-[var(--brand)] hover:underline"
+                    >
+                      {isEn ? 'Open in Social →' : 'Buka di Sosial →'}
+                    </button>
+                  )}
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
               {activeTab === 'overview' && (
                 <OverviewTab
@@ -1640,14 +1788,6 @@ export default function DashboardClient({
                   upcomingDueGroups={upcomingDueGroups}
                   budgetStatuses={budgetList}
                   canEdit={canEdit}
-                  scanning={scanning}
-                  onQuickAdd={() => {
-                    if (activeScope !== 'personal' && activeScope !== 'all') {
-                      setQuickAdd((prev) => ({ ...prev, groupId: activeScope }));
-                    }
-                    setShowQuickAdd(true);
-                  }}
-                  onScan={() => fileInputRef.current?.click()}
                   onOpenDebts={() => navigate('debts')}
                   onOpenCashflow={() => {
                     setSaldoSub('cashflow');
@@ -1766,6 +1906,7 @@ export default function DashboardClient({
                   onExportCsv={handleExportCsv}
                   onExportPdf={handleExportPdf}
                   onExportWord={handleExportWord}
+                  onSavePrimaryCurrency={assets.savePrimaryCurrency}
                   isSuperadmin={isSuperadmin}
                 />
               )}
@@ -1916,7 +2057,7 @@ export default function DashboardClient({
         onSubmit={handleAddTransaction}
       />
 
-      {/* Menu pilihan "+ catat": arus kas, anggaran, aset, atau pinjaman */}
+      {/* Menu pilihan "+ catat": arus kas, pindai struk AI, anggaran, aset, atau pinjaman */}
       <Modal
         open={addMenuOpen}
         onClose={() => setAddMenuOpen(false)}
@@ -1929,34 +2070,26 @@ export default function DashboardClient({
               id: 'cashflow' as const,
               label: tQuickAdd('choiceCashflow'),
               icon: <ArrowLeftRight className="size-4" aria-hidden />,
-              action: () => setShowQuickAdd(true),
+            },
+            {
+              id: 'scan' as const,
+              label: isEn ? 'Upload Receipt (AI)' : 'Upload (AI) — Pindai Struk',
+              icon: <Camera className="size-4" aria-hidden />,
             },
             {
               id: 'budget' as const,
               label: tQuickAdd('choiceBudget'),
               icon: <Wallet className="size-4" aria-hidden />,
-              action: () => {
-                setSaldoSub('budget');
-                navigate('saldo');
-              },
             },
             {
               id: 'assets' as const,
               label: tQuickAdd('choiceAssets'),
               icon: <Bitcoin className="size-4" aria-hidden />,
-              action: () => {
-                setSaldoSub('assets');
-                navigate('saldo');
-              },
             },
             {
               id: 'debts' as const,
               label: tQuickAdd('choiceDebts'),
               icon: <Landmark className="size-4" aria-hidden />,
-              action: () => {
-                setShowDebtForm(true);
-                navigate('debts');
-              },
             },
           ].map((choice) => (
             <button
@@ -1964,7 +2097,23 @@ export default function DashboardClient({
               type="button"
               onClick={() => {
                 setAddMenuOpen(false);
-                choice.action();
+                if (choice.id === 'cashflow') {
+                  if (activeScope !== 'personal' && activeScope !== 'all') {
+                    setQuickAdd((prev) => ({ ...prev, groupId: activeScope }));
+                  }
+                  setShowQuickAdd(true);
+                } else if (choice.id === 'scan') {
+                  fileInputRef.current?.click();
+                } else if (choice.id === 'budget') {
+                  setSaldoSub('budget');
+                  navigate('saldo');
+                } else if (choice.id === 'assets') {
+                  setSaldoSub('assets');
+                  navigate('saldo');
+                } else if (choice.id === 'debts') {
+                  setShowDebtForm(true);
+                  navigate('debts');
+                }
               }}
               className="flex items-center gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-left text-[13px] font-semibold text-[var(--text)] transition-colors hover:border-[var(--brand)]"
             >
@@ -2079,6 +2228,155 @@ export default function DashboardClient({
               autoFocus
             />
           </div>
+        </div>
+      )}
+
+      {/* Pop-up Pilihan Grup (#3 Grup) agar daftar grup vertikal & hemat ruang */}
+      <Modal
+        open={groupPickerOpen}
+        onClose={() => setGroupPickerOpen(false)}
+        title={isEn ? 'Select Group Workspace' : 'Pilih Ruang Grup'}
+        description={
+          isEn
+            ? 'Switch to a specific family, business, or project group without cluttering the header.'
+            : 'Pilih grup keluarga, perusahaan, atau proyek agar catatan kas dan pinjaman terpisah rapi.'
+        }
+        size="sm"
+        footer={
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              setGroupPickerOpen(false);
+              setSosialSub('kolega');
+              navigate('social');
+            }}
+          >
+            {isEn ? 'Manage / Create Groups in Social' : 'Kelola / Buat Grup di Sosial'}
+          </Button>
+        }
+      >
+        {kolega.groups.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-[var(--line)] bg-[var(--surface-2)]/60 px-4 py-6 text-center text-[12px] text-[var(--text-muted)]">
+            {isEn
+              ? 'No groups yet. Create your first group from the Social menu.'
+              : 'Belum ada grup. Buat grup pertamamu lewat menu Sosial.'}
+          </div>
+        ) : (
+          <div className="max-h-72 space-y-1.5 overflow-y-auto pr-0.5">
+            {kolega.groups.map((g) => {
+              const selected = activeScope === g.id;
+              const txCount = transactions.filter((tx) => tx.group_id === g.id).length;
+              const debtCount = debts.filter(
+                (d) => d.group_id === g.id && d.status === 'active'
+              ).length;
+              return (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => {
+                    setActiveScope(g.id);
+                    setGroupPickerOpen(false);
+                  }}
+                  className={`flex w-full items-center justify-between gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors ${
+                    selected
+                      ? 'border-[var(--brand)] bg-[var(--brand-soft)]/35 text-[var(--text)]'
+                      : 'border-[var(--line)] bg-[var(--surface-2)]/70 text-[var(--text)] hover:border-[var(--line-strong)]'
+                  }`}
+                >
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-1)] text-[var(--brand)]">
+                      <Building2 className="size-4" aria-hidden />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold">{g.name}</p>
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        {g.members.length} {isEn ? 'members' : 'anggota'} · {txCount}{' '}
+                        {isEn ? 'tx' : 'transaksi'} · {debtCount}{' '}
+                        {isEn ? 'loans' : 'pinjaman'}
+                      </p>
+                    </div>
+                  </div>
+                  {selected && (
+                    <Check className="size-4 shrink-0 text-[var(--brand)]" aria-hidden />
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </Modal>
+
+      {/* Floating Action Button (+) kanan bawah — Catat & Upload (AI) */}
+      {canEdit && (
+        <div className="fixed bottom-6 right-6 z-40 hidden flex-col items-end gap-2.5 lg:flex">
+          <AnimatePresence>
+            {fabOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-30"
+                  onClick={() => setFabOpen(false)}
+                  aria-hidden
+                />
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 8, scale: 0.95 }}
+                  transition={{ duration: 0.16, ease: 'easeOut' }}
+                  className="relative z-40 w-48 overflow-hidden rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)] p-1.5 shadow-2xl"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFabOpen(false);
+                      if (activeScope !== 'personal' && activeScope !== 'all') {
+                        setQuickAdd((prev) => ({ ...prev, groupId: activeScope }));
+                      }
+                      setShowQuickAdd(true);
+                    }}
+                    className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[13px] font-semibold text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
+                  >
+                    <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
+                      <Plus className="size-4" aria-hidden />
+                    </span>
+                    <span>{isEn ? 'Record' : 'Catat'}</span>
+                  </button>
+                  <button
+                    type="button"
+                    disabled={scanning}
+                    onClick={() => {
+                      setFabOpen(false);
+                      fileInputRef.current?.click();
+                    }}
+                    className="mt-1 flex w-full items-center gap-2.5 rounded-lg px-3 py-2.5 text-left text-[13px] font-semibold text-[var(--text)] transition-colors hover:bg-[var(--surface-2)] disabled:opacity-60"
+                  >
+                    <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--info-soft)] text-[var(--info)]">
+                      {scanning ? (
+                        <Loader2 className="size-4 animate-spin" aria-hidden />
+                      ) : (
+                        <Camera className="size-4" aria-hidden />
+                      )}
+                    </span>
+                    <span>{isEn ? 'Upload (AI)' : 'Upload (AI)'}</span>
+                  </button>
+                </motion.div>
+              </>
+            )}
+          </AnimatePresence>
+
+          <button
+            type="button"
+            onClick={() => setFabOpen((v) => !v)}
+            aria-label={isEn ? 'Quick actions' : 'Aksi cepat catat atau pindai'}
+            aria-expanded={fabOpen}
+            className="relative z-40 flex size-13 items-center justify-center rounded-full bg-[var(--brand)] text-[var(--brand-contrast)] shadow-xl transition-transform hover:scale-105 active:scale-95"
+          >
+            {fabOpen ? (
+              <X className="size-6" aria-hidden />
+            ) : (
+              <Plus className="size-6" aria-hidden />
+            )}
+          </button>
         </div>
       )}
 

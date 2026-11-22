@@ -16,6 +16,7 @@ import {
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import {
   MEMBERSHIP_PLANS,
   type MembershipOrder,
@@ -26,6 +27,7 @@ import { formatRp } from '@/lib/format';
 export function MembershipPanel() {
   const locale = useLocale();
   const isEn = locale === 'en';
+  const { confirm } = useConfirm();
 
   const [loading, setLoading] = useState(true);
   const [tier, setTier] = useState<MembershipTier>('free');
@@ -104,15 +106,45 @@ export function MembershipPanel() {
   };
 
   const handleAdminAction = async (
-    orderId: string,
+    ord: MembershipOrder,
     action: 'approve' | 'reject'
   ) => {
-    setBusyOrderId(orderId);
+    const ok = await confirm({
+      title:
+        action === 'approve'
+          ? isEn
+            ? `Activate ${ord.requestedTier.toUpperCase()} for ${ord.userName}?`
+            : `Aktifkan paket ${ord.requestedTier.toUpperCase()} untuk ${ord.userName}?`
+          : isEn
+            ? `Reject upgrade order ${ord.invoiceNo}?`
+            : `Tolak pesanan upgrade ${ord.invoiceNo}?`,
+      description:
+        action === 'approve'
+          ? isEn
+            ? `Confirm payment (${ord.paymentMethod} · ${formatRp(ord.amountIdr)}) and unlock their group quota immediately.`
+            : `Konfirmasi pembayaran (${ord.paymentMethod} · ${formatRp(ord.amountIdr)}) dan aktifkan kuota grup akun ini.`
+          : isEn
+            ? 'This upgrade request will be marked as rejected.'
+            : 'Pesanan ini akan ditandai ditolak dan dicatat di log audit.',
+      tone: action === 'reject' ? 'danger' : 'brand',
+      audit: {
+        action:
+          action === 'approve'
+            ? 'Aktivasi Paket Membership'
+            : 'Tolak Pesanan Membership',
+        category: 'membership',
+        detail: `${ord.userName} · ${ord.requestedTier.toUpperCase()} (${ord.invoiceNo})`,
+        targetUserId: ord.userId,
+      },
+    });
+    if (!ok) return;
+
+    setBusyOrderId(ord.id);
     try {
       const res = await fetch('/api/membership', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action, orderId }),
+        body: JSON.stringify({ action, orderId: ord.id }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
@@ -368,7 +400,7 @@ export function MembershipPanel() {
                       <Button
                         size="sm"
                         loading={busyOrderId === ord.id}
-                        onClick={() => handleAdminAction(ord.id, 'approve')}
+                        onClick={() => handleAdminAction(ord, 'approve')}
                       >
                         {isEn ? 'Activate Plan' : 'Aktifkan Paket'}
                       </Button>
@@ -376,7 +408,7 @@ export function MembershipPanel() {
                         size="sm"
                         variant="secondary"
                         disabled={busyOrderId === ord.id}
-                        onClick={() => handleAdminAction(ord.id, 'reject')}
+                        onClick={() => handleAdminAction(ord, 'reject')}
                       >
                         {isEn ? 'Reject' : 'Tolak'}
                       </Button>

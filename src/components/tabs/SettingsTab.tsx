@@ -1,9 +1,11 @@
 'use client';
 
 import { useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import {
+  Activity,
   Bell,
+  Coins,
   Crown,
   Database,
   Globe,
@@ -23,15 +25,20 @@ import {
 } from '@/components/profile/NotificationSettings';
 import { ApiIntegrationsManager } from '@/components/profile/ApiIntegrationsManager';
 import { MembershipPanel } from '@/components/profile/MembershipPanel';
+import { AuditLogPanel } from '@/components/profile/AuditLogPanel';
 import { DangerZone } from '@/components/profile/DangerZone';
 import { BalanceVisibilityToggle } from '@/components/ui/BalanceVisibilityToggle';
 import { useBalancePrivacy } from '@/components/ui/BalancePrivacy';
+import { useCurrency } from '@/components/ui/CurrencyContext';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
+import { CURRENCY_OPTIONS } from '@/hooks/useAssets';
 
 type SettingsSection =
   | 'appearance'
   | 'notifications'
   | 'membership'
   | 'integrations'
+  | 'audit'
   | 'data'
   | 'account';
 
@@ -45,6 +52,8 @@ interface SettingsTabProps {
   onExportPdf: () => void;
   onExportWord: () => void;
   onExportCsv: () => void;
+  /** Sinkronkan pilihan mata uang utama ke profil database. */
+  onSavePrimaryCurrency?: (currency: string) => Promise<void>;
   /** Superadmin bisa mengatur pita pengumuman global. */
   isSuperadmin?: boolean;
 }
@@ -70,9 +79,12 @@ export function SettingsTab({
   onExportPdf,
   onExportWord,
   onExportCsv,
+  onSavePrimaryCurrency,
   isSuperadmin = false,
 }: SettingsTabProps) {
   const tSettings = useTranslations('settings');
+  const locale = useLocale();
+  const isEn = locale === 'en';
   const [section, setSection] = useState<SettingsSection>('appearance');
 
   const tabs: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
@@ -93,8 +105,13 @@ export function SettingsTab({
     },
     {
       id: 'integrations',
-      label: 'Koneksi API',
+      label: isEn ? 'API Hub' : 'Koneksi API',
       icon: <Plug className="size-4" />,
+    },
+    {
+      id: 'audit',
+      label: 'Audit Log',
+      icon: <Activity className="size-4" />,
     },
     {
       id: 'data',
@@ -167,6 +184,17 @@ export function SettingsTab({
             <LocaleSwitcher />
           </SettingRow>
           <SettingRow
+            icon={<Coins className="size-4" />}
+            title={isEn ? 'Primary Currency' : 'Mata Uang Utama'}
+            caption={
+              isEn
+                ? 'Foreign assets & balances automatically convert to this currency.'
+                : 'Semua saldo & aset mata uang asing langsung dikonversi ke satuan ini.'
+            }
+          >
+            <PrimaryCurrencySelector onSave={onSavePrimaryCurrency} />
+          </SettingRow>
+          <SettingRow
             icon={<Shield className="size-4" />}
             title={tSettings('balance.id.title')}
             caption={tSettings('balance.id.hint')}
@@ -232,6 +260,12 @@ export function SettingsTab({
       {section === 'integrations' && (
         <section role="tabpanel" aria-label="Koneksi API">
           <ApiIntegrationsManager />
+        </section>
+      )}
+
+      {section === 'audit' && (
+        <section role="tabpanel" aria-label="Audit Log">
+          <AuditLogPanel />
         </section>
       )}
 
@@ -321,5 +355,59 @@ function SecurityHint() {
     <span className="text-[11px] text-[var(--text-muted)]">
       {tSettings('sections.profile')} → {tSettings('security.title')}
     </span>
+  );
+}
+
+function PrimaryCurrencySelector({
+  onSave,
+}: {
+  onSave?: (currency: string) => Promise<void>;
+}) {
+  const locale = useLocale();
+  const isEn = locale === 'en';
+  const { primaryCurrency, setPrimaryCurrency } = useCurrency();
+  const { confirm } = useConfirm();
+
+  const handleChange = async (next: string) => {
+    if (next === primaryCurrency) return;
+    const ok = await confirm({
+      title: isEn ? 'Change Primary Currency?' : 'Ganti Mata Uang Utama?',
+      description: isEn
+        ? `Convert all balances and foreign assets display to ${next}?`
+        : `Apakah Anda yakin mengubah satuan mata uang utama ke ${next}? Semua aset mata uang asing akan ikut terhitung otomatis.`,
+      confirmLabel: isEn ? 'Yes, Switch' : 'Ya, Ganti',
+      cancelLabel: isEn ? 'Cancel' : 'Batal',
+      audit: {
+        action: 'Ganti Mata Uang Utama',
+        category: 'settings',
+        detail: `Mata uang utama diubah dari ${primaryCurrency} ke ${next}`,
+      },
+    });
+    if (!ok) return;
+    setPrimaryCurrency(next);
+    if (onSave) {
+      await onSave(next).catch(() => {});
+    }
+  };
+
+  return (
+    <>
+      <label htmlFor="settings-primary-currency" className="sr-only">
+        {isEn ? 'Primary Currency' : 'Mata Uang Utama'}
+      </label>
+      <select
+        id="settings-primary-currency"
+        name="settingsPrimaryCurrency"
+        value={primaryCurrency}
+        onChange={(e) => void handleChange(e.target.value)}
+        className="h-8 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[12px] font-semibold text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+      >
+        {CURRENCY_OPTIONS.filter((c) => c !== 'USDT').map((c) => (
+          <option key={c} value={c}>
+            {c}
+          </option>
+        ))}
+      </select>
+    </>
   );
 }

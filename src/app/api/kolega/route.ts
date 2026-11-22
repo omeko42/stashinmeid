@@ -30,11 +30,51 @@ export async function GET() {
     .from('finance_group_members')
     .select('group_id, role, status')
     .eq('user_id', userId)
-    .eq('status', 'active');
+    .in('status', ['active', 'pending']);
   if (memberships.error) return NextResponse.json({ error: memberships.error.message }, { status: 400 });
 
-  const groupIds = memberships.data.map((m) => m.group_id);
-  if (groupIds.length === 0) return NextResponse.json({ groups: [] });
+  const activeGroupIds = memberships.data
+    .filter((m) => m.status === 'active')
+    .map((m) => m.group_id);
+  const pendingGroupIds = memberships.data
+    .filter((m) => m.status === 'pending')
+    .map((m) => m.group_id);
+
+  // Undangan grup masuk (menunggu konfirmasi 2-arah dari penerima)
+  let pendingInvites: {
+    group_id: string;
+    group_name: string;
+    owner_id: string;
+    owner_name: string;
+  }[] = [];
+
+  if (pendingGroupIds.length > 0) {
+    const { data: pGroups } = await admin
+      .from('finance_groups')
+      .select('id, name, owner_id')
+      .in('id', pendingGroupIds);
+    const ownerIds = [...new Set((pGroups ?? []).map((g) => g.owner_id))];
+    const { data: ownerProfiles } = ownerIds.length
+      ? await admin
+          .from('profiles')
+          .select('id, email, client_name')
+          .in('id', ownerIds)
+      : { data: [] };
+    const ownerMap = new Map(
+      (ownerProfiles ?? []).map((p) => [p.id, p.client_name || p.email])
+    );
+    pendingInvites = (pGroups ?? []).map((g) => ({
+      group_id: g.id,
+      group_name: g.name,
+      owner_id: g.owner_id,
+      owner_name: ownerMap.get(g.owner_id) || 'Pemilik Grup',
+    }));
+  }
+
+  const groupIds = activeGroupIds;
+  if (groupIds.length === 0) {
+    return NextResponse.json({ groups: [], pendingInvites });
+  }
 
   const [groupsRes, allMembers, txRes] = await Promise.all([
     admin.from('finance_groups').select('*').in('id', groupIds),
@@ -72,6 +112,7 @@ export async function GET() {
   }
 
   return NextResponse.json({
+    pendingInvites,
     groups: groupsRes.data.map((g) => ({
       ...g,
       isOwner: g.owner_id === userId,
@@ -162,45 +203,126 @@ export async function POST(req: NextRequest) {
     if (!member.data) return NextResponse.json({ error: `User dengan email ${email} belum terdaftar` }, { status: 404 });
     if (member.data.id === userId) return NextResponse.json({ error: 'Kamu sudah jadi pemilik grup ini' }, { status: 400 });
 
+    // Undangan 2-arah: status awal 'pending' supaya penerima bisa terima/tolak
+    // dan pengundang tetap bisa membatalkan bila salah undang.
     const { error: errIns } = await admin
       .from('finance_group_members')
-      .upsert({ group_id: groupId, user_id: member.data.id, role: 'editor', status: 'active' });
+      .upsert({
+        group_id: groupId,
+        user_id: member.data.id,
+        role: 'editor',
+        status: 'pending',
+      });
     if (errIns) return NextResponse.json({ error: errIns.message }, { status: 400 });
 
-    // Kabari anggota lain bahwa ada yang baru bergabung. Anggota baru
-    // sendiri juga dikabari, supaya dia tahu dia sudah masuk.
     const { data: groupInfo } = await admin
       .from('finance_groups')
       .select('name')
       .eq('id', groupId)
       .maybeSingle();
 
-    const { data: existing } = await admin
-      .from('finance_group_members')
-      .select('user_id')
-      .eq('group_id', groupId);
-
-    const memberIds = (existing ?? [])
-      .map((m) => m.user_id)
-      .filter((id): id is string => Boolean(id));
-
-    const joinerName = await getDisplayName(admin, member.data.id);
+    const inviterName = await getDisplayName(admin, userId);
     const groupName = groupInfo?.name || 'grup keuangan';
 
     await notifyMany(
       admin,
-      memberIds,
+      [member.data.id],
       userId,
       'group_member_joined',
-      'Anggota baru bergabung',
-      `${joinerName} bergabung ke grup ${groupName}.`,
+      `Undangan grup ${groupName}`,
+      `${inviterName} mengundangmu bergabung ke grup ${groupName}. Terima atau tolak di menu Sosial.`,
       'tab:social:kolega'
     );
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, status: 'pending' });
   }
 
   return NextResponse.json({ error: 'Body tidak valid' }, { status: 400 });
+}
+
+export async function PATCH(req: NextRequest) {
+  const userId = await getUserId();
+  if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+
+  const admin = createAdminClient();
+  if (!admin) return NextResponse.json({ error: 'Server config' }, { status: 500 });
+
+  const body = await req.json().catch(() => null);
+  const groupId = typeof body?.groupId === 'string' ? body.groupId : '';
+  const action = typeof body?.action === 'string' ? body.action : '';
+  const targetUserId = typeof body?.targetUserId === 'string' ? body.targetUserId : '';
+
+  if (!groupId || !['accept', 'reject', 'cancel'].includes(action)) {
+    return NextResponse.json({ error: 'Permintaan tidak valid.' }, { status: 400 });
+  }
+
+  const { data: group } = await admin
+    .from('finance_groups')
+    .select('id, name, owner_id')
+    .eq('id', groupId)
+    .maybeSingle();
+  if (!group) return NextResponse.json({ error: 'Grup tidak ditemukan.' }, { status: 404 });
+
+  if (action === 'cancel') {
+    if (group.owner_id !== userId || !targetUserId) {
+      return NextResponse.json({ error: 'Hanya pemilik grup yang bisa membatalkan undangan.' }, { status: 403 });
+    }
+    const { error } = await admin
+      .from('finance_group_members')
+      .delete()
+      .eq('group_id', groupId)
+      .eq('user_id', targetUserId)
+      .eq('status', 'pending');
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+    return NextResponse.json({ ok: true });
+  }
+
+  // Penerima merespons undangan (accept / reject)
+  if (action === 'accept') {
+    const { error } = await admin
+      .from('finance_group_members')
+      .update({ status: 'active' })
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+      .eq('status', 'pending');
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    const joinerName = await getDisplayName(admin, userId);
+    await notifyMany(
+      admin,
+      [group.owner_id],
+      userId,
+      'group_member_joined',
+      `Undangan ${group.name} diterima`,
+      `${joinerName} resmi bergabung ke grup ${group.name}.`,
+      'tab:social:kolega'
+    );
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === 'reject') {
+    const { error } = await admin
+      .from('finance_group_members')
+      .delete()
+      .eq('group_id', groupId)
+      .eq('user_id', userId)
+      .eq('status', 'pending');
+    if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+    const actorName = await getDisplayName(admin, userId);
+    await notifyMany(
+      admin,
+      [group.owner_id],
+      userId,
+      'group_member_joined',
+      `Undangan ${group.name} ditolak`,
+      `${actorName} menolak undangan bergabung ke grup ${group.name}.`,
+      'tab:social:kolega'
+    );
+    return NextResponse.json({ ok: true });
+  }
+
+  return NextResponse.json({ ok: true });
 }
 
 export async function DELETE(req: NextRequest) {

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ArrowDownRight, ArrowUpRight, CalendarClock, Camera, Plus } from 'lucide-react';
+import { ArrowDownRight, ArrowUpRight, CalendarClock } from 'lucide-react';
 import type { Debt, Transaction } from '@/types/finance';
 import { formatDate, formatRp } from '@/lib/format';
 import { getCategory } from '@/lib/categories';
@@ -38,9 +38,6 @@ interface OverviewTabProps {
   /** Aset dompet: fisik vs non-fisik, untuk tooltip di hero saldo. */
   assetTotals?: { physical: number; nonPhysical: number };
   canEdit: boolean;
-  scanning: boolean;
-  onQuickAdd: () => void;
-  onScan: () => void;
   onOpenDebts: () => void;
   onOpenCashflow: () => void;
   onOpenBudget: () => void;
@@ -67,9 +64,6 @@ export function OverviewTab({
   budgetStatuses,
   assetTotals,
   canEdit,
-  scanning,
-  onQuickAdd,
-  onScan,
   onOpenDebts,
   onOpenCashflow,
   onOpenBudget,
@@ -155,23 +149,6 @@ export function OverviewTab({
               </span>
             </p>
           </div>
-
-          {canEdit && (
-            <div className="flex flex-wrap gap-2">
-              <Button icon={<Plus className="size-4" />} onClick={onQuickAdd}>
-                {tOverview('quickAdd')}
-              </Button>
-              <Button
-                variant="secondary"
-                icon={<Camera className="size-4" />}
-                onClick={onScan}
-                loading={scanning}
-              >
-                <span className="hidden sm:inline">{t('settings.data.scan')}</span>
-                <span className="sm:hidden">{t('tools.scanShort')}</span>
-              </Button>
-            </div>
-          )}
         </div>
 
         {/* Debit / kredit dipisah garis vertikal, bukan kartu terpisah */}

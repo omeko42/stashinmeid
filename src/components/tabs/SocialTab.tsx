@@ -31,6 +31,8 @@ import {
 import { Amount, Label } from '@/components/ui/Surface';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Modal } from '@/components/ui/Modal';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { ChatPanel } from './ChatPanel';
 import { FeedTab } from './FeedTab';
 import { formatDate, formatRp } from '@/lib/format';
@@ -133,6 +135,15 @@ export function SocialTab({
   const tSos = useTranslations('sosial');
   const tKolega = useTranslations('settings.kolega');
   const tConn = useTranslations('sosial.connections');
+  const { confirm } = useConfirm();
+
+  // State modal "Atur Grup" untuk satu kolega
+  const [assigningColleague, setAssigningColleague] = useState<{
+    userId: string;
+    name: string;
+    email: string;
+  } | null>(null);
+  const [busyGroupAction, setBusyGroupAction] = useState<string | null>(null);
 
   // Grup kolega yang sedang dipilih untuk Ringkasan Grup
   const [internalGroupId, setInternalGroupId] = useState<string | null>(null);
@@ -309,11 +320,24 @@ export function SocialTab({
 
   const handleInviteToGroup = async (groupId: string, email: string) => {
     if (!email.trim()) return;
+    const grp = kolega.groups.find((g) => g.id === groupId);
+    const ok = await confirm({
+      title: 'Kirim Undangan Grup?',
+      description: `Undang ${email.trim()} ke grup "${grp?.name || 'Keuangan'}"? Penerima perlu menyetujui undangan (2 arah), dan kamu tetap bisa membatalkannya sebelum diterima.`,
+      confirmLabel: 'Ya, Kirim Undangan',
+      audit: {
+        action: 'Undang ke Grup',
+        category: 'group',
+        detail: `Mengundang ${email.trim()} ke grup ${grp?.name || groupId}`,
+      },
+    });
+    if (!ok) return;
+
     setInviting(true);
     try {
       await kolega.invite(groupId, email.trim());
       setInviteEmail('');
-      toast.success(tKolega('invited'));
+      toast.success('Undangan terkirim. Menunggu konfirmasi kolega.');
     } catch (e) {
       toast.error(e instanceof Error ? e.message : tKolega('failed'));
     } finally {
@@ -594,6 +618,92 @@ export function SocialTab({
       ===================================================================== */}
       {sub === 'kolega' && (
         <div className="space-y-5">
+          {/* Undangan Grup Masuk (Konfirmasi 2-Arah: Terima / Tolak) */}
+          {kolega.pendingInvites.length > 0 && (
+            <section className="rounded-xl border border-[var(--brand)]/40 bg-[var(--brand-soft)]/50 p-4">
+              <p className="text-[13px] font-semibold text-[var(--text)]">
+                Undangan Bergabung ke Grup ({kolega.pendingInvites.length})
+              </p>
+              <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {kolega.pendingInvites.map((inv) => (
+                  <div
+                    key={inv.group_id}
+                    className="flex items-center justify-between gap-3 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3.5 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-[var(--text)]">
+                        {inv.group_name}
+                      </p>
+                      <p className="truncate text-[11px] text-[var(--text-muted)]">
+                        Diundang oleh {inv.owner_name}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        loading={busyGroupAction === `accept-${inv.group_id}`}
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: 'Terima Undangan Grup?',
+                            description: `Apakah Anda yakin bergabung ke grup "${inv.group_name}" milik ${inv.owner_name}?`,
+                            confirmLabel: 'Ya, Bergabung',
+                            audit: {
+                              action: 'Terima Undangan Grup',
+                              category: 'group',
+                              detail: `Bergabung ke grup ${inv.group_name}`,
+                              targetUserId: inv.owner_id,
+                            },
+                          });
+                          if (!ok) return;
+                          setBusyGroupAction(`accept-${inv.group_id}`);
+                          try {
+                            await kolega.respondInvite(inv.group_id, 'accept');
+                            toast.success(`Bergabung ke grup ${inv.group_name}.`);
+                          } catch (e) {
+                            toast.error(e instanceof Error ? e.message : 'Gagal menerima undangan.');
+                          } finally {
+                            setBusyGroupAction(null);
+                          }
+                        }}
+                      >
+                        Terima
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busyGroupAction === `accept-${inv.group_id}`}
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: 'Tolak Undangan Grup?',
+                            description: `Tolak ajakan bergabung ke grup "${inv.group_name}"?`,
+                            confirmLabel: 'Ya, Tolak',
+                            tone: 'danger',
+                            audit: {
+                              action: 'Tolak Undangan Grup',
+                              category: 'group',
+                              detail: `Menolak undangan grup ${inv.group_name}`,
+                              targetUserId: inv.owner_id,
+                            },
+                          });
+                          if (!ok) return;
+                          setBusyGroupAction(`reject-${inv.group_id}`);
+                          try {
+                            await kolega.respondInvite(inv.group_id, 'reject');
+                            toast.success('Undangan ditolak.');
+                          } finally {
+                            setBusyGroupAction(null);
+                          }
+                        }}
+                      >
+                        Tolak
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Bar Pemilih Grup Kolega + Buat Grup Baru */}
           <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
@@ -853,9 +963,16 @@ export function SocialTab({
                               {displayName.slice(0, 1).toUpperCase()}
                             </span>
                             <div className="min-w-0">
-                              <p className="truncate text-[12px] font-semibold text-[var(--text)]">
-                                {displayName}
-                              </p>
+                              <div className="flex items-center gap-1.5">
+                                <p className="truncate text-[12px] font-semibold text-[var(--text)]">
+                                  {displayName}
+                                </p>
+                                {m.status === 'pending' && (
+                                  <span className="rounded bg-[var(--due-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--due)]">
+                                    Menunggu
+                                  </span>
+                                )}
+                              </div>
                               <p className="truncate text-[10px] uppercase text-[var(--text-muted)]">
                                 {m.role}
                               </p>
@@ -863,28 +980,27 @@ export function SocialTab({
                           </div>
 
                           <div className="flex shrink-0 items-center gap-1">
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() =>
-                                openFullChatWith({
-                                  id: m.user_id,
-                                  client_name: displayName,
-                                  avatar_url: m.profile?.avatar_url ?? null,
-                                })
-                              }
-                            >
-                              Chat
-                            </Button>
-                            {selectedGroup.isOwner && m.role !== 'owner' && (
-                              <IconButton
+                            {m.status === 'pending' && selectedGroup.isOwner ? (
+                              <Button
                                 size="sm"
-                                variant="ghost"
-                                label={tKolega('remove')}
+                                variant="secondary"
                                 onClick={async () => {
+                                  const ok = await confirm({
+                                    title: 'Batalkan Undangan?',
+                                    description: `Batalkan undangan ${displayName} ke grup "${selectedGroup.name}"?`,
+                                    confirmLabel: 'Ya, Batalkan',
+                                    tone: 'danger',
+                                    audit: {
+                                      action: 'Batalkan Undangan Grup',
+                                      category: 'group',
+                                      detail: `Membatalkan undangan ${displayName} dari grup ${selectedGroup.name}`,
+                                      targetUserId: m.user_id,
+                                    },
+                                  });
+                                  if (!ok) return;
                                   try {
-                                    await kolega.remove(selectedGroup.id, m.user_id);
-                                    toast.success(tKolega('removed'));
+                                    await kolega.cancelInvite(selectedGroup.id, m.user_id);
+                                    toast.success('Undangan dibatalkan.');
                                   } catch (e) {
                                     toast.error(
                                       e instanceof Error ? e.message : tKolega('failed')
@@ -892,8 +1008,56 @@ export function SocialTab({
                                   }
                                 }}
                               >
-                                <X className="size-3.5" />
-                              </IconButton>
+                                Batalkan
+                              </Button>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="ghost"
+                                  onClick={() =>
+                                    openFullChatWith({
+                                      id: m.user_id,
+                                      client_name: displayName,
+                                      avatar_url: m.profile?.avatar_url ?? null,
+                                    })
+                                  }
+                                >
+                                  Chat
+                                </Button>
+                                {selectedGroup.isOwner && m.role !== 'owner' && (
+                                  <IconButton
+                                    size="sm"
+                                    variant="ghost"
+                                    label={tKolega('remove')}
+                                    onClick={async () => {
+                                      const ok = await confirm({
+                                        title: 'Keluarkan Anggota?',
+                                        description: `Keluarkan ${displayName} dari grup "${selectedGroup.name}"?`,
+                                        confirmLabel: 'Ya, Keluarkan',
+                                        tone: 'danger',
+                                        audit: {
+                                          action: 'Keluarkan Anggota Grup',
+                                          category: 'group',
+                                          detail: `Mengeluarkan ${displayName} dari grup ${selectedGroup.name}`,
+                                          targetUserId: m.user_id,
+                                        },
+                                      });
+                                      if (!ok) return;
+                                      try {
+                                        await kolega.remove(selectedGroup.id, m.user_id);
+                                        toast.success(tKolega('removed'));
+                                      } catch (e) {
+                                        toast.error(
+                                          e instanceof Error ? e.message : tKolega('failed')
+                                        );
+                                      }
+                                    }}
+                                  >
+                                    <X className="size-3.5" />
+                                  </IconButton>
+                                )}
+                              </>
                             )}
                           </div>
                         </div>
@@ -982,19 +1146,37 @@ export function SocialTab({
                                 </p>
                               )}
                             </div>
-                            <Button
-                              size="sm"
-                              variant="secondary"
-                              onClick={() =>
-                                openFullChatWith({
-                                  id: c.user_id,
-                                  client_name: name,
-                                  avatar_url: c.profile?.avatar_url ?? null,
-                                })
-                              }
-                            >
-                              Chat
-                            </Button>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              {c.profile?.email &&
+                                kolega.groups.some((g) => g.isOwner) && (
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() =>
+                                      setAssigningColleague({
+                                        userId: c.user_id,
+                                        name,
+                                        email: c.profile?.email || '',
+                                      })
+                                    }
+                                  >
+                                    Atur Grup
+                                  </Button>
+                                )}
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                onClick={() =>
+                                  openFullChatWith({
+                                    id: c.user_id,
+                                    client_name: name,
+                                    avatar_url: c.profile?.avatar_url ?? null,
+                                  })
+                                }
+                              >
+                                Chat
+                              </Button>
+                            </div>
                           </div>
                         );
                       })}
@@ -1416,6 +1598,158 @@ export function SocialTab({
           </div>
         </div>
       )}
+      {/* Modal Atur Grup untuk Satu Kolega (Pilih Grup Mana Saja + Batalkan Invite) */}
+      <Modal
+        open={assigningColleague !== null}
+        onClose={() => setAssigningColleague(null)}
+        title={
+          assigningColleague
+            ? `Atur Grup: ${assigningColleague.name}`
+            : 'Atur Grup Kolega'
+        }
+        description="Pilih grup mana saja yang ingin kamu bagikan dengan kolega ini. Undangan memerlukan persetujuan 2 arah."
+        size="md"
+        footer={
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => setAssigningColleague(null)}
+          >
+            Tutup
+          </Button>
+        }
+      >
+        {assigningColleague && (
+          <div className="space-y-2.5">
+            {kolega.groups
+              .filter((g) => g.isOwner)
+              .map((g) => {
+                const membership = g.members.find(
+                  (m) => m.user_id === assigningColleague.userId
+                );
+                const isActive = membership?.status === 'active';
+                const isPending = membership?.status === 'pending';
+
+                return (
+                  <div
+                    key={g.id}
+                    className="flex items-center justify-between gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3.5 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-[var(--text)]">
+                        {g.name}
+                      </p>
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        {isActive
+                          ? 'Anggota aktif'
+                          : isPending
+                            ? 'Undangan menunggu persetujuan'
+                            : 'Belum bergabung'}
+                      </p>
+                    </div>
+
+                    {isActive ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={busyGroupAction === `rm-${g.id}`}
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: 'Keluarkan dari Grup?',
+                            description: `Keluarkan ${assigningColleague.name} dari grup "${g.name}"?`,
+                            confirmLabel: 'Ya, Keluarkan',
+                            tone: 'danger',
+                            audit: {
+                              action: 'Keluarkan Anggota Grup',
+                              category: 'group',
+                              detail: `Mengeluarkan ${assigningColleague.name} dari grup ${g.name}`,
+                              targetUserId: assigningColleague.userId,
+                            },
+                          });
+                          if (!ok) return;
+                          setBusyGroupAction(`rm-${g.id}`);
+                          try {
+                            await kolega.remove(g.id, assigningColleague.userId);
+                            toast.success(`Dikeluarkan dari ${g.name}.`);
+                          } finally {
+                            setBusyGroupAction(null);
+                          }
+                        }}
+                      >
+                        Keluarkan
+                      </Button>
+                    ) : isPending ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        loading={busyGroupAction === `cancel-${g.id}`}
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: 'Batalkan Undangan?',
+                            description: `Batalkan undangan ${assigningColleague.name} ke grup "${g.name}"?`,
+                            confirmLabel: 'Ya, Batalkan',
+                            tone: 'danger',
+                            audit: {
+                              action: 'Batalkan Undangan Grup',
+                              category: 'group',
+                              detail: `Membatalkan undangan ${assigningColleague.name} ke grup ${g.name}`,
+                              targetUserId: assigningColleague.userId,
+                            },
+                          });
+                          if (!ok) return;
+                          setBusyGroupAction(`cancel-${g.id}`);
+                          try {
+                            await kolega.cancelInvite(
+                              g.id,
+                              assigningColleague.userId
+                            );
+                            toast.success('Undangan dibatalkan.');
+                          } finally {
+                            setBusyGroupAction(null);
+                          }
+                        }}
+                      >
+                        Batalkan
+                      </Button>
+                    ) : (
+                      <Button
+                        size="sm"
+                        loading={busyGroupAction === `inv-${g.id}`}
+                        onClick={async () => {
+                          const ok = await confirm({
+                            title: 'Undang ke Grup?',
+                            description: `Kirim undangan ke ${assigningColleague.name} untuk bergabung ke grup "${g.name}"?`,
+                            confirmLabel: 'Ya, Undang',
+                            audit: {
+                              action: 'Undang ke Grup',
+                              category: 'group',
+                              detail: `Mengundang ${assigningColleague.name} ke grup ${g.name}`,
+                              targetUserId: assigningColleague.userId,
+                            },
+                          });
+                          if (!ok) return;
+                          setBusyGroupAction(`inv-${g.id}`);
+                          try {
+                            await kolega.invite(g.id, assigningColleague.email);
+                            toast.success(`Undangan ke ${g.name} dikirim.`);
+                          } catch (e) {
+                            toast.error(
+                              e instanceof Error ? e.message : 'Gagal mengundang.'
+                            );
+                          } finally {
+                            setBusyGroupAction(null);
+                          }
+                        }}
+                      >
+                        Undang
+                      </Button>
+                    )}
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }

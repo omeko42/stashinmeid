@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
   Banknote,
@@ -17,8 +17,9 @@ import {
 import { Amount } from '@/components/ui/Surface';
 import { BalanceVisibilityToggle } from '@/components/ui/BalanceVisibilityToggle';
 import { Button } from '@/components/ui/Button';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { CURRENCY_OPTIONS, useAssets, type AccountKind } from '@/hooks/useAssets';
-import { formatRp } from '@/lib/format';
+import { formatMoney } from '@/lib/format';
 import { cn } from '@/lib/cn';
 
 const KIND_ICONS: Record<AccountKind, React.ReactNode> = {
@@ -43,6 +44,9 @@ const EMPTY_FORM = {
  * utama supaya aset bisa dihitung dalam satu satuan.
  */
 export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) {
+  const locale = useLocale() as 'id' | 'en';
+  const isEn = locale === 'en';
+  const { confirm } = useConfirm();
   const t = useTranslations('assets');
   const tCommon = useTranslations('common');
   const [form, setForm] = useState(EMPTY_FORM);
@@ -129,7 +133,7 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
               </p>
               <BalanceVisibilityToggle />
             </div>
-            <Amount value={formatRp(assets.totalConverted)} size="xl" />
+            <Amount value={formatMoney(assets.totalConverted, primary, locale)} size="xl" />
           </div>
           <label
             htmlFor="asset-primary-currency"
@@ -141,8 +145,29 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
               name="primaryCurrency"
               value={primary}
               onChange={async (e) => {
+                const next = e.target.value;
+                if (next === primary) return;
+                const ok = await confirm({
+                  title: isEn
+                    ? `Change primary currency to ${next}?`
+                    : `Ubah mata uang utama ke ${next}?`,
+                  description: isEn
+                    ? `All balances and foreign assets will automatically convert into ${next}.`
+                    : `Semua saldo dan aset mata uang asing akan langsung terhitung dalam satuan ${next}.`,
+                  audit: {
+                    action: 'Ubah Mata Uang Utama',
+                    category: 'settings',
+                    detail: `${primary} → ${next}`,
+                  },
+                });
+                if (!ok) return;
                 try {
-                  await assets.savePrimaryCurrency(e.target.value);
+                  await assets.savePrimaryCurrency(next);
+                  toast.success(
+                    isEn
+                      ? `Primary currency set to ${next}`
+                      : `Mata uang utama diubah ke ${next}`
+                  );
                 } catch (er) {
                   toast.error(er instanceof Error ? er.message : tCommon('failed'));
                 }
@@ -209,7 +234,7 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
                   </p>
                   {a.currency !== primary && (
                     <p className="tnum text-[11px] text-[var(--text-muted)]">
-                      ≈ {formatRp(converted ?? 0)}
+                      ≈ {formatMoney(converted ?? 0, primary, locale)}
                       {converted === null && <span className="text-[var(--due)]"> · {t('noRate')}</span>}
                     </p>
                   )}
@@ -218,6 +243,19 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
                   type="button"
                   aria-label={tCommon('delete')}
                   onClick={async () => {
+                    const ok = await confirm({
+                      title: isEn ? `Delete wallet "${a.name}"?` : `Hapus dompet "${a.name}"?`,
+                      description: isEn
+                        ? 'This wallet balance will be removed from your assets list.'
+                        : 'Saldo dompet ini akan dihapus dari daftar aset Anda.',
+                      tone: 'danger',
+                      audit: {
+                        action: 'Hapus Dompet Aset',
+                        category: 'finance',
+                        detail: `${a.name} (${a.currency} ${a.balance})`,
+                      },
+                    });
+                    if (!ok) return;
                     try {
                       await assets.removeAccount(a.id);
                     } catch (e) {

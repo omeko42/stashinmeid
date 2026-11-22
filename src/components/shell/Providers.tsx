@@ -5,6 +5,8 @@ import { Toaster } from 'sonner';
 import { useLocale } from 'next-intl';
 import { RegisterPwa } from './RegisterPwa';
 import { BalancePrivacyProvider } from '@/components/ui/BalancePrivacy';
+import { ConfirmProvider } from '@/components/ui/ConfirmProvider';
+import { CurrencyProvider } from '@/components/ui/CurrencyContext';
 
 /**
  * Provider global: tema (terang/gelap), toast, dan preferensi kerahasiaan
@@ -26,9 +28,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
       disableTransitionOnChange
       storageKey="stashinme-theme"
     >
-      <BalancePrivacyProvider>
-        {children}
-      </BalancePrivacyProvider>
+      <CurrencyProvider>
+        <BalancePrivacyProvider>
+          <ConfirmProvider>{children}</ConfirmProvider>
+        </BalancePrivacyProvider>
+      </CurrencyProvider>
       <RegisterPwa />
       <Toaster
         position="bottom-right"

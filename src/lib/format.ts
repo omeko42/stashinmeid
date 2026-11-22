@@ -14,10 +14,51 @@ import type { Locale } from '@/i18n/routing';
 export const APP_TIMEZONE = 'Asia/Jakarta';
 
 /**
- * Format angka rupiah.
- * Semua angka uang di app ini melewati fungsi ini supaya konsisten.
+ * State ringan mata uang aktif di sisi klien (disinkronkan oleh CurrencyProvider
+ * & Pengaturan → Mata Uang Utama). Nilai transaksi dasar tersimpan dalam IDR;
+ * ketika pengguna mengganti mata uang utama (mis. USD/EUR/SGD), formatRp
+ * otomatis mengonversi dan menampilkan dalam satuan mata uang utama aktif.
+ */
+let activeDisplayCurrency = 'IDR';
+let activeRateFromIdr = 1; // 1 IDR = activeRateFromIdr * activeDisplayCurrency
+
+export function setGlobalDisplayCurrency(currency: string, idrPerUnit: number) {
+  activeDisplayCurrency = currency || 'IDR';
+  activeRateFromIdr =
+    currency === 'IDR' || !idrPerUnit || idrPerUnit <= 0 ? 1 : 1 / idrPerUnit;
+}
+
+export function getGlobalDisplayCurrency() {
+  return {
+    currency: activeDisplayCurrency,
+    rateFromIdr: activeRateFromIdr,
+  };
+}
+
+export function formatMoney(
+  amount: number,
+  currency = 'IDR',
+  locale: Locale = 'id'
+): string {
+  const isZeroDec = currency === 'IDR' || currency === 'JPY';
+  try {
+    return new Intl.NumberFormat(locale === 'en' ? 'en-US' : 'id-ID', {
+      style: 'currency',
+      currency,
+      maximumFractionDigits: isZeroDec ? 0 : 2,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toLocaleString(locale === 'en' ? 'en-US' : 'id-ID')}`;
+  }
+}
+
+/**
+ * Format angka uang mengikuti satuan mata uang utama yang sedang aktif.
  */
 export function formatRp(amount: number, locale: Locale = 'id'): string {
+  if (activeDisplayCurrency !== 'IDR') {
+    return formatMoney(amount * activeRateFromIdr, activeDisplayCurrency, locale);
+  }
   return new Intl.NumberFormat(locale === 'en' ? 'en-ID' : 'id-ID', {
     style: 'currency',
     currency: 'IDR',
@@ -26,17 +67,25 @@ export function formatRp(amount: number, locale: Locale = 'id'): string {
 }
 
 /**
- * Format angka ringkas untuk axis chart: 1.2jt, 350rb, 500.
+ * Format angka ringkas untuk axis chart: 1.2jt, 350rb, 500 (ikut mata uang utama).
  */
 export function formatShortRp(value: number, locale: Locale = 'id'): string {
-  const abs = Math.abs(value);
-  const sign = value < 0 ? '-' : '';
-  const suffix = locale === 'en' ? ['K', 'M', 'B'] : ['rb', 'jt', 'M'];
+  const scaled =
+    activeDisplayCurrency !== 'IDR' ? value * activeRateFromIdr : value;
+  const abs = Math.abs(scaled);
+  const sign = scaled < 0 ? '-' : '';
+  const suffix =
+    locale === 'en' || activeDisplayCurrency !== 'IDR'
+      ? ['K', 'M', 'B']
+      : ['rb', 'jt', 'M'];
 
   if (abs >= 1_000_000_000) return `${sign}${(abs / 1_000_000_000).toFixed(1)}${suffix[2]}`;
   if (abs >= 1_000_000) return `${sign}${(abs / 1_000_000).toFixed(1)}${suffix[1]}`;
   if (abs >= 1_000) return `${sign}${(abs / 1_000).toFixed(0)}${suffix[0]}`;
-  return `${sign}${abs}`;
+  if (activeDisplayCurrency !== 'IDR' && abs > 0 && abs < 100) {
+    return `${sign}${abs.toFixed(1)}`;
+  }
+  return `${sign}${Math.round(abs)}`;
 }
 
 /**

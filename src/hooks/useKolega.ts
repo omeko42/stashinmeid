@@ -6,7 +6,12 @@ export interface Kolega {
   user_id: string;
   role: string;
   status: string;
-  profile: { id: string; email: string; client_name: string; avatar_url: string | null } | null;
+  profile: {
+    id: string;
+    email: string;
+    client_name: string;
+    avatar_url: string | null;
+  } | null;
 }
 
 export interface KolegaGroup {
@@ -18,12 +23,20 @@ export interface KolegaGroup {
   totals: { inflow: number; outflow: number };
 }
 
+export interface PendingGroupInvite {
+  group_id: string;
+  group_name: string;
+  owner_id: string;
+  owner_name: string;
+}
+
 /**
- * Ruang keuangan bersama (kolega): daftar grup, buat grup, undang kolega
- * by email, keluar/tendang anggota. Data mentah dari /api/kolega.
+ * Ruang keuangan bersama (kolega): daftar grup, undangan masuk/keluar 2-arah
+ * (terima / tolak / batalkan undangan), buat grup, undang kolega, keluar/hapus anggota.
  */
 export function useKolega() {
   const [groups, setGroups] = useState<KolegaGroup[]>([]);
+  const [pendingInvites, setPendingInvites] = useState<PendingGroupInvite[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -34,6 +47,7 @@ export function useKolega() {
       const json = await res.json();
       if (!res.ok) throw new Error(json.error || 'Gagal memuat kolega');
       setGroups(json.groups ?? []);
+      setPendingInvites(json.pendingInvites ?? []);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat kolega');
@@ -74,6 +88,34 @@ export function useKolega() {
     [refresh]
   );
 
+  const respondInvite = useCallback(
+    async (groupId: string, action: 'accept' | 'reject') => {
+      const res = await fetch('/api/kolega', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, action }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Gagal memproses undangan');
+      await refresh();
+    },
+    [refresh]
+  );
+
+  const cancelInvite = useCallback(
+    async (groupId: string, targetUserId: string) => {
+      const res = await fetch('/api/kolega', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ groupId, action: 'cancel', targetUserId }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Gagal membatalkan undangan');
+      await refresh();
+    },
+    [refresh]
+  );
+
   const remove = useCallback(
     async (groupId: string, userId: string) => {
       const res = await fetch('/api/kolega', {
@@ -88,7 +130,18 @@ export function useKolega() {
     [refresh]
   );
 
-  return { groups, loading, error, refresh, createGroup, invite, remove };
+  return {
+    groups,
+    pendingInvites,
+    loading,
+    error,
+    refresh,
+    createGroup,
+    invite,
+    respondInvite,
+    cancelInvite,
+    remove,
+  };
 }
 
 export type KolegaApi = ReturnType<typeof useKolega>;

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { createDemoAccounts } from '@/lib/demoData';
+import { useCurrency } from '@/components/ui/CurrencyContext';
 
 export type AccountKind = 'bank' | 'cash' | 'ewallet' | 'crypto' | 'other';
 
@@ -33,12 +34,23 @@ export const CURRENCY_OPTIONS = [
  * `primary_currency` di `profiles`) - jadi tidak hilang saat refresh.
  */
 export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) {
+  const {
+    primaryCurrency: globalCurrency,
+    setPrimaryCurrency: setGlobalCurrency,
+    idrPerUnit,
+  } = useCurrency();
   const [accounts, setAccounts] = useState<AssetAccount[]>([]);
   const [rates, setRates] = useState<FxRate[]>([]);
-  const [primaryCurrency, setPrimaryCurrency] = useState('IDR');
+  const [primaryCurrency, setPrimaryCurrency] = useState(globalCurrency || 'IDR');
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (globalCurrency && globalCurrency !== primaryCurrency) {
+      setPrimaryCurrency(globalCurrency);
+    }
+  }, [globalCurrency, primaryCurrency]);
 
   const refresh = useCallback(async () => {
     if (opts.isDemoMode) {
@@ -215,8 +227,9 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
 
   const savePrimaryCurrency = useCallback(
     async (currency: string) => {
+      setGlobalCurrency(currency);
+      setPrimaryCurrency(currency);
       if (opts.isDemoMode) {
-        setPrimaryCurrency(currency);
         return;
       }
 
@@ -248,7 +261,7 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
       if (err) throw err;
       setPrimaryCurrency(currency);
     },
-    [opts.isDemoMode, opts.isSuperadmin]
+    [opts.isDemoMode, opts.isSuperadmin, setGlobalCurrency]
   );
 
   const saveRate = useCallback(
@@ -448,15 +461,22 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
     [opts.isDemoMode, opts.isSuperadmin, refresh]
   );
 
-  /** Nilai satu akun dikonversi ke mata uang utama. */
+  /** Nilai satu akun dikonversi ke mata uang utama (pakai kurs custom atau kurs live otomatis). */
   const convert = useCallback(
     (balance: number, currency: string) => {
-      if (currency === primaryCurrency) return balance;
-      const r = rates.find((x) => x.currency === currency);
-      if (!r) return null; // tanpa kurs, tidak bisa dikonversi
-      return balance * Number(r.rate);
+      const from = currency.toUpperCase();
+      const target = primaryCurrency.toUpperCase();
+      if (from === target) return balance;
+      const r = rates.find((x) => x.currency.toUpperCase() === from);
+      if (r && Number(r.rate) > 0) return balance * Number(r.rate);
+      const fromIdr = idrPerUnit[from];
+      const targetIdr = idrPerUnit[target];
+      if (fromIdr && targetIdr && targetIdr > 0) {
+        return (balance * fromIdr) / targetIdr;
+      }
+      return null;
     },
-    [rates, primaryCurrency]
+    [rates, primaryCurrency, idrPerUnit]
   );
 
   const totalConverted = accounts.reduce(

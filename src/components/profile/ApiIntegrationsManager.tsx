@@ -21,6 +21,7 @@ import {
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import {
   DEFAULT_API_INTEGRATIONS,
   type ApiIntegrationsState,
@@ -259,6 +260,7 @@ export function readCachedApiIntegrations(): ApiIntegrationsState {
 }
 
 export function ApiIntegrationsManager() {
+  const { confirm } = useConfirm();
   const [integrations, setIntegrations] = useState<ApiIntegrationsState>(
     DEFAULT_API_INTEGRATIONS
   );
@@ -346,6 +348,18 @@ export function ApiIntegrationsManager() {
   };
 
   const handleSaveAll = async () => {
+    const ok = await confirm({
+      title: 'Simpan perubahan koneksi API?',
+      description:
+        'Pengaturan provider, endpoint, dan kunci API pihak ketiga akan diperbarui untuk akun ini.',
+      audit: {
+        action: 'Simpan Koneksi API',
+        category: 'settings',
+        detail: `Kategori aktif: ${activeCategory}`,
+      },
+    });
+    if (!ok) return;
+
     setSaving(true);
     try {
       localStorage.setItem(
