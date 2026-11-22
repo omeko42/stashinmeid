@@ -5,10 +5,10 @@ import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import {
   ArrowDownRight,
+  ArrowLeft,
   ArrowUpRight,
   Building2,
   Check,
-  Compass,
   Copy,
   ExternalLink,
   Globe,
@@ -25,6 +25,7 @@ import {
   Share2,
   TrendingUp,
   UserCheck,
+  UserCog,
   UserPlus,
   Users,
   Wallet,
@@ -43,7 +44,7 @@ import type { KolegaApi } from '@/hooks/useKolega';
 import type { ConnectionsApi } from '@/hooks/useConnections';
 import type { Debt, Transaction } from '@/types/finance';
 
-export type SocialSub = 'kolega' | 'chat' | 'feed' | 'find' | 'news';
+export type SocialSub = 'kolega' | 'chat' | 'feed' | 'find' | 'manage' | 'news';
 
 interface SocialTabProps {
   sub: SocialSub;
@@ -57,6 +58,9 @@ interface SocialTabProps {
   onQuickAddForGroup?: (groupId: string) => void;
   onAddDebtForGroup?: (groupId: string) => void;
   onFocusGroupInDashboard?: (groupId: string) => void;
+  onBackToMain?: () => void;
+  quickActionOpen?: boolean;
+  onCloseQuickAction?: () => void;
   externalChatPeer?: {
     id: string;
     client_name: string;
@@ -138,6 +142,9 @@ export function SocialTab({
   onQuickAddForGroup,
   onAddDebtForGroup,
   onFocusGroupInDashboard,
+  onBackToMain,
+  quickActionOpen = false,
+  onCloseQuickAction,
   externalChatPeer,
 }: SocialTabProps) {
   const tSos = useTranslations('sosial');
@@ -382,44 +389,46 @@ export function SocialTab({
     onSubChange('chat');
   };
 
+  const manageBadge =
+    connections.incoming.length + kolega.pendingInvites.length;
+
   const navItems: {
     id: SocialSub;
     label: string;
-    shortLabel: string;
     icon: React.ReactNode;
     badge?: number;
     highlight?: boolean;
   }[] = [
     {
       id: 'kolega',
-      label: 'Ringkasan Kolega',
-      shortLabel: 'Ringkasan',
+      label: 'Ringkasan',
       icon: <LayoutGrid className="size-4" />,
     },
     {
       id: 'chat',
       label: tSos('chat'),
-      shortLabel: tSos('chat'),
       icon: <MessageCircle className="size-4" />,
     },
     {
       id: 'feed',
-      label: '+ Post & Feed',
-      shortLabel: '+ Feed',
+      label: 'Feed',
       icon: <PenSquare className="size-4" />,
       highlight: true,
     },
     {
       id: 'find',
-      label: 'Find Colleague',
-      shortLabel: 'Find',
-      icon: <Compass className="size-4" />,
-      badge: connections.incoming.length,
+      label: 'Kolega',
+      icon: <Users className="size-4" />,
+    },
+    {
+      id: 'manage',
+      label: 'Kelola Kolega',
+      icon: <UserCog className="size-4" />,
+      badge: manageBadge,
     },
     {
       id: 'news',
-      label: 'Berita Finance',
-      shortLabel: 'Berita',
+      label: 'Berita',
       icon: <Newspaper className="size-4" />,
     },
   ];
@@ -435,16 +444,27 @@ export function SocialTab({
   return (
     <div className="space-y-5">
       {/* HEADER MENU SOSIAL:
-          - Desktop (lg): Judul & Pemilih Grup di KIRI, Tab Sub-Menu di KANAN.
-          - Smartphone (< lg): 5 Tombol Cepat Sosial (Ringkasan, Obrolan, +Feed, FindColleague, Berita). */}
+          - Desktop (lg): Tombol Kembali + Judul di KIRI, Tab Sub-Menu di KANAN.
+          - Mobile (< lg): Tombol panah kembali (←) + Judul di atas; sub-navigasi pindah ke Bottom Navigation Bar bawah. */}
       <div className="flex flex-col gap-3 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
+            {onBackToMain && (
+              <button
+                type="button"
+                onClick={onBackToMain}
+                aria-label="Kembali ke menu utama"
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-2 sm:px-2.5 text-[12px] font-medium text-[var(--text)] whitespace-nowrap transition hover:border-[var(--brand)] hover:text-[var(--brand)]"
+              >
+                <ArrowLeft className="size-4" aria-hidden />
+                <span className="hidden sm:inline">Kembali</span>
+              </button>
+            )}
             <h2 className="text-[18px] font-semibold text-[var(--text)]">
               Sosial
             </h2>
             {selectedGroup && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--brand)]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--brand)] whitespace-nowrap">
                 <Users className="size-3" aria-hidden />
                 {selectedGroup.name}
               </span>
@@ -455,7 +475,7 @@ export function SocialTab({
           </p>
         </div>
 
-        {/* Desktop Sub-Menu di sebelah KANAN */}
+        {/* Desktop Sub-Menu di sebelah KANAN (di mobile dipindahkan ke BottomNav bawah) */}
         <div
           role="tablist"
           aria-label={tSos('title')}
@@ -474,7 +494,7 @@ export function SocialTab({
                   onSubChange(item.id);
                 }}
                 className={cn(
-                  'relative inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition-colors',
+                  'relative inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition-colors',
                   active
                     ? 'bg-[var(--brand)] text-[var(--brand-contrast)] shadow-sm'
                     : item.highlight
@@ -486,47 +506,6 @@ export function SocialTab({
                 <span>{item.label}</span>
                 {item.badge !== undefined && item.badge > 0 && (
                   <span className="tnum ml-0.5 flex min-w-[16px] items-center justify-center rounded-full bg-[var(--out)] px-1 text-[10px] font-bold leading-[16px] text-white">
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Smartphone & Tablet (< lg): 5 Tombol Cepat Sosial */}
-        <div
-          role="tablist"
-          aria-label="5 Menu Cepat Sosial"
-          className="grid grid-cols-5 gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-1.5 lg:hidden"
-        >
-          {navItems.map((item) => {
-            const active = sub === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => {
-                  if (item.id === 'feed') setFeedAutoFocus(true);
-                  onSubChange(item.id);
-                }}
-                className={cn(
-                  'relative flex flex-col items-center justify-center gap-1 rounded-lg px-1 py-2 text-center transition',
-                  item.highlight && !active
-                    ? 'bg-[var(--brand-soft)] text-[var(--brand)] font-semibold'
-                    : active
-                      ? 'bg-[var(--brand)] text-[var(--brand-contrast)] font-semibold shadow-sm'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
-                )}
-              >
-                {item.icon}
-                <span className="max-w-full truncate text-[10px] leading-tight">
-                  {item.shortLabel}
-                </span>
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span className="tnum absolute right-1 top-1 flex min-w-[14px] items-center justify-center rounded-full bg-[var(--out)] px-1 text-[9px] font-bold leading-[14px] text-white">
                     {item.badge}
                   </span>
                 )}
@@ -682,8 +661,9 @@ export function SocialTab({
                   onClick={handleCreateGroup}
                   loading={creatingGroup}
                   icon={<Plus className="size-3.5" />}
+                  className="shrink-0 whitespace-nowrap"
                 >
-                  Buat Grup
+                  Grup
                 </Button>
               </div>
             </div>
@@ -713,14 +693,16 @@ export function SocialTab({
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap gap-2">
+                    <div className="flex flex-wrap items-center gap-2">
                       {onQuickAddForGroup && (
                         <Button
                           size="sm"
                           icon={<Plus className="size-3.5" />}
+                          className="whitespace-nowrap"
                           onClick={() => onQuickAddForGroup(selectedGroup.id)}
                         >
-                          Catat Kas Grup
+                          <span className="sm:hidden">Kas</span>
+                          <span className="hidden sm:inline">Catat Kas Grup</span>
                         </Button>
                       )}
                       {onAddDebtForGroup && (
@@ -728,18 +710,22 @@ export function SocialTab({
                           size="sm"
                           variant="secondary"
                           icon={<Landmark className="size-3.5" />}
+                          className="whitespace-nowrap"
                           onClick={() => onAddDebtForGroup(selectedGroup.id)}
                         >
-                          Catat Pinjaman Grup
+                          <span className="sm:hidden">Pinjaman</span>
+                          <span className="hidden sm:inline">Catat Pinjaman Grup</span>
                         </Button>
                       )}
                       {onFocusGroupInDashboard && (
                         <Button
                           size="sm"
                           variant="ghost"
+                          className="whitespace-nowrap"
                           onClick={() => onFocusGroupInDashboard(selectedGroup.id)}
                         >
-                          Buka di Ringkasan Utama →
+                          <span className="sm:hidden">Ringkasan →</span>
+                          <span className="hidden sm:inline">Buka di Ringkasan Utama →</span>
                         </Button>
                       )}
                     </div>
@@ -1142,6 +1128,311 @@ export function SocialTab({
       )}
 
       {/* =====================================================================
+          SUB-MENU 4A: KELOLA KOLEGA (GRUP, PERMINTAAN PERTEMANAN, & DAFTAR KOLEGA)
+      ===================================================================== */}
+      {sub === 'manage' && (
+        <div className="space-y-4">
+          {/* 1. Permintaan Pertemanan Masuk */}
+          {connections.incoming.length > 0 && (
+            <section className="rounded-xl border border-[var(--brand)]/35 bg-[var(--brand-soft)] p-4">
+              <h3 className="text-[13px] font-semibold text-[var(--text)]">
+                {tConn('incomingTitle')} ({connections.incoming.length})
+              </h3>
+              <div className="mt-2.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {connections.incoming.map((c) => {
+                  const name = c.profile?.client_name || c.profile?.email || 'Pengguna';
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold text-[var(--text)]">
+                          {name}
+                        </p>
+                        {c.profile?.email && (
+                          <p className="truncate text-[11px] text-[var(--text-muted)]">
+                            {c.profile.email}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <Button
+                          size="sm"
+                          loading={busyConnId === c.id}
+                          icon={<Check className="size-3.5" />}
+                          className="whitespace-nowrap"
+                          onClick={async () => {
+                            setBusyConnId(c.id);
+                            try {
+                              await connections.respond(c.id, 'accept');
+                              toast.success(tConn('accepted'));
+                              setShareConnName(name);
+                              setShareConnText(
+                                `Baru saja terhubung dengan ${name} di StashinMe! Kolaborasi keuangan makin rapi di https://stashinme.biz.id`
+                              );
+                            } catch (e) {
+                              toast.error(
+                                e instanceof Error ? e.message : tKolega('failed')
+                              );
+                            } finally {
+                              setBusyConnId(null);
+                            }
+                          }}
+                        >
+                          {tConn('accept')}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          disabled={busyConnId === c.id}
+                          className="whitespace-nowrap"
+                          onClick={async () => {
+                            setBusyConnId(c.id);
+                            try {
+                              await connections.respond(c.id, 'reject');
+                              toast.success(tConn('rejected'));
+                            } finally {
+                              setBusyConnId(null);
+                            }
+                          }}
+                        >
+                          {tConn('reject')}
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </section>
+          )}
+
+          {/* 2. Undangan Grup Masuk */}
+          {kolega.pendingInvites.length > 0 && (
+            <section className="rounded-xl border border-[var(--brand)]/35 bg-[var(--brand-soft)] p-4">
+              <div className="mb-2.5 flex items-center justify-between gap-2">
+                <h3 className="text-[13px] font-semibold text-[var(--text)]">
+                  Undangan Grup Masuk ({kolega.pendingInvites.length})
+                </h3>
+                <span className="text-[11px] text-[var(--text-muted)]">
+                  Konfirmasi 2 arah
+                </span>
+              </div>
+              <div className="space-y-2">
+                {kolega.pendingInvites.map((inv) => (
+                  <div
+                    key={inv.group_id}
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-[var(--text)]">
+                        {inv.group_name}
+                      </p>
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        Diundang oleh {inv.owner_name}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <Button
+                        size="sm"
+                        loading={busyGroupAction === `accept-${inv.group_id}`}
+                        className="whitespace-nowrap"
+                        onClick={async () => {
+                          setBusyGroupAction(`accept-${inv.group_id}`);
+                          try {
+                            await kolega.respondInvite(inv.group_id, 'accept');
+                            toast.success(`Bergabung ke grup ${inv.group_name}.`);
+                          } catch (e) {
+                            toast.error(
+                              e instanceof Error
+                                ? e.message
+                                : 'Gagal menerima undangan.'
+                            );
+                          } finally {
+                            setBusyGroupAction(null);
+                          }
+                        }}
+                      >
+                        Terima
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        disabled={busyGroupAction === `accept-${inv.group_id}`}
+                        className="whitespace-nowrap"
+                        onClick={async () => {
+                          setBusyGroupAction(`reject-${inv.group_id}`);
+                          try {
+                            await kolega.respondInvite(inv.group_id, 'reject');
+                            toast.success('Undangan ditolak.');
+                          } finally {
+                            setBusyGroupAction(null);
+                          }
+                        }}
+                      >
+                        Tolak
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* 3. Kelola Grup Keuangan */}
+          <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4 space-y-3">
+            <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="text-[14px] font-semibold text-[var(--text)]">
+                  Kelola Grup ({kolega.groups.length})
+                </h3>
+                <p className="text-[11.5px] text-[var(--text-muted)]">
+                  Buat grup baru, pilih grup aktif, atau undang anggota.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  id="manage-new-group-name"
+                  name="manageNewGroupName"
+                  type="text"
+                  value={newGroupName}
+                  onChange={(e) => setNewGroupName(e.target.value)}
+                  placeholder="Nama grup baru..."
+                  aria-label="Nama grup baru"
+                  maxLength={80}
+                  className="h-9 min-w-0 flex-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none sm:w-52"
+                />
+                <Button
+                  size="sm"
+                  onClick={handleCreateGroup}
+                  loading={creatingGroup}
+                  icon={<Plus className="size-3.5" />}
+                  className="shrink-0 whitespace-nowrap"
+                >
+                  Grup
+                </Button>
+              </div>
+            </div>
+
+            {kolega.groups.length === 0 ? (
+              <p className="py-4 text-center text-[12px] text-[var(--text-muted)]">
+                Belum ada grup keuangan. Buat grup pertamamu di atas.
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {kolega.groups.map((g) => (
+                  <div
+                    key={g.id}
+                    className="flex items-center justify-between gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5"
+                  >
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-[var(--text)]">
+                        {g.name}
+                      </p>
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        {g.members.length} anggota · {g.isOwner ? 'Pemilik' : 'Anggota'}
+                      </p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="shrink-0 whitespace-nowrap"
+                      onClick={() => {
+                        setActiveGroupId(g.id);
+                        onSubChange('kolega');
+                      }}
+                    >
+                      Buka
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* 4. Daftar Kolega Terhubung */}
+          <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <h3 className="text-[14px] font-semibold text-[var(--text)]">
+                {tConn('listTitle')} ({connections.accepted.length})
+              </h3>
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<UserPlus className="size-3.5" />}
+                className="whitespace-nowrap"
+                onClick={() => onSubChange('find')}
+              >
+                Cari Kolega
+              </Button>
+            </div>
+
+            {connections.accepted.length === 0 ? (
+              <p className="py-6 text-center text-[12px] text-[var(--text-muted)]">
+                {tConn('emptyHint')}
+              </p>
+            ) : (
+              <div className="mt-3 space-y-2">
+                {connections.accepted.map((c) => {
+                  const name = c.profile?.client_name || c.profile?.email || 'Kolega';
+                  return (
+                    <div
+                      key={c.id}
+                      className="flex items-center justify-between gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-[13px] font-semibold text-[var(--text)]">
+                          {name}
+                        </p>
+                        {c.profile?.email && (
+                          <p className="truncate text-[11px] text-[var(--text-muted)]">
+                            {c.profile.email}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        {c.profile?.email &&
+                          kolega.groups.some((g) => g.isOwner) && (
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="whitespace-nowrap"
+                              onClick={() =>
+                                setAssigningColleague({
+                                  userId: c.user_id,
+                                  name,
+                                  email: c.profile?.email || '',
+                                })
+                              }
+                            >
+                              Atur Grup
+                            </Button>
+                          )}
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="whitespace-nowrap"
+                          onClick={() =>
+                            openFullChatWith({
+                              id: c.user_id,
+                              client_name: name,
+                              avatar_url: c.profile?.avatar_url ?? null,
+                            })
+                          }
+                        >
+                          Chat
+                        </Button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </section>
+        </div>
+      )}
+
+      {/* =====================================================================
           SUB-MENU 4: FIND MY COLLEAGUE (PENCARIAN KOLEGA GLOBAL)
       ===================================================================== */}
       {sub === 'find' && (
@@ -1254,7 +1545,7 @@ export function SocialTab({
               </div>
             ) : findResults.length === 0 ? (
               <EmptyState
-                icon={<Compass className="size-6" />}
+                icon={<Users className="size-6" />}
                 title="Tidak ada pengguna yang cocok"
                 description="Coba kata kunci nama, username, atau email yang lain."
               />
@@ -1766,6 +2057,60 @@ export function SocialTab({
               Nanti Saja
             </Button>
           </div>
+        </div>
+      </Modal>
+
+      {/* Pop-up Aksi Cepat (+) khusus Sub-Navigasi Sosial */}
+      <Modal
+        open={quickActionOpen}
+        onClose={() => onCloseQuickAction?.()}
+        title="Aksi Cepat Sosial"
+        description="Pilih tindakan cepat yang ingin dilakukan."
+        size="sm"
+      >
+        <div className="grid grid-cols-1 gap-2.5">
+          <button
+            type="button"
+            onClick={() => {
+              onCloseQuickAction?.();
+              setFeedAutoFocus(true);
+              onSubChange('feed');
+            }}
+            className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-left transition hover:border-[var(--brand)]"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
+              <PenSquare className="size-4" aria-hidden />
+            </span>
+            <div>
+              <p className="text-[13px] font-semibold text-[var(--text)]">
+                Buat Postingan Feed
+              </p>
+              <p className="text-[11.5px] text-[var(--text-muted)]">
+                Bagikan update atau catatan ke timeline kolega.
+              </p>
+            </div>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              onCloseQuickAction?.();
+              onSubChange('manage');
+            }}
+            className="flex items-center gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-4 py-3 text-left transition hover:border-[var(--brand)]"
+          >
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--info-soft)] text-[var(--info)]">
+              <Users className="size-4" aria-hidden />
+            </span>
+            <div>
+              <p className="text-[13px] font-semibold text-[var(--text)]">
+                Kelola & Buat Grup
+              </p>
+              <p className="text-[11.5px] text-[var(--text-muted)]">
+                Buat ruang grup keuangan baru atau terima undangan.
+              </p>
+            </div>
+          </button>
         </div>
       </Modal>
     </div>

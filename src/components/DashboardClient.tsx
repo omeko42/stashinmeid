@@ -33,6 +33,7 @@ import { SaldoTab, type SaldoSub } from '@/components/tabs/SaldoTab';
 import { DebtsTab, type DebtFormState } from '@/components/tabs/DebtsTab';
 import {
   SettingsTab,
+  type AdminSection,
   type PersonalSection,
 } from '@/components/tabs/SettingsTab';
 import { ProfileTab } from '@/components/tabs/ProfileTab';
@@ -159,10 +160,16 @@ export default function DashboardClient({
   const [searchQuery, setSearchQuery] = useState('');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
+  const [settingsAdminMode, setSettingsAdminMode] = useState(false);
+  const [settingsPersonalSection, setSettingsPersonalSection] =
+    useState<PersonalSection>('appearance');
+  const [settingsAdminSection, setSettingsAdminSection] =
+    useState<AdminSection>('admin_billing');
   const [settingsSectionRequest, setSettingsSectionRequest] = useState<{
     section: PersonalSection;
     seq: number;
   } | null>(null);
+  const [socialQuickActionOpen, setSocialQuickActionOpen] = useState(false);
   const [externalChatPeer, setExternalChatPeer] = useState<{
     id: string;
     client_name: string;
@@ -171,6 +178,8 @@ export default function DashboardClient({
   const [kycOpen, setKycOpen] = useState(false);
 
   const openSecurityPage = () => {
+    setSettingsAdminMode(false);
+    setSettingsPersonalSection('security');
     setSettingsSectionRequest((prev) => ({
       section: 'security',
       seq: (prev?.seq ?? 0) + 1,
@@ -1748,38 +1757,46 @@ export default function DashboardClient({
             const activeGroup = kolega.groups.find((g) => g.id === activeScope);
             const isGroupScope = Boolean(activeGroup);
             return (
-              <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-2.5">
-                <div className="flex flex-wrap items-center gap-1.5">
-                  <span className="px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+              <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-2 sm:p-2.5">
+                <div className="flex items-center gap-1.5">
+                  <span className="hidden px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)] sm:inline">
                     {isEn ? 'Space:' : 'Ruang Keuangan:'}
                   </span>
 
-                  {/* #1 Semua Ruang */}
+                  {/* #1 Semua Ruang — di mobile cukup icon stack saja agar ringkas 1 baris */}
                   <button
                     type="button"
                     onClick={() => setActiveScope('all')}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
+                    aria-label={isEn ? 'All Spaces' : 'Semua Ruang'}
+                    title={isEn ? 'All Spaces' : 'Semua Ruang'}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition-colors ${
                       activeScope === 'all'
                         ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
                         : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
                     }`}
                   >
-                    <Layers className="size-3.5" aria-hidden />
-                    {isEn ? 'All Spaces' : 'Semua Ruang'}
+                    <Layers className="size-3.5 shrink-0" aria-hidden />
+                    <span className="hidden sm:inline">
+                      {isEn ? 'All Spaces' : 'Semua Ruang'}
+                    </span>
                   </button>
 
-                  {/* #2 Pribadi */}
+                  {/* #2 Pribadi — di mobile cukup icon user saja */}
                   <button
                     type="button"
                     onClick={() => setActiveScope('personal')}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
+                    aria-label={isEn ? 'Personal' : 'Pribadi'}
+                    title={isEn ? 'Personal' : 'Pribadi'}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition-colors ${
                       activeScope === 'personal'
                         ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
                         : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
                     }`}
                   >
-                    <User className="size-3.5" aria-hidden />
-                    {isEn ? 'Personal' : 'Pribadi'}
+                    <User className="size-3.5 shrink-0" aria-hidden />
+                    <span className="hidden sm:inline">
+                      {isEn ? 'Personal' : 'Pribadi'}
+                    </span>
                   </button>
 
                   {/* #3 Grup — popover dropdown tepat di bawah tombol agar rapi & hemat ruang */}
@@ -1789,20 +1806,39 @@ export default function DashboardClient({
                       onClick={() => setGroupPickerOpen((v) => !v)}
                       aria-haspopup="listbox"
                       aria-expanded={groupPickerOpen}
-                      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
+                      aria-label={
+                        activeGroup
+                          ? `${isEn ? 'Group' : 'Grup'}: ${activeGroup.name}`
+                          : isEn
+                            ? 'Groups'
+                            : 'Grup'
+                      }
+                      title={
+                        activeGroup
+                          ? `${isEn ? 'Group' : 'Grup'}: ${activeGroup.name}`
+                          : isEn
+                            ? 'Groups'
+                            : 'Grup'
+                      }
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition-colors ${
                         isGroupScope
                           ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
                           : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
                       }`}
                     >
-                      <Building2 className="size-3.5" aria-hidden />
-                      <span>
-                        {activeGroup
-                          ? `${isEn ? 'Group' : 'Grup'}: ${activeGroup.name}`
-                          : isEn
-                            ? 'Groups'
-                            : 'Grup'}
-                      </span>
+                      <Building2 className="size-3.5 shrink-0" aria-hidden />
+                      {activeGroup ? (
+                        <span className="max-w-[110px] truncate sm:max-w-none">
+                          <span className="hidden sm:inline">
+                            {isEn ? 'Group: ' : 'Grup: '}
+                          </span>
+                          {activeGroup.name}
+                        </span>
+                      ) : (
+                        <span className="hidden sm:inline">
+                          {isEn ? 'Groups' : 'Grup'}
+                        </span>
+                      )}
                       {kolega.groups.length > 0 && (
                         <span
                           className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
@@ -2070,6 +2106,9 @@ export default function DashboardClient({
                     setActiveScope(groupId);
                     navigate('overview');
                   }}
+                  onBackToMain={() => navigate('overview')}
+                  quickActionOpen={socialQuickActionOpen}
+                  onCloseQuickAction={() => setSocialQuickActionOpen(false)}
                   externalChatPeer={externalChatPeer}
                 />
               )}
@@ -2095,6 +2134,13 @@ export default function DashboardClient({
                   onOpenKyc={() => setKycOpen(true)}
                   onOpenProfile={() => navigate('profile')}
                   onOpenUsers={() => navigate('users')}
+                  onBackToMain={() => navigate('overview')}
+                  controlledAdminMode={settingsAdminMode}
+                  onControlledAdminModeChange={setSettingsAdminMode}
+                  controlledPersonalSection={settingsPersonalSection}
+                  onControlledPersonalSectionChange={setSettingsPersonalSection}
+                  controlledAdminSection={settingsAdminSection}
+                  onControlledAdminSectionChange={setSettingsAdminSection}
                   requestedSection={settingsSectionRequest}
                   securityProps={{
                     appPin,
@@ -2180,6 +2226,17 @@ export default function DashboardClient({
         onNavigate={navigate}
         canEdit={canEdit}
         onAddMenu={() => setAddMenuOpen(true)}
+        socialSub={sosialSub}
+        onSocialSubChange={setSosialSub}
+        onSocialQuickAction={() => setSocialQuickActionOpen(true)}
+        socialPendingBadge={
+          connections.incoming.length + kolega.pendingInvites.length
+        }
+        settingsAdminMode={settingsAdminMode}
+        settingsPersonalSection={settingsPersonalSection}
+        onSettingsPersonalChange={setSettingsPersonalSection}
+        settingsAdminSection={settingsAdminSection}
+        onSettingsAdminChange={setSettingsAdminSection}
       />
 
       {/* Input tersembunyi */}

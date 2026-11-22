@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import {
   Activity,
+  ArrowLeft,
   BadgeCheck,
   Bell,
   Coins,
@@ -53,7 +54,7 @@ export type PersonalSection =
   | 'data'
   | 'account';
 
-type AdminSection =
+export type AdminSection =
   | 'admin_billing'
   | 'admin_announcement'
   | 'admin_integrations'
@@ -80,8 +81,15 @@ interface SettingsTabProps {
   onOpenKyc?: () => void;
   onOpenProfile?: () => void;
   onOpenUsers?: () => void;
+  onBackToMain?: () => void;
   securityProps?: SecuritySettingsProps;
   requestedSection?: { section: PersonalSection; seq: number } | null;
+  controlledAdminMode?: boolean;
+  onControlledAdminModeChange?: (val: boolean) => void;
+  controlledPersonalSection?: PersonalSection;
+  onControlledPersonalSectionChange?: (val: PersonalSection) => void;
+  controlledAdminSection?: AdminSection;
+  onControlledAdminSectionChange?: (val: AdminSection) => void;
 }
 
 /**
@@ -111,19 +119,42 @@ export function SettingsTab({
   onOpenKyc,
   onOpenProfile,
   onOpenUsers,
+  onBackToMain,
   securityProps,
   requestedSection,
+  controlledAdminMode,
+  onControlledAdminModeChange,
+  controlledPersonalSection,
+  onControlledPersonalSectionChange,
+  controlledAdminSection,
+  onControlledAdminSectionChange,
 }: SettingsTabProps) {
   const tSettings = useTranslations('settings');
   const locale = useLocale();
   const isEn = locale === 'en';
   const canUseAdminMode = isAdmin || isSuperadmin;
 
-  const [adminMode, setAdminMode] = useState(false);
-  const [personalSection, setPersonalSection] =
+  const [internalAdminMode, setInternalAdminMode] = useState(false);
+  const [internalPersonalSection, setInternalPersonalSection] =
     useState<PersonalSection>('appearance');
-  const [adminSection, setAdminSection] =
+  const [internalAdminSection, setInternalAdminSection] =
     useState<AdminSection>('admin_billing');
+
+  const adminMode = controlledAdminMode ?? internalAdminMode;
+  const setAdminMode = (v: boolean) => {
+    setInternalAdminMode(v);
+    onControlledAdminModeChange?.(v);
+  };
+  const personalSection = controlledPersonalSection ?? internalPersonalSection;
+  const setPersonalSection = (v: PersonalSection) => {
+    setInternalPersonalSection(v);
+    onControlledPersonalSectionChange?.(v);
+  };
+  const adminSection = controlledAdminSection ?? internalAdminSection;
+  const setAdminSection = (v: AdminSection) => {
+    setInternalAdminSection(v);
+    onControlledAdminSectionChange?.(v);
+  };
   const [lastRequestSeq, setLastRequestSeq] = useState(0);
 
   if (requestedSection && requestedSection.seq !== lastRequestSeq) {
@@ -208,16 +239,29 @@ export function SettingsTab({
 
   return (
     <div className="space-y-5">
-      {/* Header Pengaturan + Switch Mode Pribadi ↔ Mode Admin di Pojok Kanan Atas */}
+      {/* Header Pengaturan + Tombol Kembali + Switch Mode Pribadi ↔ Mode Admin */}
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div>
+        <div className="min-w-0">
           <div className="flex items-center gap-2">
+            {onBackToMain && (
+              <button
+                type="button"
+                onClick={onBackToMain}
+                aria-label={isEn ? 'Back to main menu' : 'Kembali ke menu utama'}
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-2 sm:px-2.5 text-[12px] font-medium text-[var(--text)] whitespace-nowrap transition hover:border-[var(--brand)] hover:text-[var(--brand)]"
+              >
+                <ArrowLeft className="size-4" aria-hidden />
+                <span className="hidden sm:inline">
+                  {isEn ? 'Back' : 'Kembali'}
+                </span>
+              </button>
+            )}
             <h2 className="text-[18px] font-semibold text-[var(--text)]">
               {tSettings('title')}
             </h2>
             {canUseAdminMode && (
               <span
-                className={`rounded-full px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider whitespace-nowrap ${
                   adminMode
                     ? 'bg-[var(--brand-soft)] text-[var(--brand)]'
                     : 'bg-[var(--surface-2)] text-[var(--text-muted)]'
@@ -225,15 +269,15 @@ export function SettingsTab({
               >
                 {adminMode
                   ? isEn
-                    ? 'Admin Mode'
-                    : 'Mode Admin'
+                    ? 'Admin'
+                    : 'Admin'
                   : isEn
-                    ? 'Personal Mode'
-                    : 'Mode Pribadi'}
+                    ? 'Personal'
+                    : 'Pribadi'}
               </span>
             )}
           </div>
-          <p className="text-[12px] text-[var(--text-muted)]">
+          <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
             {adminMode
               ? isEn
                 ? 'Configure global plan prices, payment activations, 3rd-party APIs, and announcements.'
@@ -246,42 +290,48 @@ export function SettingsTab({
 
         {/* Switch Button Khusus Admin di Pojok Kanan Atas */}
         {canUseAdminMode && (
-          <div className="inline-flex items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-1">
+          <div className="inline-flex shrink-0 items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-1">
             <button
               type="button"
               onClick={() => setAdminMode(false)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition ${
                 !adminMode
                   ? 'bg-[var(--brand)] text-[var(--brand-contrast)] shadow-sm'
                   : 'text-[var(--text-muted)] hover:text-[var(--text)]'
               }`}
             >
               <User className="size-3.5" />
-              {isEn ? 'Personal Mode' : 'Mode Pribadi'}
+              <span className="sm:hidden">{isEn ? 'Personal' : 'Pribadi'}</span>
+              <span className="hidden sm:inline">
+                {isEn ? 'Personal Mode' : 'Mode Pribadi'}
+              </span>
             </button>
             <button
               type="button"
               onClick={() => setAdminMode(true)}
-              className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[12px] font-semibold transition ${
+              className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition ${
                 adminMode
                   ? 'bg-[var(--brand)] text-[var(--brand-contrast)] shadow-sm'
                   : 'text-[var(--text-muted)] hover:text-[var(--text)]'
               }`}
             >
               <ShieldCheck className="size-3.5" />
-              {isEn ? 'Admin Mode' : 'Mode Admin'}
+              <span className="sm:hidden">Admin</span>
+              <span className="hidden sm:inline">
+                {isEn ? 'Admin Mode' : 'Mode Admin'}
+              </span>
             </button>
           </div>
         )}
       </div>
 
-      {/* Sub-menu berdasarkan Mode Pribadi vs Mode Admin */}
+      {/* Sub-menu berdasarkan Mode Pribadi vs Mode Admin (di mobile pindah ke BottomNav) */}
       {!adminMode ? (
         <>
           <div
             role="tablist"
             aria-label={tSettings('title')}
-            className="flex gap-1 overflow-x-auto rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-1"
+            className="hidden gap-1 overflow-x-auto rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-1 lg:flex"
           >
             {personalTabs.map((tab) => {
               const active = personalSection === tab.id;
@@ -524,7 +574,7 @@ export function SettingsTab({
           <div
             role="tablist"
             aria-label="Pengaturan Mode Admin"
-            className="flex gap-1 overflow-x-auto rounded-xl border border-[var(--brand)]/35 bg-[var(--surface-1)] p-1"
+            className="hidden gap-1 overflow-x-auto rounded-xl border border-[var(--brand)]/35 bg-[var(--surface-1)] p-1 lg:flex"
           >
             {adminTabs.map((tab) => {
               const active = adminSection === tab.id;
