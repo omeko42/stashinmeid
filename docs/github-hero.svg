@@ -1,0 +1,171 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 540" width="1200" height="540" role="img" aria-label="StashinMe — Personal &amp; Collaborative Finance Workspace Preview">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#070b0f"/>
+      <stop offset="55%" stop-color="#0c131a"/>
+      <stop offset="100%" stop-color="#071612"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="75%" cy="18%" r="55%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="cardGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#121a23"/>
+      <stop offset="100%" stop-color="#0d131a"/>
+    </linearGradient>
+    <linearGradient id="accentBar" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="100%" stop-color="#34d399"/>
+    </linearGradient>
+    <linearGradient id="chartFill" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#10b981" stop-opacity="0.0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Canvas -->
+  <rect width="1200" height="540" rx="20" fill="url(#bg)"/>
+  <rect width="1200" height="540" rx="20" fill="url(#glow)"/>
+  <rect x="0.5" y="0.5" width="1199" height="539" rx="19.5" fill="none" stroke="#ffffff" stroke-opacity="0.08"/>
+
+  <!-- Left Hero Copy -->
+  <g transform="translate(56, 74)">
+    <!-- Pill -->
+    <rect x="0" y="0" width="218" height="30" rx="15" fill="#10b981" fill-opacity="0.14" stroke="#10b981" stroke-opacity="0.35"/>
+    <circle cx="18" cy="15" r="4" fill="#34d399"/>
+    <text x="30" y="19" fill="#6ee7b7" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="12" font-weight="600" letter-spacing="0.4">LIVE · stashinme.biz.id</text>
+
+    <!-- Brand Title -->
+    <text x="0" y="88" fill="#ffffff" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="46" font-weight="800" letter-spacing="-1">StashinMe</text>
+    <text x="0" y="122" fill="#94a3b8" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="17" font-weight="500">Personal &amp; Collaborative Finance</text>
+    <text x="0" y="146" fill="#94a3b8" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, sans-serif" font-size="17" font-weight="500">Workspace — Multi-Space, Multi-Currency</text>
+
+    <!-- Feature Chips -->
+    <g transform="translate(0, 182)">
+      <rect x="0" y="0" width="150" height="34" rx="10" fill="#ffffff" fill-opacity="0.04" stroke="#ffffff" stroke-opacity="0.1"/>
+      <text x="16" y="21" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="600">AI Receipt Scan</text>
+
+      <rect x="162" y="0" width="166" height="34" rx="10" fill="#ffffff" fill-opacity="0.04" stroke="#ffffff" stroke-opacity="0.1"/>
+      <text x="178" y="21" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="600">Live FX · IDR / USD</text>
+
+      <rect x="0" y="46" width="176" height="34" rx="10" fill="#ffffff" fill-opacity="0.04" stroke="#ffffff" stroke-opacity="0.1"/>
+      <text x="16" y="67" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="600">2-Way Group Spaces</text>
+
+      <rect x="188" y="46" width="140" height="34" rx="10" fill="#ffffff" fill-opacity="0.04" stroke="#ffffff" stroke-opacity="0.1"/>
+      <text x="204" y="67" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="600">Passkey &amp; Audit</text>
+    </g>
+
+    <!-- Tech Stack Footer -->
+    <g transform="translate(0, 326)">
+      <text x="0" y="0" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="600" letter-spacing="0.8">POWERED BY</text>
+      <text x="0" y="24" fill="#cbd5e1" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="500">Next.js 16 · TypeScript · Supabase · Cloudflare · Resend</text>
+      <text x="0" y="48" fill="#10b981" font-family="ui-sans-serif, system-ui, sans-serif" font-size="12.5" font-weight="600">Bilingual ID / EN · Dark &amp; Light Mode · RLS Isolated</text>
+    </g>
+  </g>
+
+  <!-- Right Browser App Mockup -->
+  <g transform="translate(454, 42)">
+    <!-- Outer Window -->
+    <rect x="0" y="0" width="702" height="456" rx="16" fill="#0b1016" stroke="#ffffff" stroke-opacity="0.12" stroke-width="1.2"/>
+
+    <!-- Browser Top Bar -->
+    <rect x="0" y="0" width="702" height="40" rx="16" fill="#111821"/>
+    <rect x="0" y="24" width="702" height="16" fill="#111821"/>
+    <line x1="0" y1="40" x2="702" y2="40" stroke="#ffffff" stroke-opacity="0.07"/>
+    <circle cx="20" cy="20" r="5" fill="#ef4444" fill-opacity="0.8"/>
+    <circle cx="36" cy="20" r="5" fill="#f59e0b" fill-opacity="0.8"/>
+    <circle cx="52" cy="20" r="5" fill="#10b981" fill-opacity="0.8"/>
+    <rect x="195" y="10" width="312" height="20" rx="6" fill="#090d12" stroke="#ffffff" stroke-opacity="0.07"/>
+    <text x="292" y="24" fill="#94a3b8" font-family="ui-monospace, SFMono-Regular, Menlo, monospace" font-size="11">https://stashinme.biz.id</text>
+
+    <!-- App Header Inside Mockup -->
+    <g transform="translate(20, 56)">
+      <!-- Space Switcher Pills -->
+      <rect x="0" y="0" width="268" height="32" rx="10" fill="#121a23" stroke="#ffffff" stroke-opacity="0.08"/>
+      <rect x="4" y="4" width="94" height="24" rx="7" fill="url(#accentBar)"/>
+      <text x="16" y="20" fill="#04130d" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="700">Semua Ruang</text>
+      <text x="115" y="20" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600">Pribadi</text>
+      <text x="184" y="20" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600">Grup (3)</text>
+
+      <!-- Currency & Locale Pills -->
+      <rect x="526" y="0" width="66" height="32" rx="9" fill="#121a23" stroke="#ffffff" stroke-opacity="0.08"/>
+      <text x="543" y="20" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="700">IDR ▾</text>
+      <rect x="600" y="0" width="62" height="32" rx="9" fill="#121a23" stroke="#ffffff" stroke-opacity="0.08"/>
+      <text x="617" y="20" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="700">ID ▾</text>
+    </g>
+
+    <!-- 3 KPI Cards -->
+    <g transform="translate(20, 104)">
+      <!-- Card 1 -->
+      <rect x="0" y="0" width="212" height="92" rx="12" fill="url(#cardGrad)" stroke="#10b981" stroke-opacity="0.28"/>
+      <text x="16" y="24" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600">TOTAL SALDO BERSIH</text>
+      <text x="16" y="54" fill="#ffffff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="800">Rp 84.650.000</text>
+      <text x="16" y="76" fill="#34d399" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600">+12.4% bulan ini</text>
+
+      <!-- Card 2 -->
+      <rect x="225" y="0" width="212" height="92" rx="12" fill="url(#cardGrad)" stroke="#ffffff" stroke-opacity="0.08"/>
+      <text x="241" y="24" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600">PEMASUKAN</text>
+      <text x="241" y="54" fill="#ffffff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="800">Rp 28.400.000</text>
+      <text x="241" y="76" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">4 sumber aktif</text>
+
+      <!-- Card 3 -->
+      <rect x="450" y="0" width="212" height="92" rx="12" fill="url(#cardGrad)" stroke="#ffffff" stroke-opacity="0.08"/>
+      <text x="466" y="24" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600">PENGELUARAN</text>
+      <text x="466" y="54" fill="#ffffff" font-family="ui-sans-serif, system-ui, sans-serif" font-size="22" font-weight="800">Rp 11.240.000</text>
+      <text x="466" y="76" fill="#f59e0b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11">62% dari pagu</text>
+    </g>
+
+    <!-- Chart & Recent Activity Split -->
+    <g transform="translate(20, 212)">
+      <!-- Cashflow Chart Box -->
+      <rect x="0" y="0" width="414" height="222" rx="12" fill="url(#cardGrad)" stroke="#ffffff" stroke-opacity="0.08"/>
+      <text x="16" y="26" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700">Arus Kas &amp; Tren Saldo</text>
+      <text x="330" y="26" fill="#34d399" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11" font-weight="600">6 Bulan ▾</text>
+
+      <!-- Grid lines -->
+      <line x1="16" y1="68" x2="398" y2="68" stroke="#ffffff" stroke-opacity="0.05"/>
+      <line x1="16" y1="114" x2="398" y2="114" stroke="#ffffff" stroke-opacity="0.05"/>
+      <line x1="16" y1="160" x2="398" y2="160" stroke="#ffffff" stroke-opacity="0.05"/>
+
+      <!-- Smooth Area Chart -->
+      <path d="M 16 172 C 70 158, 108 134, 152 140 C 198 146, 236 96, 286 92 C 332 88, 362 56, 398 48 L 398 192 L 16 192 Z" fill="url(#chartFill)"/>
+      <path d="M 16 172 C 70 158, 108 134, 152 140 C 198 146, 236 96, 286 92 C 332 88, 362 56, 398 48" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round"/>
+      <circle cx="286" cy="92" r="4.5" fill="#10b981" stroke="#0b1016" stroke-width="2"/>
+      <circle cx="398" cy="48" r="5" fill="#34d399" stroke="#0b1016" stroke-width="2"/>
+
+      <!-- X Labels -->
+      <text x="20" y="208" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">Jun</text>
+      <text x="92" y="208" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">Jul</text>
+      <text x="164" y="208" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">Ags</text>
+      <text x="236" y="208" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">Sep</text>
+      <text x="308" y="208" fill="#64748b" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10">Okt</text>
+      <text x="376" y="208" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10" font-weight="700">Nov</text>
+
+      <!-- Right Side Quick Panel -->
+      <rect x="428" y="0" width="234" height="222" rx="12" fill="url(#cardGrad)" stroke="#ffffff" stroke-opacity="0.08"/>
+      <text x="444" y="26" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="13" font-weight="700">Aktivitas Terbaru</text>
+
+      <!-- Row 1 -->
+      <rect x="444" y="42" width="202" height="44" rx="8" fill="#ffffff" fill-opacity="0.03"/>
+      <circle cx="462" cy="64" r="9" fill="#10b981" fill-opacity="0.2"/>
+      <text x="479" y="60" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="600">Gaji &amp; Dividen</text>
+      <text x="479" y="75" fill="#34d399" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10.5" font-weight="600">+Rp 18.500.000</text>
+
+      <!-- Row 2 -->
+      <rect x="444" y="94" width="202" height="44" rx="8" fill="#ffffff" fill-opacity="0.03"/>
+      <circle cx="462" cy="116" r="9" fill="#38bdf8" fill-opacity="0.2"/>
+      <text x="479" y="112" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="600">Struk AI · Kopi</text>
+      <text x="479" y="127" fill="#94a3b8" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10.5">-Rp 68.000 · Pribadi</text>
+
+      <!-- Row 3 -->
+      <rect x="444" y="146" width="202" height="44" rx="8" fill="#ffffff" fill-opacity="0.03"/>
+      <circle cx="462" cy="168" r="9" fill="#a855f7" fill-opacity="0.2"/>
+      <text x="479" y="164" fill="#e2e8f0" font-family="ui-sans-serif, system-ui, sans-serif" font-size="11.5" font-weight="600">Grup Tim Proyek</text>
+      <text x="479" y="179" fill="#c084fc" font-family="ui-sans-serif, system-ui, sans-serif" font-size="10.5">-Rp 1.250.000 · 4 org</text>
+
+      <!-- FAB Badge -->
+      <circle cx="642" cy="204" r="14" fill="url(#accentBar)"/>
+      <text x="637" y="209" fill="#04130d" font-family="ui-sans-serif, system-ui, sans-serif" font-size="17" font-weight="800">+</text>
+    </g>
+  </g>
+</svg>

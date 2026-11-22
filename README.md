@@ -1,95 +1,106 @@
-# stashinmeid
+<div align="center">
 
-Aplikasi manajemen keuangan pribadi - Next.js, TypeScript, Supabase.
+<img src="public/logo-icon.png" alt="StashinMe Logo" width="76" height="76" />
 
-## Setup dari nol
+# StashinMe (`stashinmeid`)
 
-### 1. Database
+**Personal & Collaborative Finance Workspace — Multi-Space, Multi-Currency, AI Receipt Scanner**
 
-Buat project Supabase baru, lalu jalankan **satu file** ini di SQL Editor
-(Supabase > SQL Editor > New query):
+[![Live App](https://img.shields.io/badge/Live-stashinme.biz.id-10b981?style=for-the-badge&logo=vercel&logoColor=white)](https://stashinme.biz.id)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?style=for-the-badge&logo=nextdotjs&logoColor=white)](https://nextjs.org/)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+[![Supabase](https://img.shields.io/badge/Supabase-Auth%20%26%20RLS-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+[![Cloudflare](https://img.shields.io/badge/Cloudflare-DNS%20%26%20Turnstile-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://www.cloudflare.com/)
 
-```
+[Buka Aplikasi (`stashinme.biz.id`)](https://stashinme.biz.id) · [Privacy Policy](https://stashinme.biz.id/privacy) · [Terms of Service](https://stashinme.biz.id/terms) · [API Handoff Docs](docs/THIRD_PARTY_API_HANDOFF.md)
+
+</div>
+
+---
+
+<p align="center">
+  <img src="docs/github-hero.svg" alt="StashinMe Workspace Preview" width="100%" />
+</p>
+
+## Fitur Utama
+
+| Modul | Deskripsi |
+| --- | --- |
+| **Multi-Space Workspace** | Pisahkan keuangan **Semua Ruang**, **Pribadi**, dan **Grup Kolega** dalam satu dasbor terpadu dengan undangan grup 2 arah. |
+| **AI Receipt Scanner** | Unggah foto struk langsung dari tombol cepat (`+`) untuk ekstraksi item, nominal, dan kategori otomatis. |
+| **Multi-Currency & Live FX** | Konversi otomatis mata uang utama (`IDR`, `USD`, `SGD`, `EUR`, `JPY`, dll.) dengan kurs pasar real-time. |
+| **Dompet, Pagu & Utang/Piutang** | Kelola rekening/e-wallet, batas anggaran bulanan, target tabungan, serta catatan piutang & cicilan. |
+| **Keamanan & Audit Trail** | Autentikasi Email/Password, Google OAuth, Passkey/MFA, Cloudflare Turnstile, Row-Level Security (RLS), serta Audit Log 2 arah. |
+| **Bilingual & Tema Adaptif** | Dukungan penuh Bahasa Indonesia & English (`next-intl`) serta Dark / Light mode. |
+| **Membership & Admin Console** | Paket *Free*, *Standard*, *Pro*, *Business*, dan *Enterprise Custom* lengkap dengan panel kontrol admin & manajemen integrasi API. |
+
+---
+
+## Tech Stack
+
+- **Framework:** Next.js 16 (App Router) + React 19 + TypeScript
+- **Styling & UI:** Tailwind CSS v4 + Framer Motion + Lucide Icons
+- **Auth & Database:** Supabase PostgreSQL + Row-Level Security (RLS)
+- **Email & Security:** Resend Custom SMTP (`noreply@stashinme.biz.id`), Cloudflare Email Routing (`support@stashinme.biz.id`), Cloudflare Turnstile
+- **Deployment:** Vercel (`https://stashinme.biz.id`)
+
+---
+
+## Setup Lokal & Deployment
+
+### 1. Database (Supabase)
+
+Buat project Supabase baru, lalu jalankan satu file migrasi ini di **Supabase → SQL Editor**:
+
+```sql
 supabase/migrations/2026-11-21_bootstrap_new_project.sql
 ```
 
-File itu sudah berisi seluruh skema (profil, transaksi, pinjaman, pagu
-anggaran, dompet, kurs, KYC, kolega, storage, sosial), RLS + policy, role
-`admin`/`user`, dan semua GRANT yang dibutuhkan.
+File tersebut sudah mencakup seluruh skema tabel (profil, transaksi, pinjaman, pagu anggaran, dompet, kurs, KYC, kolega, storage, sosial), RLS + policy, role `admin`/`user`, dan seluruh `GRANT`.
 
-Aman dijalankan ulang: setiap `CREATE POLICY` didahului `DROP POLICY IF
-EXISTS`, jadi kalau gagal di tengah dan dijalankan lagi, sisanya tetap
-terisi.
+Untuk memperbaiki hak akses jika tabel sudah ada:
 
-Kalau tabelnya sudah ada dan cuma hak akses yang hilang, jalankan yang lebih
-kecil:
-
-```
+```sql
 supabase/migrations/2026-11-23_fix_missing_grants.sql
 ```
 
-Untuk memastikan semuanya beres, jalankan query read-only:
+### 2. Environment Variables
 
-```
-supabase/verify_grants.sql
-```
-
-### 2. Environment variable
-
-Salin `.env.example` jadi `.env.local` dan isi. Yang wajib:
+Salin `.env.example` menjadi `.env.local` dan lengkapi variabel wajib:
 
 | Variable | Keterangan |
 | --- | --- |
-| `SUPABASE_SERVICE_ROLE_KEY` | Bypass RLS. **Jangan pernah di-commit.** |
+| `SUPABASE_SERVICE_ROLE_KEY` | Kunci service role Supabase (server-only). **Jangan pernah di-commit.** |
 | `SUPERADMIN_USERNAME` | Username login superadmin (tanpa `@`). |
-| `SUPERADMIN_PASSWORD` | Password superadmin (atau pakai `_HASH`). |
-| `JWT_SECRET` | Kunci session, minimal 32 karakter. |
-| `VERCEL_TOKEN` | Token personal Vercel, untuk auto-sync env. |
+| `SUPERADMIN_PASSWORD_HASH` | Hash password superadmin (hasil `npm run hash-password`). |
+| `JWT_SECRET` | Kunci penandatanganan sesi, minimal 32 karakter. |
+| `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Site key Cloudflare Turnstile. |
+| `TURNSTILE_SECRET_KEY` | Secret key Cloudflare Turnstile (server-only). |
 
-`NEXT_PUBLIC_SUPABASE_URL` dan `NEXT_PUBLIC_SUPABASE_ANON_KEY` **tidak perlu
-diset** - nilainya sudah ada di `src/lib/supabase/project.ts`. Keduanya bukan
-rahasia (memang dikirim ke browser), jadi aman di-commit dan otomatis ikut
-deploy. Env var tetap dipakai sebagai override kalau lu punya project lain.
-
-### 3. Deploy
+### 3. Jalankan & Build
 
 ```bash
-npm run push
+npm install
+npm run dev          # server pengembangan (http://localhost:3000)
+npm run typecheck    # cek TypeScript (tsc --noEmit)
+npm run lint         # cek ESLint
+npm run check:i18n   # validasi kunci terjemahan ID/EN
+npm run build        # build production
 ```
 
-Script itu commit, push ke GitHub (Vercel auto-deploy), lalu menyinkronkan
-environment variable Vercel dari `.env.local`. Setelah itu redeploy sekali di
-Vercel supaya env baru terpakai.
+---
 
-Kalau `VERCEL_TOKEN` belum diisi, langkah sync env dilewati dan env harus diset
-manual. Template nilainya ada di `.env.vercel.example`.
+## Catatan Arsitektur
 
-## Command
+- **Strict Error Checking:** Seluruh operasi tulis ke Supabase memvalidasi `{ error }` secara eksplisit sehingga tidak ada kegagalan diam-diam.
+- **Timezone Consistency:** Seluruh format tanggal dikunci ke zona waktu aplikasi (`Asia/Jakarta`) via `Intl.DateTimeFormat` untuk mencegah React hydration mismatch.
+- **Third-Party Integrations:** Panduan integrasi Stripe, Midtrans, Resend, dan e-KYC tersedia di [`docs/THIRD_PARTY_API_HANDOFF.md`](docs/THIRD_PARTY_API_HANDOFF.md).
 
-```bash
-npm run dev              # server pengembangan
-npm run build            # build production
-npm run lint             # eslint
-npm run typecheck        # tsc --noEmit
-npm run hash-password -- "password"   # hash untuk SUPERADMIN_PASSWORD_HASH
-npm run sync:vercel-env  # sinkron env Vercel (dry-run tanpa --yes)
-```
+---
 
-## Catatan arsitektur
+## Kontak & Legal
 
-Tiga aturan yang dijaga di codebase ini:
-
-**Semua operasi tulis ke database mengecek error.** Supabase tidak melempar
-exception, ia mengembalikan `{ error }`. Kalau tidak dicek, baris hilang dari
-database tapi user tetap melihat toast "berhasil disimpan". Semua titik tulis
-sudah diaudit dan dicek.
-
-**Superadmin punya jalur data sendiri.** Superadmin (dan mode impersonate)
-tidak punya sesi Supabase milik user target, jadi datanya dibaca dan ditulis
-lewat `/api/superadmin/finance` yang memakai service role. Hook `useAssets` dan
-`useBudgets` otomatis memakai jalur itu kalau `isSuperadmin` aktif.
-
-**Tanggal dikunci ke zona waktu aplikasi** (`Asia/Jakarta`). Server berjalan di
-UTC, browser pengguna di WIB. Kalau render memakai zona waktu lokal mesin,
-HTML server dan browser berbeda dan memicu hydration mismatch (React #418).
-Semua tanggal lewat `Intl.DateTimeFormat` dengan `timeZone` eksplisit.
+- **Website:** https://stashinme.biz.id
+- **Support & Partnership:** support@stashinme.biz.id
+- **Privacy Policy:** https://stashinme.biz.id/privacy
+- **Terms of Service:** https://stashinme.biz.id/terms

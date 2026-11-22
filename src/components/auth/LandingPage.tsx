@@ -1814,7 +1814,21 @@ export function LandingPage({
 
           <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-white/[0.06] pt-6 text-[12px] text-zinc-500 sm:flex-row">
             <span>© 2026 stashinmeid. All rights reserved.</span>
-            <span>v3.0 · Built in Indonesia</span>
+            <div className="flex flex-wrap items-center justify-center gap-4">
+              <a
+                href={`/${isEn ? 'en' : 'id'}/privacy`}
+                className="transition hover:text-zinc-200"
+              >
+                {isEn ? 'Privacy Policy' : 'Kebijakan Privasi'}
+              </a>
+              <a
+                href={`/${isEn ? 'en' : 'id'}/terms`}
+                className="transition hover:text-zinc-200"
+              >
+                {isEn ? 'Terms of Service' : 'Syarat & Ketentuan'}
+              </a>
+              <span>· v3.0 · Built in Indonesia</span>
+            </div>
           </div>
         </div>
       </footer>
