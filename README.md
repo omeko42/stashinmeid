@@ -11,6 +11,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Auth%20%26%20RLS-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
 [![Cloudflare](https://img.shields.io/badge/Cloudflare-DNS%20%26%20Turnstile-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)](https://www.cloudflare.com/)
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL--3.0-blue?style=for-the-badge)](LICENSE)
 
 [Buka Aplikasi (`stashinme.biz.id`)](https://stashinme.biz.id) · [Privacy Policy](https://stashinme.biz.id/privacy) · [Terms of Service](https://stashinme.biz.id/terms) · [API Handoff Docs](docs/THIRD_PARTY_API_HANDOFF.md)
 
@@ -112,3 +113,4 @@ npm run build        # build production
 - **Support & Partnership:** support@stashinme.biz.id
 - **Privacy Policy:** https://stashinme.biz.id/privacy
 - **Terms of Service:** https://stashinme.biz.id/terms
+- **License:** [GNU AGPL-3.0](LICENSE)
