@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { ArrowDown, ArrowUp, Download, Plus, Search, Trash2 } from 'lucide-react';
+import { ArrowDown, ArrowUp, Download, Pencil, Plus, Search, Trash2 } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types/finance';
 import { formatDate, formatRp } from '@/lib/format';
 import { getCategory } from '@/lib/categories';
@@ -20,8 +20,11 @@ interface CashflowTabProps {
   filterType: 'all' | TransactionType;
   searchQuery: string;
   canEdit: boolean;
+  accounts?: { id: string; name: string; kind: string; currency: string }[];
+  sharedGroups?: { id: string; name: string }[];
   onFilterTypeChange: (value: 'all' | TransactionType) => void;
   onSearchChange: (value: string) => void;
+  onEdit?: (tx: Transaction) => void;
   onDelete: (id: string) => void;
   onQuickAdd: () => void;
   onExportCsv: () => void;
@@ -40,12 +43,32 @@ export function CashflowTab({
   filterType,
   searchQuery,
   canEdit,
+  accounts = [],
+  sharedGroups = [],
   onFilterTypeChange,
   onSearchChange,
+  onEdit,
   onDelete,
   onQuickAdd,
   onExportCsv,
 }: CashflowTabProps) {
+  const accountById = useMemo(
+    () => new Map(accounts.map((a) => [a.id, a])),
+    [accounts]
+  );
+  const groupById = useMemo(
+    () => new Map(sharedGroups.map((g) => [g.id, g.name])),
+    [sharedGroups]
+  );
+
+  const walletLabel = (tx: Transaction) => {
+    if (tx.account_id) {
+      const acc = accountById.get(tx.account_id);
+      if (acc) return acc.name;
+    }
+    if (tx.source === 'manual_non_physical') return 'Non-Fisik';
+    return 'Kas Fisik';
+  };
   const t = useTranslations();
   const tCashflow = useTranslations('cashflow');
   const tCommon = useTranslations('common');
@@ -195,7 +218,10 @@ export function CashflowTab({
                       {tx.description || tx.category}
                     </p>
                     <p className="tnum truncate text-[11px] text-[var(--text-faint)]">
-                      {formatDate(tx.transaction_date)} · {tx.category}
+                      {formatDate(tx.transaction_date)} · {tx.category} · {walletLabel(tx)}
+                      {tx.group_id && groupById.get(tx.group_id)
+                        ? ` · Grup ${groupById.get(tx.group_id)}`
+                        : ''}
                     </p>
                   </div>
                   <Amount
@@ -205,14 +231,26 @@ export function CashflowTab({
                     className="shrink-0"
                   />
                   {canEdit && (
-                    <IconButton
-                      label={tCommon('delete')}
-                      size="sm"
-                      onClick={() => onDelete(tx.id)}
-                      className="shrink-0 text-[var(--text-faint)] hover:text-[var(--out)]"
-                    >
-                      <Trash2 className="size-4" />
-                    </IconButton>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      {onEdit && (
+                        <IconButton
+                          label="Edit"
+                          size="sm"
+                          onClick={() => onEdit(tx)}
+                          className="text-[var(--text-faint)] hover:text-[var(--brand)]"
+                        >
+                          <Pencil className="size-3.5" />
+                        </IconButton>
+                      )}
+                      <IconButton
+                        label={tCommon('delete')}
+                        size="sm"
+                        onClick={() => onDelete(tx.id)}
+                        className="text-[var(--text-faint)] hover:text-[var(--out)]"
+                      >
+                        <Trash2 className="size-4" />
+                      </IconButton>
+                    </div>
                   )}
                 </div>
               );
@@ -258,7 +296,7 @@ export function CashflowTab({
                       ))}
                   </button>
                 </th>
-                {canEdit && <th scope="col" className="w-12 px-2 py-2.5" />}
+                {canEdit && <th scope="col" className="w-20 px-2 py-2.5" />}
               </tr>
             </thead>
             <tbody>
@@ -295,7 +333,17 @@ export function CashflowTab({
                       </div>
                     </td>
                     <td className="hidden whitespace-nowrap px-4 py-2.5 text-[12px] text-[var(--text-muted)] lg:table-cell">
-                      {tx.category}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span>{tx.category}</span>
+                        <span className="rounded-md bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+                          {walletLabel(tx)}
+                        </span>
+                        {tx.group_id && groupById.get(tx.group_id) && (
+                          <span className="rounded-md bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                            Grup: {groupById.get(tx.group_id)}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="whitespace-nowrap px-4 py-2.5 text-right">
                       <Amount
@@ -306,14 +354,26 @@ export function CashflowTab({
                     </td>
                     {canEdit && (
                       <td className="px-2 py-2.5 text-right">
-                        <IconButton
-                          label={tCommon('delete')}
-                          size="sm"
-                          onClick={() => onDelete(tx.id)}
-                          className="text-[var(--text-faint)] hover:text-[var(--out)]"
-                        >
-                          <Trash2 className="size-4" />
-                        </IconButton>
+                        <div className="inline-flex items-center gap-0.5">
+                          {onEdit && (
+                            <IconButton
+                              label="Edit"
+                              size="sm"
+                              onClick={() => onEdit(tx)}
+                              className="text-[var(--text-faint)] hover:text-[var(--brand)]"
+                            >
+                              <Pencil className="size-3.5" />
+                            </IconButton>
+                          )}
+                          <IconButton
+                            label={tCommon('delete')}
+                            size="sm"
+                            onClick={() => onDelete(tx.id)}
+                            className="text-[var(--text-faint)] hover:text-[var(--out)]"
+                          >
+                            <Trash2 className="size-4" />
+                          </IconButton>
+                        </div>
                       </td>
                     )}
                   </tr>

@@ -78,11 +78,16 @@ export function useNotifications() {
     const onVisibility = () => {
       if (document.visibilityState === 'visible') refresh();
     };
+    const onMessagesUpdated = () => {
+      void refresh();
+    };
     document.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('stashinmeid:messages-updated', onMessagesUpdated);
 
     return () => {
       stopPolling();
       document.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('stashinmeid:messages-updated', onMessagesUpdated);
     };
   }, [refresh]);
 
@@ -105,6 +110,9 @@ export function useNotifications() {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ id }),
         });
+        if (id.startsWith('live-msg:')) {
+          window.dispatchEvent(new Event('stashinmeid:chat-sync'));
+        }
       } catch {
         // Kalau gagal, polling berikutnya akan menyinkronkan lagi.
       }
@@ -127,6 +135,7 @@ export function useNotifications() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ all: true }),
       });
+      window.dispatchEvent(new Event('stashinmeid:chat-sync'));
     } catch {
       // Sama seperti di atas.
     }

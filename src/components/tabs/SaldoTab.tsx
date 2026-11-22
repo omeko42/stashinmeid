@@ -35,9 +35,11 @@ interface SaldoTabProps {
   searchQuery: string;
   onFilterTypeChange: (value: 'all' | TransactionType) => void;
   onSearchChange: (value: string) => void;
+  onEditTransaction?: (tx: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
   onQuickAdd: () => void;
   onExportCsv: () => void;
+  sharedGroups?: { id: string; name: string }[];
 }
 
 /**
@@ -60,9 +62,11 @@ export function SaldoTab({
   searchQuery,
   onFilterTypeChange,
   onSearchChange,
+  onEditTransaction,
   onDeleteTransaction,
   onQuickAdd,
   onExportCsv,
+  sharedGroups = [],
 }: SaldoTabProps) {
   const t = useTranslations('saldo');
 
@@ -105,7 +109,9 @@ export function SaldoTab({
             <Amount value={formatRp(physicalTotal)} size="lg" />
           </div>
           <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-            {t('physicalHint', { count: physical.length })}
+            {physical.length === 0 && physicalTotal !== 0
+              ? 'Dari arus kas tunai · 0 dompet terdaftar'
+              : t('physicalHint', { count: physical.length })}
           </p>
         </section>
         <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
@@ -114,7 +120,9 @@ export function SaldoTab({
             <Amount value={formatRp(nonPhysicalTotal)} size="lg" />
           </div>
           <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-            {t('nonPhysicalHint', { count: nonPhysical.length })}
+            {nonPhysical.length === 0 && nonPhysicalTotal !== 0
+              ? 'Dari arus kas non-fisik · 0 dompet terdaftar'
+              : t('nonPhysicalHint', { count: nonPhysical.length })}
           </p>
         </section>
       </div>
@@ -134,8 +142,11 @@ export function SaldoTab({
           filterType={filterType}
           searchQuery={searchQuery}
           canEdit={canEdit}
+          accounts={assets.accounts}
+          sharedGroups={sharedGroups}
           onFilterTypeChange={onFilterTypeChange}
           onSearchChange={onSearchChange}
+          onEdit={onEditTransaction}
           onDelete={onDeleteTransaction}
           onQuickAdd={onQuickAdd}
           onExportCsv={onExportCsv}

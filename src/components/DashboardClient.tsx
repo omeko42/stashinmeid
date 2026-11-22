@@ -159,6 +159,7 @@ export default function DashboardClient({
   const [filterType, setFilterType] = useState<'all' | TransactionType>('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
+  const [editingTxId, setEditingTxId] = useState<string | null>(null);
   const [commandOpen, setCommandOpen] = useState(false);
   const [settingsAdminMode, setSettingsAdminMode] = useState(false);
   const [settingsPersonalSection, setSettingsPersonalSection] =
@@ -537,16 +538,42 @@ export default function DashboardClient({
     kycStatus,
   ]);
 
-  // Pengingat keuangan nyata untuk AnnouncementBar (tanpa teks dummy!)
+  // Pengingat keuangan & pesan masuk nyata untuk AnnouncementBar (tanpa teks dummy!)
   const liveAlerts = useMemo(() => {
     const alerts: string[] = [];
-    if (kolega.pendingInvites.length > 0) {
+
+    // 1. Pesan obrolan masuk & notifikasi live yang belum dibaca
+    const unreadNotifs = notifications.notifications.filter((n) => !n.readAt);
+    for (const n of unreadNotifs.slice(0, 3)) {
+      const preview = n.body ? `: "${n.body.slice(0, 60)}${n.body.length > 60 ? '…' : ''}"` : '';
+      alerts.push(`${n.title}${preview}`);
+    }
+
+    // 2. Permintaan pertemanan kolega masuk (jika belum terwakili di atas)
+    if (
+      connections.incoming.length > 0 &&
+      !unreadNotifs.some((n) => n.type === 'connection_requested')
+    ) {
+      alerts.push(
+        isEn
+          ? `${connections.incoming.length} incoming colleague request(s) in Social`
+          : `${connections.incoming.length} permintaan kolega baru di Kelola Kolega`
+      );
+    }
+
+    // 3. Undangan grup masuk (jika belum terwakili di atas)
+    if (
+      kolega.pendingInvites.length > 0 &&
+      !unreadNotifs.some((n) => n.id.startsWith('live-grp:'))
+    ) {
       alerts.push(
         isEn
           ? `${kolega.pendingInvites.length} pending group invitation(s) waiting in Social`
           : `${kolega.pendingInvites.length} undangan grup menunggu konfirmasi di menu Sosial`
       );
     }
+
+    // 4. Cicilan jatuh tempo dalam 7 hari
     const nowMs = appNow().getTime();
     for (const g of upcomingDueGroups) {
       const days = Math.ceil((g.nextDue.getTime() - nowMs) / 86_400_000);
@@ -558,6 +585,8 @@ export default function DashboardClient({
         );
       }
     }
+
+    // 5. Pagu anggaran melampaui batas
     const overBudgets = budgetList.filter((b) => b.over);
     if (overBudgets.length > 0) {
       alerts.push(
@@ -567,11 +596,37 @@ export default function DashboardClient({
       );
     }
     return alerts;
-  }, [kolega.pendingInvites, upcomingDueGroups, budgetList, isEn]);
+  }, [
+    notifications.notifications,
+    connections.incoming.length,
+    kolega.pendingInvites,
+    upcomingDueGroups,
+    budgetList,
+    isEn,
+  ]);
 
   // ------------------------------------------------------------------
-  // Transaksi
+  // Transaksi (Tambah & Edit Dompet/Kategori/Grup)
   // ------------------------------------------------------------------
+
+  const openEditTransaction = (tx: Transaction) => {
+    setEditingTxId(tx.id);
+    setScanMsg(null);
+    setQuickAdd({
+      type: tx.type,
+      amount: String(tx.amount),
+      category: tx.category,
+      description: tx.description ?? '',
+      date: tx.transaction_date || todayIso(),
+      groupId: tx.group_id ?? '',
+      accountId: tx.account_id
+        ? tx.account_id
+        : tx.source === 'manual_non_physical'
+          ? '__non_physical__'
+          : '',
+    });
+    setShowQuickAdd(true);
+  };
 
   const handleAddTransaction = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -588,6 +643,122 @@ export default function DashboardClient({
         ? 'manual_non_physical'
         : 'manual';
     const targetGroupId = quickAdd.groupId || null;
+
+    // MODE EDIT TRANSAKSI EXISTING
+    if (editingTxId) {
+      const prevTx = transactions.find((x) => x.id === editingTxId);
+      const updatedFields = {
+        type: quickAdd.type,
+        amount: amountNum,
+        category: quickAdd.category,
+        description: quickAdd.description || null,
+        transaction_date: quickAdd.date || todayIso(),
+        source:
+          prevTx?.source === 'ai_scan' && !isNonPhysicalVirtual
+            ? 'ai_scan'
+            : txSource,
+        group_id: targetGroupId,
+        account_id: realAccountId,
+      };
+
+      try {
+        if (!isDemoMode && isSuperadmin) {
+          const res = await fetch('/api/superadmin/finance', {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              table: 'transactions',
+              id: editingTxId,
+              updates: updatedFields,
+            }),
+          });
+          const json = await res.json().catch(() => ({}));
+          if (!res.ok) {
+            toast.error(json.error || 'Gagal memperbarui transaksi.');
+            return;
+          }
+        } else if (!isDemoMode && supabase) {
+          const { error } = await supabase
+            .from('transactions')
+            .update(updatedFields)
+            .eq('id', editingTxId);
+          if (error) {
+            toast.error(error.message);
+            return;
+          }
+        }
+
+        // Sinkronkan perubahan saldo dompet (balikkan delta lama, terapkan delta baru)
+        const oldAccId = prevTx?.account_id ?? null;
+        const oldDelta = prevTx
+          ? prevTx.type === 'inflow'
+            ? Number(prevTx.amount)
+            : -Number(prevTx.amount)
+          : 0;
+        const newDelta =
+          updatedFields.type === 'inflow'
+            ? Number(updatedFields.amount)
+            : -Number(updatedFields.amount);
+
+        if (oldAccId && oldAccId === realAccountId) {
+          const diff = newDelta - oldDelta;
+          if (diff !== 0) {
+            const acc = assets.accounts.find((a) => a.id === oldAccId);
+            if (acc) {
+              await assets.saveAccount({
+                id: acc.id,
+                name: acc.name,
+                kind: acc.kind,
+                institution: acc.institution,
+                currency: acc.currency,
+                balance: Number(acc.balance) + diff,
+              });
+            }
+          }
+        } else {
+          if (oldAccId) {
+            const oldAcc = assets.accounts.find((a) => a.id === oldAccId);
+            if (oldAcc) {
+              await assets.saveAccount({
+                id: oldAcc.id,
+                name: oldAcc.name,
+                kind: oldAcc.kind,
+                institution: oldAcc.institution,
+                currency: oldAcc.currency,
+                balance: Number(oldAcc.balance) - oldDelta,
+              });
+            }
+          }
+          if (realAccountId) {
+            const newAcc = assets.accounts.find((a) => a.id === realAccountId);
+            if (newAcc) {
+              await assets.saveAccount({
+                id: newAcc.id,
+                name: newAcc.name,
+                kind: newAcc.kind,
+                institution: newAcc.institution,
+                currency: newAcc.currency,
+                balance: Number(newAcc.balance) + newDelta,
+              });
+            }
+          }
+        }
+
+        setTransactions((prev) =>
+          prev.map((tx) =>
+            tx.id === editingTxId ? { ...tx, ...updatedFields } : tx
+          )
+        );
+        setEditingTxId(null);
+        setQuickAdd(initialQuickAddState());
+        setScanMsg(null);
+        setShowQuickAdd(false);
+        toast.success(isEn ? 'Transaction updated' : 'Transaksi berhasil diperbarui');
+      } finally {
+        setTxLoading(false);
+      }
+      return;
+    }
 
     const newTx: Transaction = {
       id: crypto.randomUUID(),
@@ -1688,8 +1859,11 @@ export default function DashboardClient({
           sidebarCollapsed ? 'lg:pl-[4.5rem]' : 'lg:pl-60'
         }`}
       >
-        {/* Pita pengumuman & pengingat nyata (tanpa teks dummy) */}
-        <AnnouncementBar liveAlerts={liveAlerts} />
+        {/* Pita pengumuman & pengingat nyata (pesan masuk, undangan, jatuh tempo) */}
+        <AnnouncementBar
+          liveAlerts={liveAlerts}
+          onClickAlert={() => setNotificationsOpen(true)}
+        />
 
         <MobileHeader
           profileClient={profileClient}
@@ -2030,11 +2204,22 @@ export default function DashboardClient({
                   searchQuery={searchQuery}
                   onFilterTypeChange={setFilterType}
                   onSearchChange={setSearchQuery}
+                  onEditTransaction={openEditTransaction}
                   onDeleteTransaction={handleDeleteTransaction}
+                  sharedGroups={
+                    !isDemoMode
+                      ? kolega.groups.map((g) => ({ id: g.id, name: g.name }))
+                      : []
+                  }
                   onQuickAdd={() => {
-                    if (activeScope !== 'personal' && activeScope !== 'all') {
-                      setQuickAdd((prev) => ({ ...prev, groupId: activeScope }));
-                    }
+                    setEditingTxId(null);
+                    setQuickAdd(
+                      initialQuickAddState(
+                        activeScope !== 'personal' && activeScope !== 'all'
+                          ? activeScope
+                          : ''
+                      )
+                    );
                     setShowQuickAdd(true);
                   }}
                   onExportCsv={handleExportCsv}
@@ -2266,10 +2451,14 @@ export default function DashboardClient({
 
       <QuickAddSheet
         open={showQuickAdd}
-        onClose={() => setShowQuickAdd(false)}
+        onClose={() => {
+          setShowQuickAdd(false);
+          setEditingTxId(null);
+        }}
         state={quickAdd}
         scanMsg={scanMsg}
         saving={txLoading}
+        editing={Boolean(editingTxId)}
         sharedGroups={!isDemoMode ? kolega.groups.map((g) => ({ id: g.id, name: g.name })) : []}
         accounts={assets.accounts}
         onStateChange={setQuickAdd}

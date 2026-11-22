@@ -14,7 +14,13 @@ import { useTranslations } from 'next-intl';
  *
  * Jika tidak ada pengumuman resmi maupun pengingat aktif, pita otomatis disembunyikan.
  */
-export function AnnouncementBar({ liveAlerts = [] }: { liveAlerts?: string[] }) {
+export function AnnouncementBar({
+  liveAlerts = [],
+  onClickAlert,
+}: {
+  liveAlerts?: string[];
+  onClickAlert?: () => void;
+}) {
   const t = useTranslations('announcement');
   const [adminText, setAdminText] = useState<string | null>(null);
   const [loaded, setLoaded] = useState(false);
@@ -61,9 +67,11 @@ export function AnnouncementBar({ liveAlerts = [] }: { liveAlerts?: string[] }) 
     };
   }, []);
 
-  const combinedText =
-    adminText ||
-    (liveAlerts.length > 0 ? liveAlerts.join('   •   ') : null);
+  const segments = [
+    ...(adminText ? [adminText] : []),
+    ...liveAlerts,
+  ];
+  const combinedText = segments.length > 0 ? segments.join('   •   ') : null;
 
   if (!loaded || !combinedText || hidden) return null;
 
@@ -74,7 +82,12 @@ export function AnnouncementBar({ liveAlerts = [] }: { liveAlerts?: string[] }) 
       role="status"
       className="relative overflow-hidden border-b border-[var(--line)] bg-[var(--brand-soft)] pt-[env(safe-area-inset-top)]"
     >
-      <div className="ann-marquee flex w-max items-center py-1.5 text-[11px] font-medium text-[var(--brand)]">
+      <div
+        onClick={onClickAlert}
+        className={`ann-marquee flex w-max items-center py-1.5 text-[11px] font-medium text-[var(--brand)] ${
+          onClickAlert ? 'cursor-pointer' : ''
+        }`}
+      >
         {[0, 1].map((groupIdx) => (
           <div
             key={groupIdx}

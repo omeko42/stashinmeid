@@ -157,14 +157,33 @@ export function FloatingQuickChat({
       if (!res.ok) return;
       const json = (await res.json()) as { messages?: ChatMessage[] };
       setMessages(json.messages ?? []);
-      // Tandai unread thread jadi 0 secara lokal setelah dibuka
+      // Tandai unread thread jadi 0 secara lokal setelah dibuka & sinkronkan lonceng notifikasi
       setThreads((prev) =>
         prev.map((t) => (t.peerId === peerId ? { ...t, unread: 0 } : t))
       );
+      window.dispatchEvent(new Event('stashinmeid:messages-updated'));
     } finally {
       setMessagesLoading(false);
     }
   }, []);
+
+  // Muat daftar thread & badge unread langsung saat halaman terbuka + polling ringan 30 detik
+  useEffect(() => {
+    void loadThreads();
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void loadThreads();
+      }
+    }, 30_000);
+    const onSync = () => {
+      void loadThreads();
+    };
+    window.addEventListener('stashinmeid:chat-sync', onSync);
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('stashinmeid:chat-sync', onSync);
+    };
+  }, [loadThreads]);
 
   useEffect(() => {
     if (!open) return;

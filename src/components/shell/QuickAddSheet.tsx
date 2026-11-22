@@ -33,6 +33,8 @@ interface QuickAddSheetProps {
   state: QuickAddState;
   scanMsg: string | null;
   saving: boolean;
+  /** Sedang mengedit transaksi yang sudah ada (bukan tambah baru). */
+  editing?: boolean;
   /** Daftar ruang bersama aktif; kosong = pilihan tidak muncul. */
   sharedGroups?: { id: string; name: string }[];
   /** Daftar dompet aset user untuk dihubungkan dengan arus kas. */
@@ -53,6 +55,7 @@ export function QuickAddSheet({
   state,
   scanMsg,
   saving,
+  editing = false,
   sharedGroups = [],
   accounts = [],
   onStateChange,
@@ -77,7 +80,7 @@ export function QuickAddSheet({
     <Modal
       open={open}
       onClose={onClose}
-      title={tQuickAdd('title')}
+      title={editing ? 'Edit Transaksi' : tQuickAdd('title')}
       size="md"
       footer={
         <>
@@ -85,7 +88,7 @@ export function QuickAddSheet({
             {t('common.cancel')}
           </Button>
           <Button type="submit" form="quick-add-form" size="sm" loading={saving}>
-            {tQuickAdd('save')}
+            {editing ? 'Simpan Perubahan' : tQuickAdd('save')}
           </Button>
         </>
       }
