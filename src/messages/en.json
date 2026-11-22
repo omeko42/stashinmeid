@@ -236,7 +236,9 @@
       "data": "Data and export",
       "security": "Security",
       "admin": "Administration",
-      "appearance": "Appearance"
+      "appearance": "Appearance",
+      "notifications": "Notifications",
+      "account": "Account"
     },
     "profile": {
       "cover": "Profile and Security",
@@ -302,7 +304,14 @@
         "emptyHint": "Register a passkey so you can sign in without a password.",
         "unnamed": "Passkey",
         "unsupported": "This browser does not support passkeys (WebAuthn) yet."
-      }
+      },
+      "passkeyStatus": "Passkey enabled",
+      "twofaOff": "Not enabled",
+      "twofaScanHint": "Scan this code with Google Authenticator, Authy, or 1Password, then enter the 6-digit code to verify.",
+      "lockNow": "Lock now",
+      "password": "Password",
+      "passwordManaged": "Managed",
+      "passwordHint": "Change your password from the Profile menu (change password). If you forgot it, use the \"Forgot Password?\" link on the login page."
     },
     "appearance": {
       "title": "Appearance",
@@ -352,6 +361,44 @@
       "show": "Show balance",
       "hide": "Hide balance",
       "hiddenNote": "Balance is currently hidden."
+    },
+    "announcement": {
+      "title": "Announcement banner",
+      "hint": "Text shown at the very top of the app for every user. Only one banner is active at a time.",
+      "placeholder": "Example: Scheduled maintenance on Sunday at 11:00 PM.",
+      "publish": "Publish",
+      "remove": "Remove banner",
+      "active": "Active",
+      "published": "Announcement published.",
+      "removed": "Announcement removed.",
+      "empty": "Banner text cannot be empty.",
+      "tooLong": "Maximum 500 characters."
+    },
+    "notifications": {
+      "title": "Notifications",
+      "hint": "Choose which notifications you want to receive."
+    },
+    "danger": {
+      "title": "Danger zone",
+      "hint": "Actions here are permanent and cannot be undone. Read carefully before continuing.",
+      "exportTitle": "Download my data",
+      "exportHint": "Save a copy of your transactions, debts, assets, and profile as a JSON file. Do this before deleting your account.",
+      "exportButton": "Download data",
+      "exported": "Your data has been downloaded.",
+      "deleteTitle": "Delete account",
+      "deleteHint": "Permanently delete your account and all of its data. This cannot be undone.",
+      "deleteButton": "Delete account",
+      "confirmTitle": "Permanently delete account",
+      "confirmWarning": "All of your data (transactions, debts, assets, budgets, connections) will be permanently deleted. Download your data first if you still need a copy.",
+      "phraseLabel": "Type \"{phrase}\" to confirm",
+      "passwordLabel": "Account password",
+      "reasonLabel": "Reason (optional)",
+      "reasonHint": "This reason is recorded in the admin audit log.",
+      "reasonPlaceholder": "Example: I no longer use this app.",
+      "cancel": "Cancel",
+      "confirmDelete": "Delete permanently",
+      "needPassword": "Enter your account password to continue.",
+      "deleted": "Your account has been deleted."
     }
   },
   "users": {
@@ -530,5 +577,35 @@
     "ratePlaceholder": "1 unit = how much {currency}?",
     "saved": "Wallet saved.",
     "failed": "Could not save wallet."
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all as read",
+    "markRead": "Mark as read",
+    "remove": "Remove notification",
+    "emptyTitle": "No notifications yet",
+    "emptyHint": "Connection updates, group activity, and chat messages will show up here.",
+    "types": {
+      "connection_requested": {
+        "title": "Connection requests",
+        "hint": "When someone sends you a connection request."
+      },
+      "connection_accepted": {
+        "title": "Accepted connections",
+        "hint": "When your connection request is accepted."
+      },
+      "group_member_joined": {
+        "title": "New group members",
+        "hint": "When someone joins a finance group you are part of."
+      },
+      "feed_post": {
+        "title": "Feed posts",
+        "hint": "When a connection posts something in the feed."
+      },
+      "chat_message": {
+        "title": "Chat messages",
+        "hint": "When you receive a chat message."
+      }
+    }
   }
 }

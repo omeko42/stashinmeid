@@ -14,12 +14,20 @@ import { useBalancePrivacy } from './BalancePrivacy';
 export function BalanceVisibilityToggle({
   className,
   size = 'sm',
+  onClick,
 }: {
   className?: string;
   size?: 'sm' | 'md';
+  /** Callback tambahan - dipanggil setelah toggle global dieksekusi. */
+  onClick?: () => void;
 }) {
   const t = useTranslations('settings.balance');
   const { hidden, toggle, ready } = useBalancePrivacy();
+
+  const handleClick = () => {
+    toggle();
+    onClick?.();
+  };
 
   return (
     <IconButton
@@ -27,7 +35,7 @@ export function BalanceVisibilityToggle({
       title={hidden ? t('show') : t('hide')}
       variant="ghost"
       size={size}
-      onClick={toggle}
+      onClick={handleClick}
       className={className}
       // Sebelum localStorage terbaca, disable supaya tidak ada state yang
       // belum sinkron.

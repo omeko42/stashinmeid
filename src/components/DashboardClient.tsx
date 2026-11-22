@@ -13,6 +13,7 @@ import { useAssets } from '@/hooks/useAssets';
 import { CommandPalette, type CommandAction } from '@/components/shell/CommandPalette';
 import { Sidebar, type NavTab } from '@/components/shell/Sidebar';
 import { AnnouncementBar } from '@/components/shell/AnnouncementBar';
+import { NAVIGATE_EVENT } from '@/components/shell/NotificationBell';
 import { MobileHeader } from '@/components/shell/MobileHeader';
 import { BottomNav } from '@/components/shell/BottomNav';
 import {
@@ -217,6 +218,30 @@ export default function DashboardClient({
   useEffect(() => {
     setDebts(initialDebts);
   }, [initialDebts]);
+
+  // Navigasi dari lonceng notifikasi.
+  //
+  // Notifikasi hidup di header (banyak tempat), jadi daripada menarik
+  // callback navigasi lewat beberapa level prop, lonceng menembakkan event
+  // dan di sini yang menerjemahkannya ke tab yang benar.
+  //
+  // Format detail: { tab: 'social' | 'overview' | ..., sub?: 'chat' | 'kolega' }
+  useEffect(() => {
+    const onNavigate = (e: Event) => {
+      const detail = (e as CustomEvent<{ tab?: string; sub?: string }>).detail;
+      if (!detail?.tab) return;
+
+      const tab = detail.tab as NavTab;
+      setActiveTab(tab);
+
+      if (tab === 'social' && detail.sub) {
+        setSosialSub(detail.sub as SocialSub);
+      }
+    };
+
+    window.addEventListener(NAVIGATE_EVENT, onNavigate);
+    return () => window.removeEventListener(NAVIGATE_EVENT, onNavigate);
+  }, []);
 
   // ------------------------------------------------------------------
   // Metrik
@@ -1358,6 +1383,7 @@ export default function DashboardClient({
                   onExportCsv={handleExportCsv}
                   onExportPdf={handleExportPdf}
                   onExportWord={handleExportWord}
+                  isSuperadmin={isSuperadmin}
                 />
               )}
 

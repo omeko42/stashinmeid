@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCallerUserId } from '@/lib/currentUser';
+import {
+  getAcceptedConnectionIds,
+  notifyMany,
+} from '@/lib/notifications';
 
 /**
  * Feed postingan (tabel social_posts). V1 terbuka: semua pengguna
@@ -86,6 +90,25 @@ export async function POST(request: NextRequest) {
 
   const authors = await getAuthors(admin, [inserted.author_id]);
   const profile = authors?.get(inserted.author_id);
+  const authorName = profile?.client_name ?? 'Pengguna';
+
+  // Kabari kolega yang sudahaccepted ada posting baru di feed.
+  //
+  // Hanya kolega (bukan semua user) - supaya notifikasi tidak jadi
+  // bising. Kalau user tidak punya kolega, tidak ada yang dikabari.
+  const connectionIds = await getAcceptedConnectionIds(admin, userId);
+  if (connectionIds.length) {
+    await notifyMany(
+      admin,
+      connectionIds,
+      userId,
+      'feed_post',
+      'Postingan baru di feed',
+      `${authorName} memposting sesuatu.`,
+      'tab:social:feed',
+      userId
+    );
+  }
 
   return NextResponse.json({
     post: {
@@ -95,7 +118,7 @@ export async function POST(request: NextRequest) {
       createdAt: inserted.created_at,
       author: {
         id: inserted.author_id,
-        client_name: profile?.client_name ?? 'Pengguna',
+        client_name: authorName,
         avatar_url: profile?.avatar_url ?? null,
       },
     },

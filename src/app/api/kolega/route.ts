@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCallerUserId } from '@/lib/currentUser';
+import { getDisplayName, notifyMany } from '@/lib/notifications';
 
 /**
  * Kolaborator keuangan.
@@ -134,6 +135,37 @@ export async function POST(req: NextRequest) {
       .from('finance_group_members')
       .upsert({ group_id: groupId, user_id: member.data.id, role: 'editor', status: 'active' });
     if (errIns) return NextResponse.json({ error: errIns.message }, { status: 400 });
+
+    // Kabari anggota lain bahwa ada yang baru bergabung. Anggota baru
+    // sendiri juga dikabari, supaya dia tahu dia sudah masuk.
+    const { data: groupInfo } = await admin
+      .from('finance_groups')
+      .select('name')
+      .eq('id', groupId)
+      .maybeSingle();
+
+    const { data: existing } = await admin
+      .from('finance_group_members')
+      .select('user_id')
+      .eq('group_id', groupId);
+
+    const memberIds = (existing ?? [])
+      .map((m) => m.user_id)
+      .filter((id): id is string => Boolean(id));
+
+    const joinerName = await getDisplayName(admin, member.data.id);
+    const groupName = groupInfo?.name || 'grup keuangan';
+
+    await notifyMany(
+      admin,
+      memberIds,
+      userId,
+      'group_member_joined',
+      'Anggota baru bergabung',
+      `${joinerName} bergabung ke grup ${groupName}.`,
+      'tab:social:group'
+    );
+
     return NextResponse.json({ ok: true });
   }
 

@@ -1,10 +1,29 @@
 'use client';
 
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Globe, MoonStar, SlidersHorizontal } from 'lucide-react';
+import {
+  Bell,
+  Database,
+  Globe,
+  Megaphone,
+  MoonStar,
+  Shield,
+  SlidersHorizontal,
+  UserCog,
+} from 'lucide-react';
 import { ToolsTab } from '@/components/tabs/ToolsTab';
 import { ThemeToggle } from '@/components/shell/ThemeToggle';
 import { LocaleSwitcher } from '@/components/shell/LocaleSwitcher';
+import {
+  AnnouncementEditor,
+  NotificationPreferences,
+} from '@/components/profile/NotificationSettings';
+import { DangerZone } from '@/components/profile/DangerZone';
+import { BalanceVisibilityToggle } from '@/components/ui/BalanceVisibilityToggle';
+import { useBalancePrivacy } from '@/components/ui/BalancePrivacy';
+
+type SettingsSection = 'appearance' | 'notifications' | 'data' | 'account';
 
 interface SettingsTabProps {
   canEdit: boolean;
@@ -16,13 +35,20 @@ interface SettingsTabProps {
   onExportPdf: () => void;
   onExportWord: () => void;
   onExportCsv: () => void;
+  /** Superadmin bisa mengatur pita pengumuman global. */
+  isSuperadmin?: boolean;
 }
 
 /**
- * Pengaturan: satu halaman, beberapa seksi.
+ * Pengaturan.
  *
- * Menggantikan kombinasi "Alat Data" di sidebar + menu pengaturan di top bar
- * yang tidak lagi ada. Tema dan bahasa memakai komponen shell yang sama.
+ * Dipisah jadi sub-menu: Tampilan, Notifikasi, dan Data. Setiap
+ * sub-menu punya satu fokus, jadi pengaturannya tidak menumpuk di satu
+ * halaman panjang yang harus di-scroll jauh.
+ *
+ * Sub-menu Notifikasi memuat dua hal yang beda:
+ *   - preferensi notifikasi pribadi (semua user)
+ *   - pita pengumuman global (superadmin saja)
  */
 export function SettingsTab({
   canEdit,
@@ -34,11 +60,36 @@ export function SettingsTab({
   onExportPdf,
   onExportWord,
   onExportCsv,
+  isSuperadmin = false,
 }: SettingsTabProps) {
   const tSettings = useTranslations('settings');
+  const [section, setSection] = useState<SettingsSection>('appearance');
+
+  const tabs: { id: SettingsSection; label: string; icon: React.ReactNode }[] = [
+    {
+      id: 'appearance',
+      label: tSettings('sections.appearance'),
+      icon: <SlidersHorizontal className="size-4" />,
+    },
+    {
+      id: 'notifications',
+      label: tSettings('sections.notifications'),
+      icon: <Bell className="size-4" />,
+    },
+    {
+      id: 'data',
+      label: tSettings('sections.data'),
+      icon: <Database className="size-4" />,
+    },
+    {
+      id: 'account',
+      label: tSettings('sections.account'),
+      icon: <UserCog className="size-4" />,
+    },
+  ];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5">
       <div>
         <h2 className="text-[18px] font-semibold text-[var(--text)]">
           {tSettings('title')}
@@ -48,31 +99,39 @@ export function SettingsTab({
         </p>
       </div>
 
-      {/* Data dan ekspor */}
-      <section aria-label={tSettings('sections.data')}>
-        <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          {tSettings('sections.data')}
-        </p>
-        <ToolsTab
-          embedded
-          canEdit={canEdit}
-          scanning={scanning}
-          hasTransactions={hasTransactions}
-          hasDebts={hasDebts}
-          onScan={onScan}
-          onImport={onImport}
-          onExportPdf={onExportPdf}
-          onExportWord={onExportWord}
-          onExportCsv={onExportCsv}
-        />
-      </section>
+      {/* Sub-menu pengaturan */}
+      <div
+        role="tablist"
+        aria-label={tSettings('title')}
+        className="flex gap-1 overflow-x-auto rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-1"
+      >
+        {tabs.map((tab) => {
+          const active = section === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              onClick={() => setSection(tab.id)}
+              className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
+                active
+                  ? 'bg-[var(--surface-3)] text-[var(--text)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+              }`}
+            >
+              {tab.icon}
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Tampilan */}
-      <section aria-label={tSettings('sections.appearance')}>
-        <p className="mb-2 px-1 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
-          {tSettings('sections.appearance')}
-        </p>
-        <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)]">
+      {section === 'appearance' && (
+        <div
+          role="tabpanel"
+          className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)]"
+        >
           <SettingRow
             icon={<MoonStar className="size-4" />}
             title={tSettings('appearance.title')}
@@ -88,6 +147,13 @@ export function SettingsTab({
             <LocaleSwitcher />
           </SettingRow>
           <SettingRow
+            icon={<Shield className="size-4" />}
+            title={tSettings('balance.id.title')}
+            caption={tSettings('balance.id.hint')}
+          >
+            <BalanceToggleSwitch />
+          </SettingRow>
+          <SettingRow
             icon={<SlidersHorizontal className="size-4" />}
             title={tSettings('security.title')}
             caption={tSettings('security.pinHint')}
@@ -95,7 +161,70 @@ export function SettingsTab({
             <SecurityHint />
           </SettingRow>
         </div>
-      </section>
+      )}
+
+      {section === 'notifications' && (
+        <div role="tabpanel" className="space-y-4">
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+            <div className="mb-3 flex items-start gap-3">
+              <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-2)] text-[var(--text-muted)]">
+                <Bell className="size-4" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[13px] font-semibold text-[var(--text)]">
+                  {tSettings('notifications.title')}
+                </p>
+                <p className="text-[12px] leading-relaxed text-[var(--text-muted)]">
+                  {tSettings('notifications.hint')}
+                </p>
+              </div>
+            </div>
+            <NotificationPreferences />
+          </div>
+
+          {isSuperadmin && (
+            <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+              <div className="mb-3 flex items-start gap-3">
+                <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-2)] text-[var(--text-muted)]">
+                  <Megaphone className="size-4" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-semibold text-[var(--text)]">
+                    {tSettings('announcement.title')}
+                  </p>
+                  <p className="text-[12px] leading-relaxed text-[var(--text-muted)]">
+                    {tSettings('announcement.hint')}
+                  </p>
+                </div>
+              </div>
+              <AnnouncementEditor />
+            </div>
+          )}
+        </div>
+      )}
+
+      {section === 'data' && (
+        <section role="tabpanel" aria-label={tSettings('sections.data')}>
+          <ToolsTab
+            embedded
+            canEdit={canEdit}
+            scanning={scanning}
+            hasTransactions={hasTransactions}
+            hasDebts={hasDebts}
+            onScan={onScan}
+            onImport={onImport}
+            onExportPdf={onExportPdf}
+            onExportWord={onExportWord}
+            onExportCsv={onExportCsv}
+          />
+        </section>
+      )}
+
+      {section === 'account' && (
+        <div role="tabpanel" className="space-y-4">
+          <DangerZone />
+        </div>
+      )}
     </div>
   );
 }
@@ -131,7 +260,29 @@ function SettingRow({
   );
 }
 
-/** Petunjuk arah keamanan - PIN dan 2FA hidup dari modal profil (patch 3). */
+/**
+ * Saklar "sembunyikan saldo".
+ *
+ * Bedanya dengan tombol mata di header: yang ini saklar beneran (on/off)
+ * dan terlihat statusnya, sementara tombol di header cuma shortcut.
+ */
+function BalanceToggleSwitch() {
+  const tSettings = useTranslations('settings');
+  const { hidden, toggle, ready } = useBalancePrivacy();
+
+  return (
+    <div className="flex items-center gap-2">
+      <span className="text-[11px] text-[var(--text-muted)]">
+        {ready && hidden
+          ? tSettings('balance.hiddenNote')
+          : tSettings('balance.id.title')}
+      </span>
+      <BalanceVisibilityToggle onClick={toggle} />
+    </div>
+  );
+}
+
+/** Petunjuk arah keamanan - PIN dan 2FA hidup dari menu profil. */
 function SecurityHint() {
   const tSettings = useTranslations('settings');
   return (

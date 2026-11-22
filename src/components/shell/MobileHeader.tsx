@@ -5,6 +5,7 @@ import { LogOut } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { IconButton } from '@/components/ui/Button';
 import { SettingsMenu } from './SettingsMenu';
+import { NotificationBell } from './NotificationBell';
 
 interface MobileHeaderProps {
   profileClient: string;
@@ -51,6 +52,7 @@ export function MobileHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-1">
+        <NotificationBell />
         <SettingsMenu
           canEdit={canEdit}
           showUsers={isSuperadmin}

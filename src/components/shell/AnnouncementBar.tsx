@@ -8,20 +8,51 @@ import { useTranslations } from 'next-intl';
  * Pita pengumuman di paling atas (di bawah safe-area iPhone, di atas
  * header mobile / konten desktop). Teksnya berjalan pelan (marquee).
  *
- * Isi diubah di src/messages/{id,en}.json -> announcement.text.
- * Ditutup: ingat per sesi localStorage, kunci mengikuti isi teks supaya
- * pengumuman baru selalu muncul lagi.
+ * Teksnya diambil dari database (tabel `announcements`), jadi superadmin
+ * bisa mengubahnya dari Pengaturan tanpa deploy ulang. Kalau tabelnya
+ * belum ada atau tidak ada pengumuman aktif, pita tidak ditampilkan.
+ *
+ * Ditutup: ingat per perangkat di localStorage, kunci mengikuti isi teks
+ * supaya pengumuman baru selalu muncul lagi.
  */
 export function AnnouncementBar() {
   const t = useTranslations('announcement');
-  const text = t('text');
-
+  const [text, setText] = useState<string | null>(null);
   const [hidden, setHidden] = useState(true);
-  useEffect(() => {
-    setHidden(window.localStorage.getItem('annDismissed') === text);
-  }, [text]);
 
-  if (hidden) return null;
+  useEffect(() => {
+    let cancelled = false;
+
+    const load = async () => {
+      try {
+        const res = await fetch('/api/announcements', { cache: 'no-store' });
+        if (!res.ok) return;
+        const json = await res.json();
+        if (cancelled) return;
+
+        const announcement = json.announcement as { text?: string } | null;
+        const value = announcement?.text?.trim() || null;
+        setText(value);
+
+        if (value) {
+          setHidden(window.localStorage.getItem('annDismissed') === value);
+        } else {
+          setHidden(true);
+        }
+      } catch {
+        // Kalau API tidak bisa dihubungi, pita tidak ditampilkan - lebih
+        // baik daripada menampilkan teks hardcoded yang bisa basi.
+        if (!cancelled) setHidden(true);
+      }
+    };
+
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!text || hidden) return null;
 
   const dismiss = () => {
     window.localStorage.setItem('annDismissed', text);

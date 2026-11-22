@@ -177,7 +177,7 @@ export async function POST(req: NextRequest) {
         p_type: 'connection_accepted',
         p_title: 'Permintaan kolega diterima',
         p_body: `${target.client_name || 'Seseorang'} menerima permintaanmu.`,
-        p_link: '/sosial',
+        p_link: 'tab:social:kolega',
       });
 
       return NextResponse.json({ connection: updated });
@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
     p_type: 'connection_requested',
     p_title: 'Permintaan kolega baru',
     p_body: `${target.client_name || 'Seseorang'} ingin jadi kolegamu.`,
-    p_link: '/sosial',
+    p_link: 'tab:social:kolega',
   });
 
   return NextResponse.json({ connection: created });
@@ -276,7 +276,7 @@ export async function PATCH(req: NextRequest) {
       p_type: 'connection_accepted',
       p_title: 'Permintaan kolega diterima',
       p_body: 'Permintaan kolegamu sudah diterima.',
-      p_link: '/sosial',
+      p_link: 'tab:social:kolega',
     });
 
     return NextResponse.json({ ok: true });

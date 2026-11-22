@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCallerUserId } from '@/lib/currentUser';
+import { getDisplayName, notify } from '@/lib/notifications';
 
 /**
  * Obrolan 1-on-1 antar pengguna (tabel social_messages).
@@ -135,6 +136,19 @@ export async function POST(request: NextRequest) {
     .select('id, sender_id, recipient_id, body, read_at, created_at')
     .single();
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
+
+  // Kabari penerima. Kegagalan notifikasi tidak menggagalkan pengiriman
+  // pesan - notifikasi cuma pelengkap.
+  const senderName = await getDisplayName(admin, userId);
+  await notify(
+    admin,
+    peer,
+    userId,
+    'chat_message',
+    `Pesan baru dari ${senderName}`,
+    body.length > 120 ? `${body.slice(0, 120)}...` : body,
+    'tab:social:chat'
+  );
 
   return NextResponse.json({ message: inserted });
 }

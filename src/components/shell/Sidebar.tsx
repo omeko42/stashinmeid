@@ -10,6 +10,7 @@ import {
 import type { UserRole } from '@/types/finance';
 import { BrandLogo } from '@/components/BrandLogo';
 import { ProfileMenu } from '@/components/shell/ProfileMenu';
+import { NotificationBell } from '@/components/shell/NotificationBell';
 import { cn } from '@/lib/cn';
 
 export type NavTab =
@@ -90,7 +91,7 @@ export function Sidebar({
     <aside className="fixed inset-y-0 z-30 hidden w-60 flex-col border-r border-[var(--line)] bg-[var(--surface-1)] p-4 lg:flex">
       <div className="flex items-center gap-2.5 px-1">
         <BrandLogo size={32} />
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h1 className="text-[15px] font-bold leading-none tracking-tight lowercase">
             stashinmeid
           </h1>
@@ -98,6 +99,7 @@ export function Sidebar({
             {t('app.tagline')}
           </span>
         </div>
+        <NotificationBell />
       </div>
 
       <nav className="mt-7 flex-1 space-y-0.5" aria-label={t('nav.openMenu')}>

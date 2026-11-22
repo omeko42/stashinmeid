@@ -236,7 +236,9 @@
       "data": "Data dan ekspor",
       "security": "Keamanan",
       "admin": "Administrasi",
-      "appearance": "Tampilan"
+      "appearance": "Tampilan",
+      "notifications": "Notifikasi",
+      "account": "Akun"
     },
     "profile": {
       "cover": "Profil & Keamanan",
@@ -302,7 +304,14 @@
         "emptyHint": "Daftarkan passkey supaya bisa masuk tanpa password.",
         "unnamed": "Passkey",
         "unsupported": "Browser ini belum mendukung passkey (WebAuthn)."
-      }
+      },
+      "passkeyStatus": "Passkey aktif",
+      "twofaOff": "Belum aktif",
+      "twofaScanHint": "Scan kode ini dengan Google Authenticator, Authy, atau 1Password, lalu masukkan 6 digit kode untuk memverifikasi.",
+      "lockNow": "Kunci sekarang",
+      "password": "Password",
+      "passwordManaged": "Dikelola",
+      "passwordHint": "Ubah password lewat menu Profil (ubah password). Kalau lupa, pakai tombol \"Lupa Password?\" di halaman login."
     },
     "appearance": {
       "title": "Tampilan",
@@ -352,6 +361,44 @@
       "show": "Tampilkan saldo",
       "hide": "Sembunyikan saldo",
       "hiddenNote": "Saldo sedang disembunyikan."
+    },
+    "announcement": {
+      "title": "Pita pengumuman",
+      "hint": "Teks yang tampil di paling atas aplikasi untuk semua user. Hanya satu pita aktif pada satu waktu.",
+      "placeholder": "Contoh: Maintenance terjadwal malam Minggu 23:00 WIB.",
+      "publish": "Terbitkan",
+      "remove": "Hapus pita",
+      "active": "Aktif",
+      "published": "Pita pengumuman diterbitkan.",
+      "removed": "Pita pengumuman dihapus.",
+      "empty": "Teks pita tidak boleh kosong.",
+      "tooLong": "Maksimal 500 karakter."
+    },
+    "notifications": {
+      "title": "Notifikasi",
+      "hint": "Pilih notifikasi mana yang mau kamu terima."
+    },
+    "danger": {
+      "title": "Zona Berbahaya",
+      "hint": "Tindakan di sini permanen dan tidak bisa dibatalkan. Baca dulu sebelum melanjutkan.",
+      "exportTitle": "Unduh data saya",
+      "exportHint": "Simpan salinan transaksi, utang, aset, dan profil kamu sebagai file JSON. Lakukan ini sebelum menghapus akun.",
+      "exportButton": "Unduh data",
+      "exported": "Data berhasil diunduh.",
+      "deleteTitle": "Hapus akun",
+      "deleteHint": "Hapus akun dan seluruh datanya secara permanen. Tindakan ini tidak bisa dibatalkan.",
+      "deleteButton": "Hapus akun",
+      "confirmTitle": "Hapus akun permanen",
+      "confirmWarning": "Seluruh data kamu (transaksi, utang, aset, budget, koneksi) akan dihapus permanen. Unduh data dulu kalau masih butuh salinan.",
+      "phraseLabel": "Ketik \"{phrase}\" untuk konfirmasi",
+      "passwordLabel": "Password akun",
+      "reasonLabel": "Alasan (opsional)",
+      "reasonHint": "Alasan ini dicatat di log audit admin.",
+      "reasonPlaceholder": "Contoh: Saya tidak lagi memakai aplikasi ini.",
+      "cancel": "Batal",
+      "confirmDelete": "Hapus permanen",
+      "needPassword": "Masukkan password akunmu untuk melanjutkan.",
+      "deleted": "Akun kamu telah dihapus."
     }
   },
   "users": {
@@ -530,5 +577,35 @@
     "ratePlaceholder": "1 unit = berapa {currency}?",
     "saved": "Dompet tersimpan.",
     "failed": "Gagal menyimpan dompet."
+  },
+  "notifications": {
+    "title": "Notifikasi",
+    "markAllRead": "Tandai semua dibaca",
+    "markRead": "Tandai sudah dibaca",
+    "remove": "Hapus notifikasi",
+    "emptyTitle": "Belum ada notifikasi",
+    "emptyHint": "Kabar kolega, anggota grup, dan pesan chat akan muncul di sini.",
+    "types": {
+      "connection_requested": {
+        "title": "Permintaan koneksi",
+        "hint": "Saat ada yang mengirim permintaan become kolega."
+      },
+      "connection_accepted": {
+        "title": "Koneksi diterima",
+        "hint": "Saat permintaan koneksimu diterima."
+      },
+      "group_member_joined": {
+        "title": "Anggota grup bergabung",
+        "hint": "Saat ada anggota baru masuk ke grup keuangan."
+      },
+      "feed_post": {
+        "title": "Postingan di feed",
+        "hint": "Saat kolega kamu memposting sesuatu di feed."
+      },
+      "chat_message": {
+        "title": "Pesan chat",
+        "hint": "Saat ada pesan masuk untukmu."
+      }
+    }
   }
 }
