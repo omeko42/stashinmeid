@@ -54,13 +54,23 @@ export async function POST(req: NextRequest) {
     const status = body.transaction_status;
     const fraud = String(body.fraud_status || 'accept');
 
-    if (paymentCfg.secretKey && typeof body.signature_key === 'string') {
-      const expected = createHash('sha512')
-        .update(
-          `${body.order_id}${body.status_code ?? ''}${body.gross_amount ?? ''}${paymentCfg.secretKey}`
-        )
-        .digest('hex');
-      if (expected !== body.signature_key) {
+    const midtransKeys = [
+      paymentCfg.webhookSecret,
+      paymentCfg.secretKey,
+      process.env.MIDTRANS_SIGNATURE_KEY?.trim(),
+      process.env.MIDTRANS_SERVER_KEY?.trim(),
+    ].filter((k): k is string => Boolean(k));
+
+    if (midtransKeys.length > 0 && typeof body.signature_key === 'string') {
+      const valid = midtransKeys.some((key) => {
+        const expected = createHash('sha512')
+          .update(
+            `${body.order_id}${body.status_code ?? ''}${body.gross_amount ?? ''}${key}`
+          )
+          .digest('hex');
+        return expected === body.signature_key;
+      });
+      if (!valid) {
         return NextResponse.json({ error: 'Invalid Midtrans signature' }, { status: 401 });
       }
     }
