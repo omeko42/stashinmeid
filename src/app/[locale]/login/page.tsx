@@ -1,6 +1,6 @@
 'use client';
 
-import { useLocale, useTranslations } from 'next-intl';
+import { useTranslations } from 'next-intl';
 
 import { useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
@@ -13,7 +13,6 @@ import { GoogleButton } from '@/components/auth/GoogleButton';
 import { Loader2, KeyRound, ArrowRight, ArrowLeft } from 'lucide-react';
 
 export default function LoginPage() {
-  const locale = useLocale();
   const t = useTranslations();
   const router = useRouter();
   const [email, setEmail] = useState('');
@@ -29,6 +28,12 @@ export default function LoginPage() {
   const [message, setMessage] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
   /** Token captcha Turnstile. Null = belum diselesaikan. */
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+  const [captchaResetKey, setCaptchaResetKey] = useState(0);
+
+  const resetCaptcha = () => {
+    setCaptchaToken(null);
+    setCaptchaResetKey((k) => k + 1);
+  };
 
   // Captcha hanya diperlukan kalau widget-nya benar-benar terpasang.
   const captchaEnabled = Boolean(process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY?.trim());
@@ -67,33 +72,19 @@ export default function LoginPage() {
 
     // Superadmin username login (no '@' in input)
     if (!isSignUp && !email.includes('@')) {
-      // Jalur superadmin tidak lewat Supabase Auth, jadi captcha
-      // diverifikasi manual lewat endpoint khusus.
-      if (captchaEnabled) {
-        const capRes = await fetch('/api/auth/captcha', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ token: captchaToken }),
-        });
-        if (!capRes.ok) {
-          const capJson = await capRes.json().catch(() => ({}));
-          setMessage({
-            type: 'error',
-            text: capJson.error || 'Verifikasi captcha gagal.',
-          });
-          setLoading(false);
-          return;
-        }
-      }
-
       const res = await fetch('/api/auth/superadmin', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ username: email, password }),
+        body: JSON.stringify({
+          username: email,
+          password,
+          captchaToken: captchaToken ?? undefined,
+        }),
       });
       const json = await res.json();
       if (!res.ok) {
         setMessage({ type: 'error', text: json.error || 'Login gagal.' });
+        resetCaptcha();
       } else {
         router.push('/');
         router.refresh();
@@ -128,7 +119,8 @@ export default function LoginPage() {
         },
       });
       if (error) {
-        setMessage({ type: 'error', text: t('errors.generic') });
+        setMessage({ type: 'error', text: error.message || t('errors.generic') });
+        resetCaptcha();
       } else {
         setMessage({
           type: 'success',
@@ -136,6 +128,7 @@ export default function LoginPage() {
         });
         setIsSignUp(false);
         setSignUpStep(1);
+        resetCaptcha();
       }
     } else {
       const { error } = await supabase.auth.signInWithPassword({
@@ -144,7 +137,8 @@ export default function LoginPage() {
         options: { captchaToken: captchaToken ?? undefined },
       });
       if (error) {
-        setMessage({ type: 'error', text: t('errors.generic') });
+        setMessage({ type: 'error', text: error.message || t('errors.generic') });
+        resetCaptcha();
       } else {
         router.push('/');
         router.refresh();
@@ -384,7 +378,11 @@ export default function LoginPage() {
 
                 {captchaEnabled && (
                   <div className="pt-1">
-                    <TurnstileWidget onToken={setCaptchaToken} theme="dark" />
+                    <TurnstileWidget
+                      key={captchaResetKey}
+                      onToken={setCaptchaToken}
+                      theme="dark"
+                    />
                   </div>
                 )}
 
@@ -444,7 +442,11 @@ export default function LoginPage() {
 
                 {captchaEnabled && (
                   <div className="pt-1">
-                    <TurnstileWidget onToken={setCaptchaToken} theme="dark" />
+                    <TurnstileWidget
+                      key={captchaResetKey}
+                      onToken={setCaptchaToken}
+                      theme="dark"
+                    />
                   </div>
                 )}
 

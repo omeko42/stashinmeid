@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect } from 'react';
-import Link from 'next/link';
+import { Link } from '@/i18n/navigation';
 import { RotateCcw, TriangleAlert } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 
@@ -43,7 +43,7 @@ export default function LocaleError({
         </h1>
         <p className="mt-2 text-[13px] leading-relaxed text-[var(--text-muted)]">
           Ada kesalahan saat merender halaman ini. Coba muat ulang dulu -
-          kalau masih gagal,-error ini akan muncul di log server.
+          kalau masih gagal, error ini akan muncul di log server.
         </p>
 
         {error.digest && (

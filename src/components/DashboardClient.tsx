@@ -219,6 +219,19 @@ export default function DashboardClient({
     setDebts(initialDebts);
   }, [initialDebts]);
 
+  useEffect(() => {
+    setProfileUsername(
+      userEmail && !userEmail.includes('@') ? userEmail : userEmail?.split('@')[0] || 'user'
+    );
+    setProfileEmail(userEmail && userEmail.includes('@') ? userEmail : '');
+    setProfileClient(clientName);
+    setProfileBio(
+      initialBio || 'Pengelola keuangan pribadi & pemantauan cashflow di stashinmeid.'
+    );
+    setProfileAvatarUrl(initialAvatarUrl);
+    setProfileBannerUrl(initialBannerUrl);
+  }, [userEmail, clientName, initialBio, initialAvatarUrl, initialBannerUrl]);
+
   // Navigasi dari lonceng notifikasi.
   //
   // Notifikasi hidup di header (banyak tempat), jadi daripada menarik
@@ -235,7 +248,8 @@ export default function DashboardClient({
       setActiveTab(tab);
 
       if (tab === 'social' && detail.sub) {
-        setSosialSub(detail.sub as SocialSub);
+        const sub = detail.sub === 'group' ? 'kolega' : (detail.sub as SocialSub);
+        setSosialSub(sub);
       }
     };
 
@@ -543,7 +557,23 @@ export default function DashboardClient({
       return;
     }
 
-    if (!isDemoMode && supabase) {
+    if (!isDemoMode && isSuperadmin) {
+      const res = await fetch('/api/superadmin/finance', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          table: 'transactions',
+          payload: parsed,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error || t('tools.importFailed'));
+      } else if (json.data) {
+        setTransactions((prev) => [...(json.data as Transaction[]), ...prev]);
+        toast.success(t('tools.importSuccess', { count: json.data.length }));
+      }
+    } else if (!isDemoMode && supabase) {
       const { data: userData } = await supabase.auth.getUser();
       if (userData.user) {
         const rows = parsed.map((p) => ({ ...p, user_id: userData.user!.id }));

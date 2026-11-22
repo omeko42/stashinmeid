@@ -163,7 +163,7 @@ export async function POST(req: NextRequest) {
       'group_member_joined',
       'Anggota baru bergabung',
       `${joinerName} bergabung ke grup ${groupName}.`,
-      'tab:social:group'
+      'tab:social:kolega'
     );
 
     return NextResponse.json({ ok: true });

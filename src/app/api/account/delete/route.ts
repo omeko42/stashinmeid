@@ -124,13 +124,19 @@ export async function DELETE(req: NextRequest) {
 
   // Hitung ringkasan data yang akan dihapus (untuk audit).
   const counts: Record<string, number> = {};
-  for (const table of ['transactions', 'debts', 'assets', 'notifications']) {
+  for (const table of ['transactions', 'debts', 'accounts', 'budgets']) {
     const { count } = await admin
       .from(table)
       .select('id', { count: 'exact', head: true })
       .eq('user_id', userId);
     counts[table] = count ?? 0;
   }
+
+  const { count: notifCount } = await admin
+    .from('notifications')
+    .select('id', { count: 'exact', head: true })
+    .eq('recipient_id', userId);
+  counts['notifications'] = notifCount ?? 0;
 
   const { count: groupCount } = await admin
     .from('finance_groups')

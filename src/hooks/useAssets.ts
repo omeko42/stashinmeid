@@ -51,13 +51,15 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
     if (opts.isSuperadmin) {
       setLoading(true);
       try {
-        const [accRes, rateRes] = await Promise.all([
+        const [accRes, rateRes, profRes] = await Promise.all([
           fetch('/api/superadmin/finance?table=accounts'),
           fetch('/api/superadmin/finance?table=fx_rates'),
+          fetch('/api/superadmin/finance?table=profiles'),
         ]);
 
         const accJson = await accRes.json().catch(() => ({}));
         const rateJson = await rateRes.json().catch(() => ({}));
+        const profJson = await profRes.json().catch(() => ({}));
 
         if (!accRes.ok) {
           setError(accJson.error || 'Gagal memuat dompet.');
@@ -66,6 +68,8 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
         } else {
           setAccounts((accJson.data as AssetAccount[]) ?? []);
           setRates((rateJson.data as FxRate[]) ?? []);
+          const profRow = Array.isArray(profJson.data) ? profJson.data[0] : profJson.data;
+          if (profRow?.primary_currency) setPrimaryCurrency(profRow.primary_currency);
           setError(null);
         }
       } catch {

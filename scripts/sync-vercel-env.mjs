@@ -95,10 +95,11 @@ function resolveConfig(args) {
   };
 }
 
-async function vercelApi(token, path, method = 'GET') {
+async function vercelApi(token, path, method = 'GET', body) {
   const res = await fetch(`https://api.vercel.com${path}`, {
     method,
     headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+    ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
   });
   const text = await res.text();
   let json;

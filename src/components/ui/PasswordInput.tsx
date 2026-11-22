@@ -59,7 +59,7 @@ export const PasswordInput = forwardRef<
     <input
       ref={ref}
       id={fieldId}
-      type="password"
+      type={visible ? 'text' : 'password'}
       required={required}
       aria-invalid={error ? true : undefined}
       className={cn(

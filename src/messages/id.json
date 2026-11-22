@@ -381,7 +381,7 @@
       "types": {
         "connection_requested": {
           "title": "Permintaan koneksi",
-          "hint": "Saat ada yang mengirim permintaan become kolega."
+          "hint": "Saat ada yang mengirim permintaan menjadi kolega."
         },
         "connection_accepted": {
           "title": "Koneksi diterima",
@@ -440,7 +440,7 @@
     "impersonate": "Masuk sebagai",
     "stopImpersonate": "Berhenti menyamar",
     "deleteUser": "Hapus user",
-    "deleteUserConfirm": "Hapus user {name}? Akun dan seluruh datanya akan dih permanen.",
+    "deleteUserConfirm": "Hapus user {name}? Akun dan seluruh datanya akan dihapus permanen.",
     "deleteUserDone": "User dihapus.",
     "saved": "Data user diperbarui.",
     "empty": {
@@ -573,7 +573,7 @@
     "totalIn": "Total aset (dalam {currency})",
     "primaryCurrency": "Mata uang utama",
     "ratesTitle": "Kurs mata uang",
-    "ratesHint": "Kurs otomatis dari ECB/CoinGecko dengan tombol di atas, atau isi manual: 1 unit mata uang setara berapa {currency}..",
+    "ratesHint": "Kurs otomatis dari ECB/CoinGecko dengan tombol di atas, atau isi manual: 1 unit mata uang setara berapa {currency}.",
     "ratesSync": "Update otomatis",
     "ratesSynced": "Kurs {count, plural, other {# mata uang}} diperbarui dari internet.",
     "ratesSyncNone": "Tidak ada kurs yang bisa diperbarui.",
@@ -611,7 +611,7 @@
     "types": {
       "connection_requested": {
         "title": "Permintaan koneksi",
-        "hint": "Saat ada yang mengirim permintaan become kolega."
+        "hint": "Saat ada yang mengirim permintaan menjadi kolega."
       },
       "connection_accepted": {
         "title": "Koneksi diterima",

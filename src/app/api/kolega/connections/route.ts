@@ -128,11 +128,18 @@ export async function POST(req: NextRequest) {
   }
 
   // Target harus benar-benar user yang terdaftar.
-  const { data: target } = await admin
-    .from('profiles')
-    .select('id, client_name')
-    .eq('id', targetId)
-    .maybeSingle();
+  const [{ data: target }, { data: requesterProfile }] = await Promise.all([
+    admin
+      .from('profiles')
+      .select('id, client_name')
+      .eq('id', targetId)
+      .maybeSingle(),
+    admin
+      .from('profiles')
+      .select('id, client_name')
+      .eq('id', userId)
+      .maybeSingle(),
+  ]);
 
   if (!target) {
     return NextResponse.json(
@@ -140,6 +147,8 @@ export async function POST(req: NextRequest) {
       { status: 404 }
     );
   }
+
+  const requesterName = requesterProfile?.client_name || 'Seseorang';
 
   // Sudah ada koneksi ke user ini (dari arah mana pun)?
   const { data: existing } = await admin
@@ -176,7 +185,7 @@ export async function POST(req: NextRequest) {
         p_actor_id: userId,
         p_type: 'connection_accepted',
         p_title: 'Permintaan kolega diterima',
-        p_body: `${target.client_name || 'Seseorang'} menerima permintaanmu.`,
+        p_body: `${requesterName} menerima permintaanmu.`,
         p_link: 'tab:social:kolega',
       });
 
@@ -209,7 +218,7 @@ export async function POST(req: NextRequest) {
     p_actor_id: userId,
     p_type: 'connection_requested',
     p_title: 'Permintaan kolega baru',
-    p_body: `${target.client_name || 'Seseorang'} ingin jadi kolegamu.`,
+    p_body: `${requesterName} ingin jadi kolegamu.`,
     p_link: 'tab:social:kolega',
   });
 

@@ -35,20 +35,25 @@ export function periodRange(
 }
 
 /**
- * Transaksi yang masuk ke periode berjalan.
+ * Transaksi yang masuk ke periode berjalan (opsional difilter per kategori).
  * Hanya outflow yang dihitung - pagu mengatur pengeluaran, bukan pemasukan.
  */
 export function spentInPeriod(
   transactions: Transaction[],
   period: Budget['period'],
-  now = new Date()
+  now = new Date(),
+  category?: string
 ): number {
   const { start, end } = periodRange(period, now);
   const startMs = start.getTime();
   const endMs = end.getTime();
+  const normalizedCat = category?.trim().toLowerCase();
 
   return transactions.reduce((sum, tx) => {
     if (tx.type !== 'outflow') return sum;
+    if (normalizedCat && tx.category.trim().toLowerCase() !== normalizedCat) {
+      return sum;
+    }
     const date = parseIsoDate(tx.transaction_date);
     if (!date) return sum;
     const ms = date.getTime();
@@ -74,7 +79,7 @@ export function budgetStatus(
   transactions: Transaction[],
   now = new Date()
 ): BudgetStatus {
-  const spent = spentInPeriod(transactions, budget.period, now);
+  const spent = spentInPeriod(transactions, budget.period, now, budget.category);
   const limit = Number(budget.amount);
   const remaining = limit - spent;
   const percent = limit > 0 ? Math.round((spent / limit) * 100) : 0;

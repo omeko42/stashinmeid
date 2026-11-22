@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { Camera, Images, Pencil, Shield, UserCircle } from 'lucide-react';
@@ -59,6 +59,14 @@ export function ProfileTab({
   const [avatarUrl, setAvatarUrl] = useState(profileAvatarUrl);
   const [bannerUrl, setBannerUrl] = useState(profileBannerUrl);
   const [uploading, setUploading] = useState<'avatar' | 'banner' | null>(null);
+
+  useEffect(() => {
+    setAvatarUrl(profileAvatarUrl);
+  }, [profileAvatarUrl]);
+
+  useEffect(() => {
+    setBannerUrl(profileBannerUrl);
+  }, [profileBannerUrl]);
 
   const uploadMedia = async (
     kind: 'avatar' | 'banner',

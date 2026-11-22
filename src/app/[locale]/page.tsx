@@ -35,7 +35,7 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
       const [{ data: profile }, { data: transactions }, { data: debts }] = await Promise.all([
         adminClient
           .from('profiles')
-          .select('email, client_name')
+          .select('email, client_name, bio, avatar_url, banner_url')
           .eq('id', targetUserId)
           .single(),
         adminClient
@@ -59,6 +59,9 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
             superadminSession.impersonateClientName ?? profile?.client_name ?? 'Superadmin Personal'
           }
           userRole="admin"
+          initialBio={(profile?.bio as string) || ''}
+          initialAvatarUrl={(profile?.avatar_url as string) || null}
+          initialBannerUrl={(profile?.banner_url as string) || null}
           isDemoMode={false}
           isSuperadmin={true}
           impersonatingEmail={superadminSession.impersonateEmail ?? null}

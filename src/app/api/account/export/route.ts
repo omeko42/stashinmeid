@@ -25,21 +25,25 @@ export async function GET() {
   // Tabel yang diekspor. Untuk tabel yang tidak punya kolom user_id
   // (mis. grup yang dibuat user), ambil lewat relasi ke grup milik user.
   const ownTables = [
-    'profiles',
     'transactions',
     'debts',
-    'assets',
     'accounts',
+    'fx_rates',
+    'kyc_profiles',
     'budgets',
-    'notifications',
     'notification_preferences',
-    'user_connections',
   ] as const;
 
   const payload: Record<string, unknown> = {
     exportedAt: new Date().toISOString(),
     format: 'stashinmeid-export-v1',
   };
+
+  const { data: profileData, error: profileErr } = await admin
+    .from('profiles')
+    .select('*')
+    .eq('id', userId);
+  payload['profiles'] = profileErr ? { error: profileErr.message } : (profileData ?? []);
 
   for (const table of ownTables) {
     const { data, error } = await admin
@@ -55,6 +59,18 @@ export async function GET() {
     }
     payload[table] = data ?? [];
   }
+
+  const { data: notifData, error: notifErr } = await admin
+    .from('notifications')
+    .select('*')
+    .eq('recipient_id', userId);
+  payload['notifications'] = notifErr ? { error: notifErr.message } : (notifData ?? []);
+
+  const { data: connData, error: connErr } = await admin
+    .from('user_connections')
+    .select('*')
+    .or(`requester_id.eq.${userId},addressee_id.eq.${userId}`);
+  payload['user_connections'] = connErr ? { error: connErr.message } : (connData ?? []);
 
   // Grup keuangan milik user ini.
   const { data: groups } = await admin

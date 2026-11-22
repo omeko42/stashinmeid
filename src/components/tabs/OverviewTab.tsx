@@ -106,7 +106,7 @@ export function OverviewTab({
               <div className="group relative inline-block">
                 <Amount
                   value={formatRp(
-                    assetTotals
+                    assetTotals && assetTotals.physical + assetTotals.nonPhysical > 0
                       ? assetTotals.physical + assetTotals.nonPhysical
                       : netCashflow
                   )}
