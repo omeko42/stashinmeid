@@ -11,11 +11,11 @@ import {
 import { notifyMany } from '@/lib/notifications';
 
 /**
- * Webhook penerima notifikasi pembayaran pihak ketiga (Midtrans / Xendit / Stripe).
+ * Webhook penerima notifikasi pembayaran pihak ketiga (Midtrans / Xendit / PayPal / Stripe).
  * Daftarkan URL ini di dashboard provider:
- *   https://stashinmeid.vercel.app/api/membership/webhook
+ *   https://stashinme.biz.id/api/membership/webhook
  *
- * Saat transaksi dinyatakan lunas (settlement / capture / PAID / checkout.session.completed),
+ * Saat transaksi dinyatakan lunas (settlement / capture / PAID / PAYMENT.CAPTURE.COMPLETED / checkout.session.completed),
  * paket membership pembeli otomatis aktif dan admin + pembeli langsung menerima notifikasi.
  */
 export async function POST(req: NextRequest) {
@@ -82,6 +82,30 @@ export async function POST(req: NextRequest) {
     const session = (body.data as { object?: Record<string, unknown> }).object ?? {};
     invoiceNo = String(session.client_reference_id || '');
     isPaid = session.payment_status === 'paid';
+  }
+  // PayPal Checkout / Capture Webhook
+  else if (
+    typeof body.event_type === 'string' &&
+    body.resource &&
+    typeof body.resource === 'object'
+  ) {
+    const resource = body.resource as {
+      custom_id?: string;
+      invoice_id?: string;
+      status?: string;
+      purchase_units?: { custom_id?: string; reference_id?: string }[];
+    };
+    invoiceNo =
+      resource.custom_id ||
+      resource.invoice_id ||
+      resource.purchase_units?.[0]?.custom_id ||
+      resource.purchase_units?.[0]?.reference_id ||
+      '';
+    isPaid =
+      body.event_type === 'PAYMENT.CAPTURE.COMPLETED' ||
+      body.event_type === 'CHECKOUT.ORDER.COMPLETED' ||
+      (body.event_type === 'CHECKOUT.ORDER.APPROVED' &&
+        resource.status === 'APPROVED');
   }
 
   if (!invoiceNo) {

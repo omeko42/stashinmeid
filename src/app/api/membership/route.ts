@@ -55,6 +55,7 @@ async function getPrimaryAdminId(
 async function createThirdPartyCheckoutUrl(opts: {
   provider: string;
   environment: 'sandbox' | 'production';
+  publicKey?: string;
   secretKey: string;
   invoiceNo: string;
   amountIdr: number;
@@ -63,7 +64,21 @@ async function createThirdPartyCheckoutUrl(opts: {
   customerEmail: string;
   customerName: string;
 }): Promise<string | null> {
-  if (!opts.secretKey) return null;
+  const effectiveSecret =
+    opts.secretKey ||
+    (opts.provider === 'paypal'
+      ? process.env.PAYPAL_CLIENT_SECRET?.trim() || ''
+      : opts.provider === 'midtrans'
+        ? process.env.MIDTRANS_SERVER_KEY?.trim() || ''
+        : '');
+  const effectivePublic =
+    opts.publicKey ||
+    (opts.provider === 'paypal'
+      ? process.env.PAYPAL_CLIENT_ID?.trim() || ''
+      : opts.provider === 'midtrans'
+        ? process.env.MIDTRANS_CLIENT_KEY?.trim() || ''
+        : '');
+  if (!effectiveSecret) return null;
 
   try {
     if (opts.provider === 'midtrans') {
@@ -71,7 +86,7 @@ async function createThirdPartyCheckoutUrl(opts: {
         opts.environment === 'production'
           ? 'https://app.midtrans.com/snap/v1/transactions'
           : 'https://app.sandbox.midtrans.com/snap/v1/transactions';
-      const auth = Buffer.from(`${opts.secretKey}:`).toString('base64');
+      const auth = Buffer.from(`${effectiveSecret}:`).toString('base64');
       const res = await fetch(snapUrl, {
         method: 'POST',
         headers: {
@@ -123,6 +138,62 @@ async function createThirdPartyCheckoutUrl(opts: {
       if (res.ok) {
         const json = (await res.json()) as { invoice_url?: string };
         return json.invoice_url || null;
+      }
+    }
+
+    if (opts.provider === 'paypal' && effectivePublic) {
+      const paypalBase =
+        opts.environment === 'production'
+          ? 'https://api-m.paypal.com'
+          : 'https://api-m.sandbox.paypal.com';
+      const basicAuth = Buffer.from(
+        `${effectivePublic}:${effectiveSecret}`
+      ).toString('base64');
+      const tokenRes = await fetch(`${paypalBase}/v1/oauth2/token`, {
+        method: 'POST',
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+        },
+        body: 'grant_type=client_credentials',
+      });
+      if (tokenRes.ok) {
+        const tokenJson = (await tokenRes.json()) as { access_token?: string };
+        if (tokenJson.access_token) {
+          const orderRes = await fetch(`${paypalBase}/v2/checkout/orders`, {
+            method: 'POST',
+            headers: {
+              Authorization: `Bearer ${tokenJson.access_token}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              intent: 'CAPTURE',
+              purchase_units: [
+                {
+                  reference_id: opts.invoiceNo,
+                  custom_id: opts.invoiceNo,
+                  description: `StashinMe ${opts.planName} Membership`,
+                  amount: {
+                    currency_code: 'USD',
+                    value: Math.max(1, opts.amountUsd).toFixed(2),
+                  },
+                },
+              ],
+              application_context: {
+                brand_name: 'StashinMe',
+                return_url: 'https://stashinme.biz.id/?payment=success',
+                cancel_url: 'https://stashinme.biz.id/?payment=cancelled',
+              },
+            }),
+          });
+          if (orderRes.ok) {
+            const orderJson = (await orderRes.json()) as {
+              links?: { rel: string; href: string }[];
+            };
+            const approveLink = orderJson.links?.find((l) => l.rel === 'approve');
+            return approveLink?.href || null;
+          }
+        }
       }
     }
 
@@ -396,6 +467,7 @@ export async function POST(req: NextRequest) {
       ? await createThirdPartyCheckoutUrl({
           provider: paymentCfg.provider,
           environment: paymentCfg.environment,
+          publicKey: paymentCfg.publicKey,
           secretKey: paymentCfg.secretKey,
           invoiceNo,
           amountIdr: pricing.idrTotalBilled,

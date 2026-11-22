@@ -150,6 +150,14 @@ const PROVIDER_PRESETS: Record<IntegrationKey, ProviderPreset[]> = {
       defaultExtra: 'QRIS, VA, OVO, DANA',
     },
     {
+      id: 'paypal',
+      label: 'PayPal Checkout (Global USD)',
+      tier: 'Pay-per-tx · Global',
+      sandboxUrl: 'https://api-m.sandbox.paypal.com',
+      productionUrl: 'https://api-m.paypal.com',
+      defaultExtra: 'Saldo PayPal & Kartu Kredit/Debit Global (USD)',
+    },
+    {
       id: 'stripe',
       label: 'Stripe Checkout (Global USD)',
       tier: 'Pay-per-tx · Global',
