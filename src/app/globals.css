@@ -213,3 +213,83 @@ html[data-theme] body {
 .market-marquee:hover {
   animation-play-state: paused;
 }
+
+/*
+ * Adaptasi Tema Terang untuk Landing Page.
+ * Saat data-theme="light" aktif, latar, kartu, teks, border, dan input
+ * di halaman depan otomatis menyesuaikan palet "paper" yang bersih dan kontras.
+ */
+[data-theme="light"] .landing-page {
+  background-color: var(--bg) !important;
+  color: var(--text) !important;
+}
+
+[data-theme="light"] .landing-page header {
+  background-color: rgba(245, 247, 246, 0.9) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="light"] .landing-page footer {
+  background-color: var(--surface-2) !important;
+  border-color: var(--line) !important;
+}
+
+[data-theme="light"] .landing-page [class*="bg-[#080c10]"],
+[data-theme="light"] .landing-page [class*="bg-[#090c10]"],
+[data-theme="light"] .landing-page [class*="bg-[#0a0d11]"],
+[data-theme="light"] .landing-page [class*="bg-[#0b0f13]"] {
+  background-color: var(--surface-2) !important;
+}
+
+[data-theme="light"] .landing-page [class*="bg-[#0d1217]"],
+[data-theme="light"] .landing-page [class*="bg-[#0f1419]"],
+[data-theme="light"] .landing-page [class*="bg-[#10161c]"] {
+  background-color: var(--surface-1) !important;
+  box-shadow: var(--shadow-sm);
+}
+
+[data-theme="light"] .landing-page [class*="bg-white/"] {
+  background-color: rgba(16, 22, 20, 0.04) !important;
+}
+
+[data-theme="light"] .landing-page [class*="border-white/"] {
+  border-color: var(--line) !important;
+}
+
+[data-theme="light"] .landing-page .text-white {
+  color: var(--text) !important;
+}
+
+[data-theme="light"] .landing-page .text-zinc-100,
+[data-theme="light"] .landing-page .text-zinc-200,
+[data-theme="light"] .landing-page .text-zinc-300 {
+  color: #24302c !important;
+}
+
+[data-theme="light"] .landing-page .text-zinc-400,
+[data-theme="light"] .landing-page .text-zinc-500 {
+  color: var(--text-muted) !important;
+}
+
+[data-theme="light"] .landing-page .text-emerald-300,
+[data-theme="light"] .landing-page .text-emerald-400 {
+  color: #0b8659 !important;
+}
+
+[data-theme="light"] .landing-page input,
+[data-theme="light"] .landing-page textarea,
+[data-theme="light"] .landing-page select {
+  background-color: var(--surface-1) !important;
+  color: var(--text) !important;
+  border-color: var(--line-strong) !important;
+}
+
+[data-theme="light"] .landing-page [class*="bg-[#22c58b]"],
+[data-theme="light"] .landing-page [class*="bg-emerald-500"] {
+  color: #ffffff !important;
+}
+
+[data-theme="light"] .landing-page [class*="bg-[#22c58b]"] *,
+[data-theme="light"] .landing-page [class*="bg-emerald-500"] * {
+  color: #ffffff !important;
+}

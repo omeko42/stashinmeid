@@ -23,8 +23,7 @@ import {
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { BrandLogo } from '@/components/BrandLogo';
-import { LocaleSwitcher } from '@/components/shell/LocaleSwitcher';
-import { CurrencySwitcher } from '@/components/shell/CurrencySwitcher';
+import { PublicSettingsMenu } from '@/components/shell/PublicSettingsMenu';
 import { useCurrency } from '@/components/ui/CurrencyContext';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { TurnstileWidget } from '@/components/auth/TurnstileWidget';
@@ -767,7 +766,7 @@ export function LandingPage({
       ];
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#0b0f13] text-[#e8eef1] selection:bg-emerald-500/25 selection:text-emerald-200">
+    <div className="landing-page relative min-h-screen overflow-x-hidden bg-[#0b0f13] text-[#e8eef1] selection:bg-emerald-500/25 selection:text-emerald-200">
       <div
         aria-hidden
         className="pointer-events-none fixed inset-x-0 top-0 h-[420px] bg-[radial-gradient(ellipse_65%_45%_at_50%_-15%,rgba(34,197,139,0.13),transparent)]"
@@ -784,8 +783,7 @@ export function LandingPage({
           </div>
 
           <div className="flex items-center gap-2">
-            <CurrencySwitcher compact />
-            <LocaleSwitcher compact />
+            <PublicSettingsMenu />
             <Link
               href="/demo"
               className="hidden items-center gap-1.5 rounded-xl px-3 py-2 text-[12px] font-medium text-zinc-400 transition hover:bg-white/[0.05] hover:text-white sm:inline-flex"
