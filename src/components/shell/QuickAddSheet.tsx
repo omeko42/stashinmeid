@@ -114,6 +114,7 @@ export function QuickAddSheet({
   };
 
   return (
+    <>
     <Modal
       open={open}
       onClose={onClose}
@@ -212,48 +213,49 @@ export function QuickAddSheet({
 
         <div className={cn('grid gap-3', sharedGroups.length > 0 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1')}>
           <div>
-            <div className="mb-1.5 flex items-center justify-between gap-2">
-              <label
-                htmlFor="quick-add-wallet-select"
-                className="text-[12px] font-medium text-[var(--text-muted)]"
+            <label
+              htmlFor="quick-add-wallet-select"
+              className="mb-1.5 block text-[12px] font-medium text-[var(--text-muted)] whitespace-nowrap"
+            >
+              Dompet
+            </label>
+            <div className="flex items-center gap-1.5">
+              <select
+                id="quick-add-wallet-select"
+                name="accountId"
+                value={state.accountId}
+                onChange={(e) => {
+                  if (e.target.value === '__create_wallet__') {
+                    setAddingWallet(true);
+                    return;
+                  }
+                  set('accountId', e.target.value);
+                }}
+                className="h-10 min-w-0 flex-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
               >
-                Dompet / Sumber Saldo
-              </label>
+                <option value="">Kas Tunai</option>
+                <option value="__non_physical__">Non-Tunai (Bank / E-Wallet)</option>
+                {accounts.map((acc) => (
+                  <option key={acc.id} value={acc.id}>
+                    {acc.name} ({acc.currency})
+                  </option>
+                ))}
+                {onCreateAccount && (
+                  <option value="__create_wallet__">+ Tambah dompet baru...</option>
+                )}
+              </select>
               {onCreateAccount && (
                 <button
                   type="button"
-                  onClick={() => setAddingWallet((v) => !v)}
-                  className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-[var(--brand)] hover:underline"
+                  onClick={() => setAddingWallet(true)}
+                  title="Tambah dompet baru"
+                  aria-label="Tambah dompet baru"
+                  className="flex size-10 shrink-0 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface-2)] text-[var(--brand)] transition hover:border-[var(--brand)] hover:bg-[var(--brand-soft)]"
                 >
-                  <Plus className="size-3" aria-hidden />
-                  {addingWallet ? 'Tutup' : 'Tambah dompet'}
+                  <Plus className="size-4" aria-hidden />
                 </button>
               )}
             </div>
-            <select
-              id="quick-add-wallet-select"
-              name="accountId"
-              value={state.accountId}
-              onChange={(e) => {
-                if (e.target.value === '__create_wallet__') {
-                  setAddingWallet(true);
-                  return;
-                }
-                set('accountId', e.target.value);
-              }}
-              className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
-            >
-              <option value="">Kas Tunai</option>
-              <option value="__non_physical__">Non-Tunai (Bank / E-Wallet)</option>
-              {accounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.name} ({acc.currency})
-                </option>
-              ))}
-              {onCreateAccount && (
-                <option value="__create_wallet__">+ Tambah dompet baru...</option>
-              )}
-            </select>
           </div>
 
           {sharedGroups.length > 0 && (
@@ -271,65 +273,68 @@ export function QuickAddSheet({
             </Select>
           )}
         </div>
-
-        {/* Form cepat tambah dompet langsung dari dalam modal transaksi */}
-        {addingWallet && onCreateAccount && (
-          <div className="rounded-xl border border-[var(--brand)]/35 bg-[var(--brand-soft)]/30 p-3 space-y-2.5">
-            <p className="text-[11.5px] font-semibold text-[var(--text)]">
-              Tambah Dompet Baru
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <input
-                id="quick-add-new-wallet-name"
-                name="newWalletName"
-                type="text"
-                value={newWalletName}
-                onChange={(e) => setNewWalletName(e.target.value)}
-                placeholder="Mis. Dompet Tunai, Bank BRI, GoPay"
-                aria-label="Nama dompet baru"
-                className="h-9 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-2.5 text-[12px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none sm:col-span-2"
-              />
-              <select
-                id="quick-add-new-wallet-kind"
-                name="newWalletKind"
-                value={newWalletKind}
-                onChange={(e) => setNewWalletKind(e.target.value as AccountKind)}
-                aria-label="Jenis dompet"
-                className="h-9 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-2 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
-              >
-                <option value="cash">Tunai</option>
-                <option value="bank">Bank</option>
-                <option value="ewallet">E-Wallet</option>
-                <option value="crypto">Crypto</option>
-                <option value="other">Lainnya</option>
-              </select>
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="ghost"
-                onClick={() => {
-                  setAddingWallet(false);
-                  setNewWalletName('');
-                }}
-              >
-                Batal
-              </Button>
-              <Button
-                type="button"
-                size="sm"
-                loading={creatingWallet}
-                disabled={!newWalletName.trim()}
-                onClick={() => void handleCreateWallet()}
-              >
-                Buat & Pilih
-              </Button>
-            </div>
-          </div>
-        )}
       </form>
     </Modal>
+
+    {/* Pop-up terpisah khusus Tambah Dompet Baru */}
+    {onCreateAccount && (
+      <Modal
+        open={addingWallet}
+        onClose={() => {
+          setAddingWallet(false);
+          setNewWalletName('');
+        }}
+        title="Tambah Dompet Baru"
+        description="Dompet baru langsung tersimpan dan otomatis terpilih untuk transaksi ini."
+        size="sm"
+        footer={
+          <>
+            <Button
+              type="button"
+              size="sm"
+              variant="secondary"
+              onClick={() => {
+                setAddingWallet(false);
+                setNewWalletName('');
+              }}
+            >
+              Batal
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              loading={creatingWallet}
+              disabled={!newWalletName.trim()}
+              onClick={() => void handleCreateWallet()}
+            >
+              Buat & Pilih
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3.5">
+          <Input
+            label="Nama Dompet"
+            value={newWalletName}
+            onChange={(e) => setNewWalletName(e.target.value)}
+            placeholder="Mis. Dompet Tunai, Bank BRI, GoPay"
+            autoFocus
+          />
+          <Select
+            label="Jenis Dompet"
+            value={newWalletKind}
+            onChange={(e) => setNewWalletKind(e.target.value as AccountKind)}
+          >
+            <option value="cash">Tunai</option>
+            <option value="bank">Bank</option>
+            <option value="ewallet">E-Wallet</option>
+            <option value="crypto">Crypto</option>
+            <option value="other">Lainnya</option>
+          </Select>
+        </div>
+      </Modal>
+    )}
+    </>
   );
 }
 

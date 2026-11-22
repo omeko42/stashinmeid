@@ -81,6 +81,11 @@ export function SaldoTab({
   const nonPhysicalTotal = computedTotals.nonPhysical;
   const grandTotal = computedTotals.total;
 
+  const physicalCount =
+    physical.length > 0 ? physical.length : physicalTotal !== 0 ? 1 : 0;
+  const nonPhysicalCount =
+    nonPhysical.length > 0 ? nonPhysical.length : nonPhysicalTotal !== 0 ? 1 : 0;
+
   const subOptions = [
     { value: 'cashflow' as const, label: t('sub.cashflow') },
     { value: 'budget' as const, label: t('sub.budget') },
@@ -108,22 +113,8 @@ export function SaldoTab({
           <div className="mt-1.5">
             <Amount value={formatRp(physicalTotal)} size="lg" />
           </div>
-          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
-            {physical.length === 0 ? (
-              <>
-                <span>Kas tunai</span>
-                <span>·</span>
-                <button
-                  type="button"
-                  onClick={() => onSubChange('assets')}
-                  className="font-semibold text-[var(--brand)] hover:underline"
-                >
-                  + Tambah dompet
-                </button>
-              </>
-            ) : (
-              t('physicalHint', { count: physical.length })
-            )}
+          <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+            {t('physicalHint', { count: physicalCount })}
           </p>
         </section>
         <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
@@ -131,22 +122,8 @@ export function SaldoTab({
           <div className="mt-1.5">
             <Amount value={formatRp(nonPhysicalTotal)} size="lg" />
           </div>
-          <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] text-[var(--text-muted)]">
-            {nonPhysical.length === 0 ? (
-              <>
-                <span>Bank / e-wallet</span>
-                <span>·</span>
-                <button
-                  type="button"
-                  onClick={() => onSubChange('assets')}
-                  className="font-semibold text-[var(--brand)] hover:underline"
-                >
-                  + Tambah dompet
-                </button>
-              </>
-            ) : (
-              t('nonPhysicalHint', { count: nonPhysical.length })
-            )}
+          <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+            {t('nonPhysicalHint', { count: nonPhysicalCount })}
           </p>
         </section>
       </div>
