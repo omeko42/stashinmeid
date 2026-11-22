@@ -4,13 +4,15 @@ import { useTranslations } from 'next-intl';
 import {
   Landmark,
   LayoutDashboard,
+  PanelLeftClose,
+  PanelLeftOpen,
   Users,
   Wallet,
 } from 'lucide-react';
 import type { UserRole } from '@/types/finance';
 import { BrandLogo } from '@/components/BrandLogo';
 import { ProfileMenu } from '@/components/shell/ProfileMenu';
-import { NotificationBell } from '@/components/shell/NotificationBell';
+import { IconButton } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
 
 export type NavTab =
@@ -34,6 +36,10 @@ interface SidebarProps {
   userRole: UserRole;
   isSuperadmin: boolean;
   avatarUrl?: string | null;
+  collapsed?: boolean;
+  onToggleCollapse?: () => void;
+  unreadNotifications?: number;
+  onOpenNotifications: () => void;
   onOpenKyc: () => void;
   onOpenSecurity: () => void;
   /** Pengaturan kini dari menu profil pojok kiri bawah, bukan item sidebar. */
@@ -42,10 +48,10 @@ interface SidebarProps {
 }
 
 /**
- * Sidebar desktop.
+ * Sidebar desktop dengan dukungan Minimize / Maximize.
  *
- * Navigasi aktif ditandai dengan garis di kiri, bukan dengan gradient. Satu
- * elemen aktif harus terbaca sekilas tanpa harus dibaca labelnya.
+ * Posisi di sebelah judul aplikasi adalah tombol Minimize / Maximize sidebar,
+ * sedangkan Notifikasi berada di dalam menu Profil (di bawah Profil, di atas KYC).
  */
 export function Sidebar({
   activeTab,
@@ -56,6 +62,10 @@ export function Sidebar({
   userRole,
   isSuperadmin,
   avatarUrl,
+  collapsed = false,
+  onToggleCollapse,
+  unreadNotifications = 0,
+  onOpenNotifications,
   onOpenKyc,
   onOpenSecurity,
   onOpenSettings,
@@ -68,41 +78,68 @@ export function Sidebar({
     {
       id: 'overview',
       label: tNav('overview'),
-      icon: <LayoutDashboard className="size-4" />,
+      icon: <LayoutDashboard className="size-4 shrink-0" />,
     },
     {
       id: 'saldo',
       label: tNav('saldo'),
-      icon: <Wallet className="size-4" />,
+      icon: <Wallet className="size-4 shrink-0" />,
     },
     {
       id: 'debts',
       label: tNav('debts'),
-      icon: <Landmark className="size-4" />,
+      icon: <Landmark className="size-4 shrink-0" />,
     },
     {
       id: 'social',
       label: tNav('sosial'),
-      icon: <Users className="size-4" />,
+      icon: <Users className="size-4 shrink-0" />,
     },
   ];
 
   return (
-    <aside className="fixed inset-y-0 z-40 hidden w-60 flex-col border-r border-[var(--line)] bg-[var(--surface-1)] p-4 lg:flex">
-      <div className="flex items-center gap-2.5 px-1">
-        <BrandLogo size={32} />
-        <div className="min-w-0 flex-1">
-          <h1 className="truncate text-[15px] font-bold leading-none tracking-tight lowercase">
-            stashinmeid
-          </h1>
-          <span className="mt-0.5 block truncate text-[10px] text-[var(--text-muted)]">
-            {t('app.tagline')}
-          </span>
-        </div>
-        <NotificationBell align="left" />
+    <aside
+      className={cn(
+        'fixed inset-y-0 z-40 hidden flex-col border-r border-[var(--line)] bg-[var(--surface-1)] transition-[width,padding] duration-200 lg:flex',
+        collapsed ? 'w-[4.5rem] px-2.5 py-4' : 'w-60 p-4'
+      )}
+    >
+      <div
+        className={cn(
+          'flex items-center',
+          collapsed ? 'flex-col gap-2.5' : 'gap-2.5 px-1'
+        )}
+      >
+        <BrandLogo size={collapsed ? 28 : 32} />
+        {!collapsed && (
+          <div className="min-w-0 flex-1">
+            <h1 className="truncate text-[15px] font-bold leading-none tracking-tight lowercase">
+              stashinmeid
+            </h1>
+            <span className="mt-0.5 block truncate text-[10px] text-[var(--text-muted)]">
+              {t('app.tagline')}
+            </span>
+          </div>
+        )}
+        {onToggleCollapse && (
+          <IconButton
+            size="sm"
+            variant="ghost"
+            label={collapsed ? 'Perluas sidebar' : 'Kecilkan sidebar'}
+            title={collapsed ? 'Perluas sidebar' : 'Kecilkan sidebar'}
+            onClick={onToggleCollapse}
+            className="shrink-0 text-[var(--text-muted)] hover:text-[var(--text)]"
+          >
+            {collapsed ? (
+              <PanelLeftOpen className="size-4" />
+            ) : (
+              <PanelLeftClose className="size-4" />
+            )}
+          </IconButton>
+        )}
       </div>
 
-      <nav className="mt-7 flex-1 space-y-0.5" aria-label={t('nav.openMenu')}>
+      <nav className="mt-7 flex-1 space-y-1" aria-label={t('nav.openMenu')}>
         {items.map((item) => {
           const active = activeTab === item.id;
           return (
@@ -111,8 +148,10 @@ export function Sidebar({
               type="button"
               onClick={() => onNavigate(item.id)}
               aria-current={active ? 'page' : undefined}
+              title={collapsed ? item.label : undefined}
               className={cn(
-                'relative flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors',
+                'relative flex w-full items-center rounded-lg py-2 text-[13px] font-medium transition-colors',
+                collapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5',
                 active
                   ? 'bg-[var(--surface-2)] text-[var(--text)]'
                   : 'text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
@@ -125,7 +164,7 @@ export function Sidebar({
                 />
               )}
               {item.icon}
-              {item.label}
+              {!collapsed && <span className="truncate">{item.label}</span>}
             </button>
           );
         })}
@@ -139,7 +178,10 @@ export function Sidebar({
           userRole={userRole}
           isSuperadmin={isSuperadmin}
           avatarUrl={avatarUrl}
+          collapsed={collapsed}
+          unreadNotifications={unreadNotifications}
           onOpenProfile={() => onNavigate('profile')}
+          onOpenNotifications={onOpenNotifications}
           onOpenKyc={onOpenKyc}
           onOpenSecurity={onOpenSecurity}
           onOpenUsers={isSuperadmin || userRole === 'admin' ? () => onNavigate('users') : undefined}

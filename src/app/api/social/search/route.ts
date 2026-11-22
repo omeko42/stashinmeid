@@ -17,34 +17,37 @@ export async function GET(request: NextRequest) {
   if (!admin) return NextResponse.json({ error: 'Server config' }, { status: 500 });
 
   const q = (request.nextUrl.searchParams.get('q') || '').trim();
-  if (q.length < 2) {
-    return NextResponse.json({ users: [] });
-  }
-
-  const isFullEmail = q.includes('@') && q.includes('.');
 
   let query = admin
     .from('profiles')
-    .select('id, client_name, avatar_url, email')
+    .select('id, client_name, avatar_url, email, bio, role')
     .neq('id', userId)
-    .limit(10);
+    .order('created_at', { ascending: false })
+    .limit(25);
 
-  query = isFullEmail
-    ? query.ilike('email', q)
-    : query.ilike('client_name', `%${q}%`);
+  if (q.length >= 1) {
+    // Cari berdasarkan nama workspace, username (bagian email), atau email
+    const safeQ = q.replace(/[,%()]/g, '');
+    query = query.or(`client_name.ilike.%${safeQ}%,email.ilike.%${safeQ}%`);
+  }
 
   const { data: users, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
-  // Email disembunyikan sebagian - pesan antarpengguna tidak butuh email.
-  const safe = (users ?? []).map((u) => ({
-    id: u.id,
-    client_name: u.client_name,
-    avatar_url: u.avatar_url,
-    emailMasked: u.email
-      ? u.email.replace(/^(.).*(@.*)$/, '$1***$2')
-      : null,
-  }));
+  const safe = (users ?? []).map((u) => {
+    const username = u.email ? u.email.split('@')[0] : 'user';
+    return {
+      id: u.id,
+      client_name: u.client_name,
+      username,
+      bio: u.bio || null,
+      role: u.role,
+      avatar_url: u.avatar_url,
+      emailMasked: u.email
+        ? u.email.replace(/^(..).*(@.*)$/, '$1***$2')
+        : null,
+    };
+  });
 
   return NextResponse.json({ users: safe });
 }

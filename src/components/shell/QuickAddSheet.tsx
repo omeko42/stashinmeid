@@ -18,6 +18,13 @@ export interface QuickAddState {
   date: string;
   /** Ruang bersama (kolega); kosong = pribadi. */
   groupId: string;
+  /**
+   * Sumber dana / dompet:
+   * - '' (default)        = Kas Tunai (Saldo Fisik)
+   * - '__non_physical__'  = Bank / E-Wallet (Saldo Non-Fisik)
+   * - '<uuid>'            = ID dompet spesifik dari tabel `accounts`
+   */
+  accountId: string;
 }
 
 interface QuickAddSheetProps {
@@ -28,6 +35,8 @@ interface QuickAddSheetProps {
   saving: boolean;
   /** Daftar ruang bersama aktif; kosong = pilihan tidak muncul. */
   sharedGroups?: { id: string; name: string }[];
+  /** Daftar dompet aset user untuk dihubungkan dengan arus kas. */
+  accounts?: { id: string; name: string; kind: string; currency: string }[];
   onStateChange: (next: QuickAddState) => void;
   onSubmit: (e: React.FormEvent) => void;
 }
@@ -45,6 +54,7 @@ export function QuickAddSheet({
   scanMsg,
   saving,
   sharedGroups = [],
+  accounts = [],
   onStateChange,
   onSubmit,
 }: QuickAddSheetProps) {
@@ -160,33 +170,50 @@ export function QuickAddSheet({
           placeholder={tQuickAdd('descriptionPlaceholder')}
         />
 
-        {sharedGroups.length > 0 && (
+        <div className={cn('grid gap-3', sharedGroups.length > 0 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1')}>
           <Select
-            label={tQuickAdd('shared')}
-            value={state.groupId}
-            onChange={(e) => set('groupId', e.target.value)}
+            label="Dompet / Sumber Saldo"
+            value={state.accountId}
+            onChange={(e) => set('accountId', e.target.value)}
           >
-            <option value="">{tQuickAdd('sharedPersonal')}</option>
-            {sharedGroups.map((g) => (
-              <option key={g.id} value={g.id}>
-                {g.name}
+            <option value="">Kas Tunai (Saldo Fisik)</option>
+            <option value="__non_physical__">Bank / E-Wallet (Non-Fisik)</option>
+            {accounts.map((acc) => (
+              <option key={acc.id} value={acc.id}>
+                {acc.name} ({acc.currency})
               </option>
             ))}
           </Select>
-        )}
+
+          {sharedGroups.length > 0 && (
+            <Select
+              label={tQuickAdd('shared')}
+              value={state.groupId}
+              onChange={(e) => set('groupId', e.target.value)}
+            >
+              <option value="">{tQuickAdd('sharedPersonal')}</option>
+              {sharedGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  Grup: {g.name}
+                </option>
+              ))}
+            </Select>
+          )}
+        </div>
       </form>
     </Modal>
   );
 }
 
 /** State awal sheet. */
-export function initialQuickAddState(): QuickAddState {
+export function initialQuickAddState(defaultGroupId = ''): QuickAddState {
   return {
     type: 'outflow',
     amount: '',
     category: categoryOptions('outflow')[0].id,
     description: '',
     date: todayIso(),
-    groupId: '',
+    groupId: defaultGroupId,
+    accountId: '',
   };
 }

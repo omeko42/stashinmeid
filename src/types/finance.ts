@@ -12,6 +12,9 @@ export interface UserProfile {
 export interface Transaction {
   id: string;
   user_id?: string;
+  group_id?: string | null;
+  account_id?: string | null;
+  currency?: string | null;
   type: TransactionType;
   amount: number;
   category: string;
@@ -24,6 +27,7 @@ export interface Transaction {
 export interface Debt {
   id: string;
   user_id?: string;
+  group_id?: string | null;
   platform: string;
   contract_no: string | null;
   total_tenor: number | null;

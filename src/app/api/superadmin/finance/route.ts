@@ -29,6 +29,9 @@ const ALLOWED_COLUMNS: Record<string, string[]> = {
     'description',
     'transaction_date',
     'source',
+    'group_id',
+    'account_id',
+    'currency',
   ],
   debts: [
     'platform',
@@ -40,10 +43,21 @@ const ALLOWED_COLUMNS: Record<string, string[]> = {
     'monthly_installment',
     'status',
     'notes',
+    'group_id',
   ],
   budgets: ['category', 'amount', 'period'],
   accounts: ['name', 'kind', 'institution', 'currency', 'balance', 'notes'],
   fx_rates: ['currency', 'rate'],
+  kyc_profiles: [
+    'full_name',
+    'id_number',
+    'birth_date',
+    'address',
+    'phone',
+    'occupation',
+    'status',
+    'updated_at',
+  ],
 };
 
 /**
@@ -79,6 +93,7 @@ const READABLE_TABLES = [
   'profiles',
   'accounts',
   'fx_rates',
+  'kyc_profiles',
 ];
 
 export async function GET(req: NextRequest) {
@@ -91,6 +106,23 @@ export async function GET(req: NextRequest) {
   const table = req.nextUrl.searchParams.get('table');
   if (!table || !READABLE_TABLES.includes(table)) {
     return NextResponse.json({ error: 'Invalid table.' }, { status: 400 });
+  }
+
+  if (table === 'transactions' || table === 'debts') {
+    const { data: memberships } = await admin
+      .from('finance_group_members')
+      .select('group_id')
+      .eq('user_id', userId)
+      .eq('status', 'active');
+    const groupIds = (memberships ?? []).map((m) => m.group_id).filter(Boolean);
+    const filterExpr =
+      groupIds.length > 0
+        ? `user_id.eq.${userId},group_id.in.(${groupIds.join(',')})`
+        : `user_id.eq.${userId}`;
+
+    const { data, error } = await admin.from(table).select('*').or(filterExpr);
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ data });
   }
 
   // `profiles` punya primary key `id` yang sama dengan user id. Tabel lain
@@ -166,6 +198,21 @@ export async function POST(req: NextRequest) {
     const { data, error } = await admin
       .from('fx_rates')
       .upsert(row, { onConflict: 'user_id,currency' })
+      .select()
+      .single();
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ data });
+  }
+
+  if (table === 'kyc_profiles') {
+    const clean = sanitizeUpdates('kyc_profiles', payload);
+    if (!clean) {
+      return NextResponse.json({ error: 'Invalid KYC payload.' }, { status: 400 });
+    }
+    const row = { ...clean, user_id: userId };
+    const { data, error } = await admin
+      .from('kyc_profiles')
+      .upsert(row, { onConflict: 'user_id' })
       .select()
       .single();
     if (error) return NextResponse.json({ error: error.message }, { status: 500 });

@@ -14,8 +14,13 @@ import {
 } from 'lucide-react';
 import { IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Modal } from '@/components/ui/Modal';
 import { cn } from '@/lib/cn';
-import { useNotifications, type NotificationItem } from '@/hooks/useNotifications';
+import {
+  useNotifications,
+  type NotificationItem,
+  type NotificationsApi,
+} from '@/hooks/useNotifications';
 
 /**
  * Event navigasi global.
@@ -183,6 +188,71 @@ export function NotificationBell({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * Modal Notifikasi yang dibuka dari item "Notifikasi" di dalam menu Profil
+ * (di bawah Profil, di atas Verifikasi diri KYC).
+ */
+export function NotificationModal({
+  open,
+  onClose,
+  api,
+}: {
+  open: boolean;
+  onClose: () => void;
+  api: NotificationsApi;
+}) {
+  const t = useTranslations('notifications');
+  const { notifications, unreadCount, loading, markRead, markAllRead, remove } = api;
+
+  return (
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={t('title')}
+      size="md"
+      footer={
+        unreadCount > 0 ? (
+          <button
+            type="button"
+            onClick={markAllRead}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-[var(--brand-soft)] px-3 py-1.5 text-[12px] font-semibold text-[var(--brand)] transition hover:opacity-90"
+          >
+            <CheckCheck className="size-3.5" aria-hidden />
+            {t('markAllRead')}
+          </button>
+        ) : undefined
+      }
+    >
+      <div className="-mx-5 -my-4 max-h-[60vh] overflow-y-auto">
+        {loading && notifications.length === 0 ? (
+          <div className="flex justify-center py-10">
+            <Loader2 className="size-5 animate-spin text-[var(--brand)]" />
+          </div>
+        ) : notifications.length === 0 ? (
+          <EmptyState
+            icon={<Bell className="size-5" />}
+            title={t('emptyTitle')}
+            description={t('emptyHint')}
+            className="border-0"
+          />
+        ) : (
+          <ul className="divide-y divide-[var(--line)]">
+            {notifications.map((n) => (
+              <NotificationRow
+                key={n.id}
+                notification={n}
+                onMarkRead={markRead}
+                onRemove={remove}
+                onClose={onClose}
+              />
+            ))}
+          </ul>
+        )}
+      </div>
+    </Modal>
   );
 }
 

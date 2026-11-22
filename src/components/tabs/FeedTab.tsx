@@ -1,8 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Loader2, Newspaper, SendHorizonal } from 'lucide-react';
+import { Loader2, MessageCircle, Newspaper, SendHorizonal } from 'lucide-react';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/lib/cn';
@@ -16,18 +16,42 @@ interface Post {
   author: { id: string; client_name: string; avatar_url: string | null };
 }
 
+interface FeedTabProps {
+  autoFocusComposer?: boolean;
+  prefillText?: string;
+  onStartChat?: (author: { id: string; client_name: string; avatar_url: string | null }) => void;
+}
+
 /**
  * Feed postingan - semacam status sosial, v1 terbuka antar pengguna.
  * Composer di atas, daftar postingan terbaru di bawah (polling ringan).
  */
-export function FeedTab() {
+export function FeedTab({
+  autoFocusComposer = false,
+  prefillText = '',
+  onStartChat,
+}: FeedTabProps = {}) {
   const t = useTranslations('sosial');
 
   const [posts, setPosts] = useState<Post[]>([]);
   const [meId, setMeId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [body, setBody] = useState('');
+  const [body, setBody] = useState(prefillText);
   const [posting, setPosting] = useState(false);
+  const composerRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    if (prefillText) {
+      setBody(prefillText);
+      composerRef.current?.focus();
+    }
+  }, [prefillText]);
+
+  useEffect(() => {
+    if (autoFocusComposer) {
+      composerRef.current?.focus();
+    }
+  }, [autoFocusComposer]);
 
   const load = useCallback(async () => {
     try {
@@ -73,6 +97,7 @@ export function FeedTab() {
       {/* Composer */}
       <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
         <textarea
+          ref={composerRef}
           id="feed-post-body"
           name="feedPostBody"
           value={body}
@@ -148,6 +173,16 @@ export function FeedTab() {
                     }).format(new Date(p.createdAt))}
                   </span>
                 </span>
+                {onStartChat && p.authorId !== meId && (
+                  <button
+                    type="button"
+                    onClick={() => onStartChat(p.author)}
+                    className="inline-flex shrink-0 items-center gap-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-1 text-[11px] font-medium text-[var(--text-muted)] transition hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                  >
+                    <MessageCircle className="size-3.5" aria-hidden />
+                    Chat
+                  </button>
+                )}
               </div>
               <p className={cn('mt-2.5 whitespace-pre-wrap break-words text-[13px]')}>
                 {p.body}

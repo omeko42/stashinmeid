@@ -8,18 +8,17 @@ import { useTranslations } from 'next-intl';
  * Pita pengumuman di paling atas (di bawah safe-area iPhone, di atas
  * header mobile / konten desktop). Teksnya berjalan pelan (marquee).
  *
- * Teksnya diambil dari database (tabel `announcements`), jadi superadmin
- * bisa mengubahnya dari Pengaturan tanpa deploy ulang. Kalau tabelnya
- * belum ada atau tidak ada pengumuman aktif, pita tidak ditampilkan.
- *
- * Ditutup: ingat per perangkat di localStorage, kunci mengikuti isi teks
- * supaya pengumuman baru selalu muncul lagi.
+ * - Ditutup (tombol X): hanya menyembunyikan untuk tampilan saat ini,
+ *   sehingga saat halaman di-reload pita muncul kembali.
+ * - Dua track kembar dengan `min-w-full shrink-0` dan beberapa item
+ *   di dalamnya supaya pada monitor desktop PC yang lebar sekalipun
+ *   tidak pernah menyisakan ruang kosong di sebelah kanan.
  */
 export function AnnouncementBar() {
   const t = useTranslations('announcement');
   const defaultText = t('text');
-  const [text, setText] = useState<string | null>(null);
-  const [hidden, setHidden] = useState(true);
+  const [text, setText] = useState<string>(defaultText);
+  const [hidden, setHidden] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,7 +27,6 @@ export function AnnouncementBar() {
       if (cancelled) return;
       const finalValue = value?.trim() || defaultText;
       setText(finalValue);
-      setHidden(window.localStorage.getItem('annDismissed') === finalValue);
     };
 
     const load = async () => {
@@ -49,6 +47,7 @@ export function AnnouncementBar() {
     void load();
 
     const onUpdated = () => {
+      setHidden(false);
       void load();
     };
     window.addEventListener('stashinmeid:announcement-updated', onUpdated);
@@ -62,28 +61,41 @@ export function AnnouncementBar() {
   if (!text || hidden) return null;
 
   const dismiss = () => {
-    window.localStorage.setItem('annDismissed', text);
     setHidden(true);
   };
+
+  const trackItems = [0, 1, 2];
 
   return (
     <div
       role="status"
       className="relative overflow-hidden border-b border-[var(--line)] bg-[var(--brand-soft)] pt-[env(safe-area-inset-top)]"
     >
-      <div className="ann-marquee flex w-max items-center gap-16 py-1.5 pl-6 text-[11px] font-medium text-[var(--brand)]">
-        <span className="inline-flex items-center gap-1.5">
-          <Megaphone className="size-3" aria-hidden />
-          {text}
-        </span>
-        {/* Duplikat supaya loop marquee mulus tanpa putus */}
-        <span aria-hidden>{text}</span>
+      <div className="ann-marquee flex w-max items-center py-1.5 text-[11px] font-medium text-[var(--brand)]">
+        {[0, 1].map((groupIdx) => (
+          <div
+            key={groupIdx}
+            aria-hidden={groupIdx === 1 ? true : undefined}
+            className="flex min-w-full shrink-0 items-center justify-around gap-12 pr-12"
+          >
+            {trackItems.map((itemIdx) => (
+              <span
+                key={itemIdx}
+                aria-hidden={groupIdx === 1 || itemIdx > 0 ? true : undefined}
+                className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap"
+              >
+                <Megaphone className="size-3 shrink-0" aria-hidden />
+                <span>{text}</span>
+              </span>
+            ))}
+          </div>
+        ))}
       </div>
       <button
         type="button"
         onClick={dismiss}
         aria-label={t('dismiss')}
-        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[var(--surface-1)]/70 p-1.5 text-[var(--text-muted)] transition hover:text-[var(--text)]"
+        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md bg-[var(--surface-1)]/85 p-1.5 text-[var(--text-muted)] shadow-sm backdrop-blur-sm transition hover:text-[var(--text)]"
       >
         <X className="size-3" aria-hidden />
       </button>

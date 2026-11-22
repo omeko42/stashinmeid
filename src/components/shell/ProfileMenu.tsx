@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useId, useRef, useState } from 'react';
-import { BadgeCheck, ChevronUp, LogOut, Shield, SlidersHorizontal, UserCircle, Users } from 'lucide-react';
+import {
+  BadgeCheck,
+  Bell,
+  ChevronUp,
+  LogOut,
+  Shield,
+  SlidersHorizontal,
+  UserCircle,
+  Users,
+} from 'lucide-react';
 import { useTranslations } from 'next-intl';
 import type { UserRole } from '@/types/finance';
 import { cn } from '@/lib/cn';
@@ -13,7 +22,11 @@ interface ProfileMenuProps {
   userRole: UserRole;
   isSuperadmin: boolean;
   avatarUrl?: string | null;
+  collapsed?: boolean;
+  unreadNotifications?: number;
   onOpenProfile: () => void;
+  /** Di bawah Profil, di atas Verifikasi KYC sesuai permintaan user. */
+  onOpenNotifications?: () => void;
   /** Diauditkan bila KYC modal siap (patch 4); item KYC muncul bila handler ada. */
   onOpenKyc?: () => void;
   onOpenSecurity: () => void;
@@ -27,8 +40,8 @@ interface ProfileMenuProps {
 /**
  * Profil di pojok kiri bawah sidebar.
  *
- * Bukan sekadar informasi - jadi menu pintasan: Bio, KYC, dan keamanan
- * pribadi (modal). Buka ke atas supaya tetap di jangkauan bawah.
+ * Bukan sekadar informasi - jadi menu pintasan: Profil, Notifikasi, KYC,
+ * dan keamanan pribadi (modal). Buka ke atas supaya tetap di jangkauan bawah.
  */
 export function ProfileMenu({
   profileClient,
@@ -37,7 +50,10 @@ export function ProfileMenu({
   userRole,
   isSuperadmin,
   avatarUrl,
+  collapsed = false,
+  unreadNotifications = 0,
   onOpenProfile,
+  onOpenNotifications,
   onOpenKyc,
   onOpenSecurity,
   onOpenUsers,
@@ -46,6 +62,7 @@ export function ProfileMenu({
 }: ProfileMenuProps) {
   const tNav = useTranslations('nav');
   const tSettings = useTranslations('settings');
+  const tNotif = useTranslations('notifications');
   const menuId = useId();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -66,13 +83,30 @@ export function ProfileMenu({
     };
   }, [open]);
 
-  const items = [
+  const items: {
+    id: string;
+    label: string;
+    icon: React.ReactNode;
+    badge?: number;
+    action: () => void;
+  }[] = [
     {
       id: 'bio',
       label: tSettings('profile.bio'),
       icon: <UserCircle className="size-4" aria-hidden />,
       action: onOpenProfile,
     },
+    ...(onOpenNotifications
+      ? [
+          {
+            id: 'notifications',
+            label: tNotif('title'),
+            icon: <Bell className="size-4" aria-hidden />,
+            badge: unreadNotifications,
+            action: onOpenNotifications,
+          },
+        ]
+      : []),
     ...(onOpenKyc
       ? [
           {
@@ -119,7 +153,10 @@ export function ProfileMenu({
         <div
           id={menuId}
           role="menu"
-          className="absolute bottom-full left-0 right-0 z-40 mb-2 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)] shadow-lg"
+          className={cn(
+            'absolute bottom-full left-0 z-50 mb-2 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)] shadow-lg',
+            collapsed ? 'w-56' : 'right-0'
+          )}
         >
           {items.map((item) => (
             <button
@@ -130,10 +167,17 @@ export function ProfileMenu({
                 setOpen(false);
                 item.action();
               }}
-              className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left text-[13px] font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
+              className="flex w-full items-center justify-between gap-2.5 px-3.5 py-2.5 text-left text-[13px] font-medium text-[var(--text)] transition-colors hover:bg-[var(--surface-2)]"
             >
-              <span className="text-[var(--text-muted)]">{item.icon}</span>
-              {item.label}
+              <span className="flex min-w-0 items-center gap-2.5">
+                <span className="text-[var(--text-muted)]">{item.icon}</span>
+                <span className="truncate">{item.label}</span>
+              </span>
+              {item.badge !== undefined && item.badge > 0 && (
+                <span className="tnum flex min-w-[18px] items-center justify-center rounded-full bg-[var(--out)] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                  {item.badge > 99 ? '99+' : item.badge}
+                </span>
+              )}
             </button>
           ))}
 
@@ -160,35 +204,51 @@ export function ProfileMenu({
         aria-haspopup="menu"
         aria-expanded={open}
         aria-controls={open ? menuId : undefined}
+        title={collapsed ? `${profileClient} (${profileEmail || `@${profileUsername}`})` : undefined}
         className={cn(
-          'flex w-full items-center gap-2.5 rounded-lg border border-transparent px-2.5 py-2 text-left transition-colors hover:bg-[var(--surface-2)]',
+          'flex w-full items-center rounded-lg border border-transparent text-left transition-colors hover:bg-[var(--surface-2)]',
+          collapsed ? 'justify-center p-1.5' : 'gap-2.5 px-2.5 py-2',
           open && 'border-[var(--line)] bg-[var(--surface-2)]'
         )}
       >
         {/* Foto profil dari menu Bio; inisial jaga posisi sebelum ada filenya. */}
-        <span className="flex size-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-[var(--surface-2)] text-[13px] font-semibold text-[var(--text-muted)]">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt="" className="size-full object-cover" />
-          ) : (
-            (profileClient || '?').slice(0, 1).toUpperCase()
+        <span className="relative flex size-9 shrink-0 items-center justify-center rounded-full bg-[var(--surface-2)] text-[13px] font-semibold text-[var(--text-muted)]">
+          <span className="flex size-full items-center justify-center overflow-hidden rounded-full">
+            {avatarUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={avatarUrl} alt="" className="size-full object-cover" />
+            ) : (
+              (profileClient || '?').slice(0, 1).toUpperCase()
+            )}
+          </span>
+          {unreadNotifications > 0 && (
+            <span
+              className="absolute -right-0.5 -top-0.5 flex min-w-[15px] items-center justify-center rounded-full bg-[var(--out)] px-1 text-[9px] font-bold leading-[15px] text-white ring-2 ring-[var(--surface-1)]"
+              aria-label={`${unreadNotifications} notifikasi belum dibaca`}
+            >
+              {unreadNotifications > 9 ? '9+' : unreadNotifications}
+            </span>
           )}
         </span>
-        <span className="min-w-0 flex-1">
-          <span className="block truncate text-[12px] font-semibold text-[var(--text)]">
-            {profileClient}
-          </span>
-          <span className="block truncate text-[11px] text-[var(--text-muted)]">
-            {profileEmail || `@${profileUsername}`}
-          </span>
-        </span>
-        <ChevronUp
-          className={cn(
-            'size-4 shrink-0 text-[var(--text-muted)] transition-transform',
-            open && 'rotate-180'
-          )}
-          aria-hidden
-        />
+        {!collapsed && (
+          <>
+            <span className="min-w-0 flex-1">
+              <span className="block truncate text-[12px] font-semibold text-[var(--text)]">
+                {profileClient}
+              </span>
+              <span className="block truncate text-[11px] text-[var(--text-muted)]">
+                {profileEmail || `@${profileUsername}`}
+              </span>
+            </span>
+            <ChevronUp
+              className={cn(
+                'size-4 shrink-0 text-[var(--text-muted)] transition-transform',
+                open && 'rotate-180'
+              )}
+              aria-hidden
+            />
+          </>
+        )}
       </button>
 
       <span className="sr-only">{userRole}</span>

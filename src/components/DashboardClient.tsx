@@ -13,7 +13,11 @@ import { useAssets } from '@/hooks/useAssets';
 import { CommandPalette, type CommandAction } from '@/components/shell/CommandPalette';
 import { Sidebar, type NavTab } from '@/components/shell/Sidebar';
 import { AnnouncementBar } from '@/components/shell/AnnouncementBar';
-import { NAVIGATE_EVENT } from '@/components/shell/NotificationBell';
+import {
+  NAVIGATE_EVENT,
+  NotificationModal,
+} from '@/components/shell/NotificationBell';
+import { useNotifications } from '@/hooks/useNotifications';
 import { MobileHeader } from '@/components/shell/MobileHeader';
 import { BottomNav } from '@/components/shell/BottomNav';
 import {
@@ -23,12 +27,16 @@ import {
 } from '@/components/shell/QuickAddSheet';
 import { OverviewTab } from '@/components/tabs/OverviewTab';
 import { SaldoTab, type SaldoSub } from '@/components/tabs/SaldoTab';
-import { DebtsTab } from '@/components/tabs/DebtsTab';
+import { DebtsTab, type DebtFormState } from '@/components/tabs/DebtsTab';
 import { SettingsTab } from '@/components/tabs/SettingsTab';
 import { ProfileTab } from '@/components/tabs/ProfileTab';
 import { SecuritySettings } from '@/components/profile/SecuritySettings';
 import { KycModal } from '@/components/profile/KycModal';
-import { UsersTab, type ManagedUser } from '@/components/tabs/UsersTab';
+import {
+  UsersTab,
+  type CreateUserPayload,
+  type ManagedUser,
+} from '@/components/tabs/UsersTab';
 import { SocialTab, type SocialSub } from '@/components/tabs/SocialTab';
 import { Modal } from '@/components/ui/Modal';
 import { Button } from '@/components/ui/Button';
@@ -45,7 +53,16 @@ import {
 import { budgetStatuses } from '@/lib/budget';
 import { reportDbError } from '@/lib/dbErrors';
 import { appNow, nextDueDate, todayIso } from '@/lib/format';
-import { Bitcoin, Landmark, UserCheck, Wallet, ArrowLeftRight } from 'lucide-react';
+import {
+  ArrowLeftRight,
+  Bitcoin,
+  Building2,
+  Landmark,
+  Layers,
+  User,
+  UserCheck,
+  Wallet,
+} from 'lucide-react';
 
 interface DashboardClientProps {
   initialTransactions: Transaction[];
@@ -61,15 +78,6 @@ interface DashboardClientProps {
   initialBannerUrl?: string | null;
 }
 
-interface DebtFormState {
-  platform: string;
-  contract: string;
-  balance: string;
-  installment: string;
-  tenor: string;
-  dueDay: string;
-}
-
 const EMPTY_DEBT_FORM: DebtFormState = {
   platform: '',
   contract: '',
@@ -77,6 +85,7 @@ const EMPTY_DEBT_FORM: DebtFormState = {
   installment: '',
   tenor: '',
   dueDay: '',
+  groupId: '',
 };
 
 /**
@@ -129,17 +138,24 @@ export default function DashboardClient({
   const [commandOpen, setCommandOpen] = useState(false);
   const [securityOpen, setSecurityOpen] = useState(false);
   const [kycOpen, setKycOpen] = useState(false);
+  const [notificationsOpen, setNotificationsOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [activeScope, setActiveScope] = useState<'personal' | 'all' | string>(
+    'personal'
+  );
 
   // Simulasi pelunasan
   const [simSelectedIds, setSimSelectedIds] = useState<string[]>([]);
 
-  // Manajemen user (superadmin)
+  // Manajemen user (admin & superadmin)
   const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
   const [editingUserId, setEditingUserId] = useState<string | null>(null);
   const [editUserEmail, setEditUserEmail] = useState('');
   const [editUserClient, setEditUserClient] = useState('');
+  const [editUserBio, setEditUserBio] = useState('');
+  const [editUserPassword, setEditUserPassword] = useState('');
 
   // Keamanan: PIN & 2FA
   const [appPin, setAppPin] = useState('');
@@ -189,20 +205,27 @@ export default function DashboardClient({
   const kolega = useKolega();
   const connections = useConnections();
   const assets = useAssets({ isDemoMode, isSuperadmin });
-
-  // Split dompet fisik (kas) vs non-fisik (bank/e-wallet/crypto) - dipakai
-  // Ringkasan (tooltip hover saldo) dan tab Saldo.
-  const assetPhysicalTotal = assets.accounts
-    .filter((a) => a.kind === 'cash' || a.kind === 'other')
-    .reduce((s, a) => s + (assets.convert(a.balance, a.currency) ?? 0), 0);
-  const assetNonPhysicalTotal = assets.accounts
-    .filter((a) => a.kind === 'bank' || a.kind === 'ewallet' || a.kind === 'crypto')
-    .reduce((s, a) => s + (assets.convert(a.balance, a.currency) ?? 0), 0);
+  const notifications = useNotifications();
 
   useEffect(() => {
     const savedPin =
       typeof window !== 'undefined' ? localStorage.getItem('stashinme_pin') : null;
     if (savedPin) setAppPin(savedPin);
+    const savedCollapsed =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('stashinmeid_sidebar_collapsed')
+        : null;
+    if (savedCollapsed === '1') setSidebarCollapsed(true);
+  }, []);
+
+  const handleToggleSidebarCollapse = useCallback(() => {
+    setSidebarCollapsed((prev) => {
+      const next = !prev;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('stashinmeid_sidebar_collapsed', next ? '1' : '0');
+      }
+      return next;
+    });
   }, []);
 
   // Sinkronkan state lokal dengan data dari server.
@@ -258,35 +281,96 @@ export default function DashboardClient({
   }, []);
 
   // ------------------------------------------------------------------
-  // Metrik
+  // Isolasi Ruang Keuangan (Pribadi vs Grup Kolega) & Metrik Terhubung
   // ------------------------------------------------------------------
+
+  const scopedTransactions = useMemo(() => {
+    if (activeScope === 'all') return transactions;
+    if (activeScope === 'personal') {
+      return transactions.filter((tx) => !tx.group_id);
+    }
+    return transactions.filter((tx) => tx.group_id === activeScope);
+  }, [transactions, activeScope]);
+
+  const scopedDebts = useMemo(() => {
+    if (activeScope === 'all') return debts;
+    if (activeScope === 'personal') {
+      return debts.filter((d) => !d.group_id);
+    }
+    return debts.filter((d) => d.group_id === activeScope);
+  }, [debts, activeScope]);
+
+  // Split dompet fisik (kas) vs non-fisik (bank/e-wallet/crypto) + transaksi
+  // arus kas yang belum dikaitkan ke dompet spesifik (`!tx.account_id`).
+  // Dengan ini, Total Saldo, Saldo Fisik, Non-Fisik, dan Arus Kas selalu sinkron.
+  const computedTotals = useMemo(() => {
+    const includePersonalWallets =
+      activeScope === 'personal' || activeScope === 'all';
+    const walletPhysical = includePersonalWallets
+      ? assets.accounts
+          .filter((a) => a.kind === 'cash' || a.kind === 'other')
+          .reduce((s, a) => s + (assets.convert(a.balance, a.currency) ?? 0), 0)
+      : 0;
+    const walletNonPhysical = includePersonalWallets
+      ? assets.accounts
+          .filter(
+            (a) =>
+              a.kind === 'bank' || a.kind === 'ewallet' || a.kind === 'crypto'
+          )
+          .reduce((s, a) => s + (assets.convert(a.balance, a.currency) ?? 0), 0)
+      : 0;
+
+    let txPhysical = 0;
+    let txNonPhysical = 0;
+    for (const tx of scopedTransactions) {
+      if (tx.account_id) continue;
+      const signed =
+        tx.type === 'inflow' ? Number(tx.amount) : -Number(tx.amount);
+      if (
+        tx.source === 'manual_non_physical' ||
+        tx.category === 'Transfer'
+      ) {
+        txNonPhysical += signed;
+      } else {
+        txPhysical += signed;
+      }
+    }
+
+    const physical = walletPhysical + txPhysical;
+    const nonPhysical = walletNonPhysical + txNonPhysical;
+    return {
+      physical,
+      nonPhysical,
+      total: physical + nonPhysical,
+    };
+  }, [assets, scopedTransactions, activeScope]);
 
   const totalInflow = useMemo(
     () =>
-      transactions
+      scopedTransactions
         .filter((tx) => tx.type === 'inflow')
         .reduce((sum, tx) => sum + Number(tx.amount), 0),
-    [transactions]
+    [scopedTransactions]
   );
 
   const totalOutflow = useMemo(
     () =>
-      transactions
+      scopedTransactions
         .filter((tx) => tx.type === 'outflow')
         .reduce((sum, tx) => sum + Number(tx.amount), 0),
-    [transactions]
+    [scopedTransactions]
   );
 
   const netCashflow = totalInflow - totalOutflow;
   const savingsRate =
     totalInflow > 0 ? Math.max(0, Math.round((netCashflow / totalInflow) * 100)) : 0;
 
-  // Angka hero menghitung naik saat berubah - motion menjawab aksi.
-  const animatedBalance = useCountUp(netCashflow);
+  // Angka hero di Ringkasan menampilkan total saldo terhubung (dompet + arus kas ruang aktif).
+  const animatedBalance = useCountUp(computedTotals.total);
 
   const activeDebts = useMemo(
-    () => debts.filter((d) => d.status === 'active'),
-    [debts]
+    () => scopedDebts.filter((d) => d.status === 'active'),
+    [scopedDebts]
   );
   const totalDebt = useMemo(
     () => activeDebts.reduce((sum, d) => sum + Number(d.remaining_balance), 0),
@@ -298,9 +382,6 @@ export default function DashboardClient({
   );
 
   const upcomingDueGroups = useMemo(() => {
-    // `appNow()` bukan `new Date()`: server (UTC) dan browser (WIB) harus
-    // menghitung hari yang sama, kalau tidak tanggal jatuh tempo bergeser
-    // dan memicu hydration mismatch.
     const today = appNow();
     const groups = new Map<number, Debt[]>();
     for (const d of activeDebts) {
@@ -312,7 +393,6 @@ export default function DashboardClient({
     return [...groups.entries()]
       .map(([dueDay, items]) => ({
         dueDay,
-        // Urutkan jatuh tempo terdekat: tgl >= hari ini dulu, sisanya bulan depan.
         nextDue: nextDueDate(dueDay, today),
         items: items.sort(
           (a, b) => Number(b.monthly_installment) - Number(a.monthly_installment)
@@ -337,7 +417,7 @@ export default function DashboardClient({
 
   const filteredTransactions = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
-    return transactions.filter((tx) => {
+    return scopedTransactions.filter((tx) => {
       const matchType = filterType === 'all' || tx.type === filterType;
       const matchQuery =
         !q ||
@@ -345,11 +425,11 @@ export default function DashboardClient({
         tx.category.toLowerCase().includes(q);
       return matchType && matchQuery;
     });
-  }, [transactions, filterType, searchQuery]);
+  }, [scopedTransactions, filterType, searchQuery]);
 
   const budgetList = useMemo(
-    () => budgetStatuses(budgets.budgets, transactions),
-    [budgets.budgets, transactions]
+    () => budgetStatuses(budgets.budgets, scopedTransactions),
+    [budgets.budgets, scopedTransactions]
   );
 
   const profileCompleteness = useMemo(() => {
@@ -371,6 +451,16 @@ export default function DashboardClient({
     if (!amountNum || amountNum <= 0) return;
 
     setTxLoading(true);
+    const isNonPhysicalVirtual = quickAdd.accountId === '__non_physical__';
+    const realAccountId =
+      quickAdd.accountId && !isNonPhysicalVirtual ? quickAdd.accountId : null;
+    const txSource = scanMsg
+      ? 'ai_scan'
+      : isNonPhysicalVirtual
+        ? 'manual_non_physical'
+        : 'manual';
+    const targetGroupId = quickAdd.groupId || null;
+
     const newTx: Transaction = {
       id: crypto.randomUUID(),
       type: quickAdd.type,
@@ -378,7 +468,9 @@ export default function DashboardClient({
       category: quickAdd.category,
       description: quickAdd.description || null,
       transaction_date: quickAdd.date || todayIso(),
-      source: scanMsg ? 'ai_scan' : 'manual',
+      source: txSource,
+      group_id: targetGroupId,
+      account_id: realAccountId,
     };
 
     try {
@@ -395,6 +487,8 @@ export default function DashboardClient({
               description: newTx.description,
               transaction_date: newTx.transaction_date,
               source: newTx.source,
+              ...(targetGroupId ? { group_id: targetGroupId } : {}),
+              ...(realAccountId ? { account_id: realAccountId } : {}),
             },
           }),
         });
@@ -418,7 +512,8 @@ export default function DashboardClient({
               description: newTx.description,
               transaction_date: newTx.transaction_date,
               source: newTx.source,
-              ...(quickAdd.groupId ? { group_id: quickAdd.groupId } : {}),
+              ...(targetGroupId ? { group_id: targetGroupId } : {}),
+              ...(realAccountId ? { account_id: realAccountId } : {}),
             })
             .select()
             .single();
@@ -431,6 +526,23 @@ export default function DashboardClient({
         }
       } else {
         setTransactions((prev) => [newTx, ...prev]);
+      }
+
+      // Sinkronkan saldo dompet spesifik jika pengguna memilih salah satu akun aset
+      if (realAccountId) {
+        const targetAcc = assets.accounts.find((a) => a.id === realAccountId);
+        if (targetAcc) {
+          const delta =
+            newTx.type === 'inflow' ? Number(newTx.amount) : -Number(newTx.amount);
+          await assets.saveAccount({
+            id: targetAcc.id,
+            name: targetAcc.name,
+            kind: targetAcc.kind,
+            institution: targetAcc.institution,
+            currency: targetAcc.currency,
+            balance: Number(targetAcc.balance) + delta,
+          });
+        }
       }
 
       setQuickAdd(initialQuickAddState());
@@ -610,6 +722,7 @@ export default function DashboardClient({
     const installmentNum = Number(debtForm.installment) || 0;
     const tenorNum = Number(debtForm.tenor) || null;
     const dueNum = Number(debtForm.dueDay) || null;
+    const targetGroupId = debtForm.groupId || null;
 
     if (!debtForm.platform || !balanceNum) return;
 
@@ -624,6 +737,7 @@ export default function DashboardClient({
       monthly_installment: installmentNum,
       status: 'active',
       notes: null,
+      group_id: targetGroupId,
     };
 
     if (!isDemoMode && isSuperadmin) {
@@ -641,6 +755,7 @@ export default function DashboardClient({
             remaining_balance: newDebt.remaining_balance,
             monthly_installment: newDebt.monthly_installment,
             status: 'active',
+            ...(targetGroupId ? { group_id: targetGroupId } : {}),
           },
         }),
       });
@@ -666,6 +781,7 @@ export default function DashboardClient({
             remaining_balance: newDebt.remaining_balance,
             monthly_installment: newDebt.monthly_installment,
             status: 'active',
+            ...(targetGroupId ? { group_id: targetGroupId } : {}),
           })
           .select()
           .single();
@@ -1036,11 +1152,11 @@ export default function DashboardClient({
   };
 
   // ------------------------------------------------------------------
-  // Manajemen user (superadmin)
+  // Manajemen user (admin & superadmin)
   // ------------------------------------------------------------------
 
   const loadManagedUsers = useCallback(async () => {
-    if (!isSuperadmin) return;
+    if (!isSuperadmin && userRole !== 'admin') return;
     setUsersLoading(true);
     setUsersError(null);
     try {
@@ -1053,13 +1169,40 @@ export default function DashboardClient({
     } finally {
       setUsersLoading(false);
     }
-  }, [isSuperadmin, t]);
+  }, [isSuperadmin, userRole, t]);
 
   useEffect(() => {
     if (activeTab === 'users' && (isSuperadmin || userRole === 'admin')) {
       void loadManagedUsers();
     }
   }, [activeTab, isSuperadmin, userRole, loadManagedUsers]);
+
+  const handleCreateUser = async (
+    payload: CreateUserPayload
+  ): Promise<boolean> => {
+    try {
+      const res = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error || t('errors.generic'));
+        return false;
+      }
+      if (json.user) {
+        setManagedUsers((prev) => [json.user, ...prev]);
+      } else {
+        await loadManagedUsers();
+      }
+      toast.success(`Akun ${payload.client_name} berhasil dibuat!`);
+      return true;
+    } catch {
+      toast.error(t('errors.generic'));
+      return false;
+    }
+  };
 
   const handleSaveUserEdit = async (userId: string) => {
     const res = await fetch('/api/admin/users', {
@@ -1069,6 +1212,10 @@ export default function DashboardClient({
         userId,
         email: editUserEmail,
         client_name: editUserClient,
+        bio: editUserBio,
+        ...(editUserPassword.trim().length >= 6
+          ? { password: editUserPassword.trim() }
+          : {}),
       }),
     });
     const json = await res.json().catch(() => ({}));
@@ -1076,11 +1223,17 @@ export default function DashboardClient({
       setManagedUsers((prev) =>
         prev.map((u) =>
           u.id === userId
-            ? { ...u, email: editUserEmail, client_name: editUserClient }
+            ? {
+                ...u,
+                email: editUserEmail,
+                client_name: editUserClient,
+                bio: editUserBio || null,
+              }
             : u
         )
       );
       setEditingUserId(null);
+      setEditUserPassword('');
       toast.success(tUsers('saved'));
     } else {
       toast.error(json.error || t('errors.generic'));
@@ -1278,13 +1431,21 @@ export default function DashboardClient({
         userRole={userRole}
         isSuperadmin={isSuperadmin}
         avatarUrl={profileAvatarUrl}
+        collapsed={sidebarCollapsed}
+        onToggleCollapse={handleToggleSidebarCollapse}
+        unreadNotifications={notifications.unreadCount}
+        onOpenNotifications={() => setNotificationsOpen(true)}
         onOpenKyc={() => setKycOpen(true)}
         onOpenSecurity={() => setSecurityOpen(true)}
         onOpenSettings={() => navigate('settings')}
         onLogout={handleLogout}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col lg:pl-60">
+      <div
+        className={`flex min-w-0 flex-1 flex-col transition-[padding] duration-200 ${
+          sidebarCollapsed ? 'lg:pl-[4.5rem]' : 'lg:pl-60'
+        }`}
+      >
         {/* Pita pengumuman: paling atas, aman dari notch/URL bar iPhone */}
         <AnnouncementBar />
 
@@ -1292,6 +1453,8 @@ export default function DashboardClient({
           profileClient={profileClient}
           isSuperadmin={isSuperadmin || userRole === 'admin'}
           canEdit={canEdit}
+          unreadNotifications={notifications.unreadCount}
+          onOpenNotifications={() => setNotificationsOpen(true)}
           onProfile={() => navigate('profile')}
           onOpenKyc={() => setKycOpen(true)}
           onOpenSecurity={() => setSecurityOpen(true)}
@@ -1318,13 +1481,89 @@ export default function DashboardClient({
             </div>
           )}
 
+          {/* Switcher Ruang Keuangan (Pribadi vs Grup Kolega) agar kas/utang perusahaan & keluarga tidak tercampur */}
+          {(activeTab === 'overview' ||
+            activeTab === 'saldo' ||
+            activeTab === 'debts') && (
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-2.5">
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="px-2 text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                  Ruang Keuangan:
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setActiveScope('personal')}
+                  className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
+                    activeScope === 'personal'
+                      ? 'bg-[var(--brand)] text-[var(--bg)]'
+                      : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                  }`}
+                >
+                  <User className="size-3.5" aria-hidden />
+                  Pribadi
+                </button>
+                {kolega.groups.map((g) => {
+                  const active = activeScope === g.id;
+                  return (
+                    <button
+                      key={g.id}
+                      type="button"
+                      onClick={() => setActiveScope(g.id)}
+                      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
+                        active
+                          ? 'bg-[var(--brand)] text-[var(--bg)]'
+                          : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                      }`}
+                    >
+                      <Building2 className="size-3.5" aria-hidden />
+                      Grup: {g.name}
+                    </button>
+                  );
+                })}
+                {kolega.groups.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveScope('all')}
+                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold transition-colors ${
+                      activeScope === 'all'
+                        ? 'bg-[var(--brand)] text-[var(--bg)]'
+                        : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                    }`}
+                  >
+                    <Layers className="size-3.5" aria-hidden />
+                    Semua Ruang
+                  </button>
+                )}
+              </div>
+
+              <div className="flex items-center gap-2 px-2 text-[11px] text-[var(--text-muted)]">
+                <span>
+                  {scopedTransactions.length} transaksi · {activeDebts.length}{' '}
+                  pinjaman aktif
+                </span>
+                {activeScope !== 'personal' && activeScope !== 'all' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSosialSub('kolega');
+                      navigate('social');
+                    }}
+                    className="font-semibold text-[var(--brand)] hover:underline"
+                  >
+                    Buka di Sosial →
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
               {activeTab === 'overview' && (
                 <OverviewTab
-                  transactions={transactions}
-                  debts={debts}
+                  transactions={scopedTransactions}
+                  debts={scopedDebts}
                   assetTotals={{
-                    physical: assetPhysicalTotal,
-                    nonPhysical: assetNonPhysicalTotal,
+                    physical: computedTotals.physical,
+                    nonPhysical: computedTotals.nonPhysical,
                   }}
                   totalInflow={totalInflow}
                   totalOutflow={totalOutflow}
@@ -1337,7 +1576,12 @@ export default function DashboardClient({
                   budgetStatuses={budgetList}
                   canEdit={canEdit}
                   scanning={scanning}
-                  onQuickAdd={() => setShowQuickAdd(true)}
+                  onQuickAdd={() => {
+                    if (activeScope !== 'personal' && activeScope !== 'all') {
+                      setQuickAdd((prev) => ({ ...prev, groupId: activeScope }));
+                    }
+                    setShowQuickAdd(true);
+                  }}
                   onScan={() => fileInputRef.current?.click()}
                   onOpenDebts={() => navigate('debts')}
                   onOpenCashflow={() => {
@@ -1354,11 +1598,12 @@ export default function DashboardClient({
               {activeTab === 'saldo' && (
                 <SaldoTab
                   assets={assets}
+                  computedTotals={computedTotals}
                   sub={saldoSub}
                   onSubChange={setSaldoSub}
                   canEdit={canEdit}
                   budgets={budgets.budgets}
-                  transactions={transactions}
+                  transactions={scopedTransactions}
                   onBudgetSave={budgets.saveBudget}
                   onBudgetRemove={budgets.removeBudget}
                   filteredTransactions={filteredTransactions}
@@ -1367,14 +1612,24 @@ export default function DashboardClient({
                   onFilterTypeChange={setFilterType}
                   onSearchChange={setSearchQuery}
                   onDeleteTransaction={handleDeleteTransaction}
-                  onQuickAdd={() => setShowQuickAdd(true)}
+                  onQuickAdd={() => {
+                    if (activeScope !== 'personal' && activeScope !== 'all') {
+                      setQuickAdd((prev) => ({ ...prev, groupId: activeScope }));
+                    }
+                    setShowQuickAdd(true);
+                  }}
                   onExportCsv={handleExportCsv}
                 />
               )}
 
               {activeTab === 'debts' && (
                 <DebtsTab
-                  debts={debts}
+                  debts={scopedDebts}
+                  sharedGroups={
+                    !isDemoMode
+                      ? kolega.groups.map((g) => ({ id: g.id, name: g.name }))
+                      : []
+                  }
                   showDebtForm={showDebtForm}
                   debtForm={debtForm}
                   canEdit={canEdit}
@@ -1389,7 +1644,16 @@ export default function DashboardClient({
                   }
                   onClearSim={() => setSimSelectedIds([])}
                   onFormChange={setDebtForm}
-                  onToggleForm={() => setShowDebtForm((v) => !v)}
+                  onToggleForm={() => {
+                    if (
+                      !showDebtForm &&
+                      activeScope !== 'personal' &&
+                      activeScope !== 'all'
+                    ) {
+                      setDebtForm((prev) => ({ ...prev, groupId: activeScope }));
+                    }
+                    setShowDebtForm((v) => !v);
+                  }}
                   onSubmitForm={handleAddDebt}
                   onPay={handlePayDebt}
                   onDelete={handleDeleteDebt}
@@ -1402,6 +1666,27 @@ export default function DashboardClient({
                   onSubChange={setSosialSub}
                   kolega={kolega}
                   connections={connections}
+                  transactions={transactions}
+                  debts={debts}
+                  selectedGroupId={
+                    activeScope !== 'personal' && activeScope !== 'all'
+                      ? activeScope
+                      : null
+                  }
+                  onQuickAddForGroup={(groupId) => {
+                    setQuickAdd((prev) => ({ ...prev, groupId }));
+                    setShowQuickAdd(true);
+                  }}
+                  onAddDebtForGroup={(groupId) => {
+                    setActiveScope(groupId);
+                    setDebtForm((prev) => ({ ...prev, groupId }));
+                    setShowDebtForm(true);
+                    navigate('debts');
+                  }}
+                  onFocusGroupInDashboard={(groupId) => {
+                    setActiveScope(groupId);
+                    navigate('overview');
+                  }}
                 />
               )}
 
@@ -1469,7 +1754,18 @@ export default function DashboardClient({
               </Modal>
 
               {/* KYC: modal dari menu profil di sidebar */}
-              <KycModal open={kycOpen} onClose={() => setKycOpen(false)} />
+              <KycModal
+                open={kycOpen}
+                onClose={() => setKycOpen(false)}
+                isSuperadmin={isSuperadmin}
+              />
+
+              {/* Notifikasi: modal dari menu profil (di bawah Profil, di atas KYC) */}
+              <NotificationModal
+                open={notificationsOpen}
+                onClose={() => setNotificationsOpen(false)}
+                api={notifications}
+              />
 
               {activeTab === 'users' && (isSuperadmin || userRole === 'admin') && (
                 <UsersTab
@@ -1479,6 +1775,8 @@ export default function DashboardClient({
                   editingUserId={editingUserId}
                   editUserEmail={editUserEmail}
                   editUserClient={editUserClient}
+                  editUserBio={editUserBio}
+                  editUserPassword={editUserPassword}
                   onRefresh={loadManagedUsers}
                   onChangeRole={handleChangeUserRole}
                   onResetPassword={handleAdminResetPassword}
@@ -1488,13 +1786,21 @@ export default function DashboardClient({
                     setEditingUserId(editingUserId === u.id ? null : u.id);
                     setEditUserEmail(u.email);
                     setEditUserClient(u.client_name);
+                    setEditUserBio(u.bio || '');
+                    setEditUserPassword('');
                   }}
                   onEditFieldChange={(field, value) => {
                     if (field === 'email') setEditUserEmail(value);
-                    else setEditUserClient(value);
+                    else if (field === 'client_name') setEditUserClient(value);
+                    else if (field === 'bio') setEditUserBio(value);
+                    else if (field === 'password') setEditUserPassword(value);
                   }}
                   onSaveEdit={handleSaveUserEdit}
-                  onCancelEdit={() => setEditingUserId(null)}
+                  onCancelEdit={() => {
+                    setEditingUserId(null);
+                    setEditUserPassword('');
+                  }}
+                  onCreateUser={handleCreateUser}
                 />
               )}
         </main>
@@ -1539,6 +1845,7 @@ export default function DashboardClient({
         scanMsg={scanMsg}
         saving={txLoading}
         sharedGroups={!isDemoMode ? kolega.groups.map((g) => ({ id: g.id, name: g.name })) : []}
+        accounts={assets.accounts}
         onStateChange={setQuickAdd}
         onSubmit={handleAddTransaction}
       />

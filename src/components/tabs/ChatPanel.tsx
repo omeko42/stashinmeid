@@ -64,24 +64,37 @@ function timeAgo(iso: string): string {
   return `${Math.floor(h / 24)}d`;
 }
 
+interface ChatPanelProps {
+  /** Daftar kontak kolega (accepted) agar tampil seperti daftar kontak WhatsApp. */
+  contacts?: {
+    id: string;
+    client_name: string;
+    avatar_url: string | null;
+    email?: string;
+  }[];
+  /** Peer awal yang langsung dibuka (mis. saat klik tombol Chat dari Find Colleague). */
+  initialPeer?: ParsedProfile | null;
+}
+
 /**
- * Obrolan antar pengguna (1-on-1, polling - tanpa realtime supaya ringan).
+ * Obrolan antar pengguna (1-on-1, gaya WhatsApp dengan daftar kontak kolega + percakapan).
  *
- * Satu halaman dua panel: daftar percakapan + pencarian akun di kiri,
+ * Satu halaman dua panel: daftar percakapan + kontak kolega + pencarian akun di kiri,
  * percakapan aktif di kanan. Di mobile percakapan menimpa daftar.
  */
-export function ChatPanel() {
+export function ChatPanel({ contacts = [], initialPeer = null }: ChatPanelProps = {}) {
   const t = useTranslations('sosial');
 
   const [threads, setThreads] = useState<Thread[]>([]);
   const [threadsLoading, setThreadsLoading] = useState(true);
-  const [peer, setPeer] = useState<ParsedProfile | null>(null);
+  const [peer, setPeer] = useState<ParsedProfile | null>(initialPeer);
   const [messages, setMessages] = useState<Message[]>([]);
   const [msgLoading, setMsgLoading] = useState(false);
   const [input, setInput] = useState('');
   const [sending, setSending] = useState(false);
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<SearchResult[]>([]);
+  const [leftView, setLeftView] = useState<'chats' | 'contacts'>('chats');
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const loadThreads = useCallback(async () => {
@@ -108,6 +121,13 @@ export function ChatPanel() {
   useEffect(() => {
     loadThreads();
   }, [loadThreads]);
+
+  useEffect(() => {
+    if (initialPeer) {
+      setPeer(initialPeer);
+      void loadMessages(initialPeer.id);
+    }
+  }, [initialPeer, loadMessages]);
 
   // Polling hanya saat ada percakapan aktif; daftar thread menyusul lebih jarang.
   useEffect(() => {
@@ -193,7 +213,35 @@ export function ChatPanel() {
           peer && 'hidden md:flex'
         )}
       >
-        <div className="border-b border-[var(--line)] p-3">
+        <div className="border-b border-[var(--line)] p-3 space-y-2.5">
+          {/* Tab Percakapan vs Kontak Kolega (Gaya WhatsApp) */}
+          <div className="grid grid-cols-2 gap-1 rounded-lg bg-[var(--surface-2)] p-1">
+            <button
+              type="button"
+              onClick={() => setLeftView('chats')}
+              className={cn(
+                'rounded-md py-1 text-[11px] font-semibold transition',
+                leftView === 'chats'
+                  ? 'bg-[var(--surface-1)] text-[var(--text)] shadow-sm'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+              )}
+            >
+              Chat ({threads.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setLeftView('contacts')}
+              className={cn(
+                'rounded-md py-1 text-[11px] font-semibold transition',
+                leftView === 'contacts'
+                  ? 'bg-[var(--surface-1)] text-[var(--text)] shadow-sm'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+              )}
+            >
+              Kontak ({contacts.length})
+            </button>
+          </div>
+
           <div className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-1.5">
             <Search className="size-3.5 shrink-0 text-[var(--text-faint)]" aria-hidden />
             <input
@@ -232,14 +280,56 @@ export function ChatPanel() {
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto p-1.5">
-          {threadsLoading ? (
+          {leftView === 'contacts' ? (
+            contacts.length === 0 ? (
+              <p className="px-3 py-6 text-center text-[12px] text-[var(--text-muted)]">
+                Belum ada kontak kolega. Tambahkan di menu Find Colleague.
+              </p>
+            ) : (
+              contacts.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    openPeer({ id: c.id, client_name: c.client_name, avatar_url: c.avatar_url });
+                    setLeftView('chats');
+                  }}
+                  className={cn(
+                    'flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition-colors hover:bg-[var(--surface-2)]',
+                    peer?.id === c.id && 'bg-[var(--surface-2)]'
+                  )}
+                >
+                  <Avatar name={c.client_name} url={c.avatar_url} />
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-medium text-[var(--text)]">
+                      {c.client_name}
+                    </span>
+                    <span className="block truncate text-[11px] text-[var(--text-muted)]">
+                      {c.email || 'Kolega terhubung · Klik untuk chat'}
+                    </span>
+                  </span>
+                </button>
+              ))
+            )
+          ) : threadsLoading ? (
             <div className="flex justify-center p-6">
               <Loader2 className="size-4 animate-spin text-[var(--text-faint)]" />
             </div>
           ) : threads.length === 0 ? (
-            <p className="px-3 py-6 text-center text-[12px] text-[var(--text-muted)]">
-              {t('chatNoThreads')}
-            </p>
+            <div className="px-3 py-6 text-center space-y-2">
+              <p className="text-[12px] text-[var(--text-muted)]">
+                {t('chatNoThreads')}
+              </p>
+              {contacts.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setLeftView('contacts')}
+                  className="text-[12px] font-semibold text-[var(--brand)] hover:underline"
+                >
+                  Lihat {contacts.length} Kontak Kolega →
+                </button>
+              )}
+            </div>
           ) : (
             threads.map((th) => (
               <button

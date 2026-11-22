@@ -3,6 +3,7 @@
 import { useEffect, useId, useRef, useState } from 'react';
 import {
   BadgeCheck,
+  Bell,
   Camera,
   FileDown,
   Settings,
@@ -20,6 +21,8 @@ import { ThemeToggle } from './ThemeToggle';
 
 type SettingsMenuProps = {
   onProfile: () => void;
+  onOpenNotifications?: () => void;
+  unreadNotifications?: number;
   onOpenKyc?: () => void;
   onOpenSecurity?: () => void;
   onOpenSettings?: () => void;
@@ -37,6 +40,8 @@ type SettingsMenuProps = {
 /** Menu Pengaturan ringkas (ikon saja) untuk header mobile & tablet. */
 export function SettingsMenu({
   onProfile,
+  onOpenNotifications,
+  unreadNotifications = 0,
   onOpenKyc,
   onOpenSecurity,
   onOpenSettings,
@@ -52,6 +57,7 @@ export function SettingsMenu({
 }: SettingsMenuProps) {
   const tNav = useTranslations('nav');
   const tSettings = useTranslations('settings');
+  const tNotif = useTranslations('notifications');
   const menuId = useId();
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
@@ -89,8 +95,17 @@ export function SettingsMenu({
         aria-haspopup="menu"
         aria-controls={open ? menuId : undefined}
         onClick={() => setOpen((v) => !v)}
+        className="relative"
       >
         <Settings className="size-4" aria-hidden />
+        {unreadNotifications > 0 && (
+          <span
+            className="absolute -right-1 -top-1 flex min-w-[15px] items-center justify-center rounded-full bg-[var(--out)] px-1 text-[9px] font-bold leading-[15px] text-white"
+            aria-label={`${unreadNotifications} notifikasi belum dibaca`}
+          >
+            {unreadNotifications > 9 ? '9+' : unreadNotifications}
+          </span>
+        )}
       </IconButton>
 
       {open && (
@@ -109,6 +124,14 @@ export function SettingsMenu({
             label={tNav('profile')}
             onSelect={() => run(onProfile)}
           />
+          {onOpenNotifications && (
+            <MenuItem
+              icon={<Bell className="size-4" />}
+              label={tNotif('title')}
+              badge={unreadNotifications}
+              onSelect={() => run(onOpenNotifications)}
+            />
+          )}
           {onOpenKyc && (
             <MenuItem
               icon={<BadgeCheck className="size-4" />}
@@ -199,10 +222,12 @@ export function SettingsMenu({
 function MenuItem({
   icon,
   label,
+  badge,
   onSelect,
 }: {
   icon: React.ReactNode;
   label: string;
+  badge?: number;
   onSelect: () => void;
 }) {
   return (
@@ -210,12 +235,19 @@ function MenuItem({
       type="button"
       role="menuitem"
       onClick={onSelect}
-      className="w-full flex items-center gap-2 px-3 py-2 text-sm text-[var(--text)] hover:bg-[var(--surface-2)] text-left"
+      className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm text-[var(--text)] hover:bg-[var(--surface-2)]"
     >
-      <span className="text-[var(--text-muted)]" aria-hidden>
-        {icon}
+      <span className="flex min-w-0 items-center gap-2">
+        <span className="text-[var(--text-muted)]" aria-hidden>
+          {icon}
+        </span>
+        <span className="truncate">{label}</span>
       </span>
-      {label}
+      {badge !== undefined && badge > 0 && (
+        <span className="tnum flex min-w-[18px] items-center justify-center rounded-full bg-[var(--out)] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+          {badge > 99 ? '99+' : badge}
+        </span>
+      )}
     </button>
   );
 }

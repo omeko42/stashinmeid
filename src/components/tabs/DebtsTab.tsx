@@ -1,20 +1,21 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
-import { Calculator, CheckCircle2, Plus, Trash2 } from 'lucide-react';
+import { Calculator, CheckCircle2, Plus, Trash2, Users } from 'lucide-react';
 import type { Debt } from '@/types/finance';
 import { formatRp } from '@/lib/format';
 import { Amount, Label, Progress, Rule } from '@/components/ui/Surface';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 
-interface DebtFormState {
+export interface DebtFormState {
   platform: string;
   contract: string;
   balance: string;
   installment: string;
   tenor: string;
   dueDay: string;
+  groupId: string;
 }
 
 interface DebtsTabProps {
@@ -22,6 +23,8 @@ interface DebtsTabProps {
   showDebtForm: boolean;
   debtForm: DebtFormState;
   canEdit: boolean;
+  sharedGroups?: { id: string; name: string }[];
+  groupNameById?: Record<string, string>;
   simSelectedIds: string[];
   simStats: { count: number; payoffNeeded: number; monthlySaved: number };
   onToggleSim: (id: string) => void;
@@ -38,6 +41,8 @@ export function DebtsTab({
   showDebtForm,
   debtForm,
   canEdit,
+  sharedGroups = [],
+  groupNameById = {},
   simSelectedIds,
   simStats,
   onToggleSim,
@@ -231,6 +236,30 @@ export function DebtsTab({
               className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
             />
           </div>
+          {sharedGroups.length > 0 && (
+            <div className="sm:col-span-3">
+              <label
+                htmlFor="debt-group-id"
+                className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+              >
+                Ruang Keuangan (Pisahkan utang Pribadi / Keluarga / Perusahaan)
+              </label>
+              <select
+                id="debt-group-id"
+                name="groupId"
+                value={debtForm.groupId}
+                onChange={(e) => set('groupId')(e.target.value)}
+                className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+              >
+                <option value="">Pribadi (Tidak masuk grup kolega)</option>
+                {sharedGroups.map((g) => (
+                  <option key={g.id} value={g.id}>
+                    Grup Kolega: {g.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="flex gap-2 sm:col-span-3">
             <Button type="submit" size="sm">
               {tCommon('save')}
@@ -306,6 +335,16 @@ export function DebtsTab({
                         <h3 className="truncate text-[14px] font-semibold text-[var(--text)]">
                           {debt.platform}
                         </h3>
+                        {debt.group_id && groupNameById[debt.group_id] ? (
+                          <span className="inline-flex items-center gap-1 rounded bg-[var(--info-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--info)]">
+                            <Users className="size-3" aria-hidden />
+                            {groupNameById[debt.group_id]}
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+                            Pribadi
+                          </span>
+                        )}
                         {settled && (
                           <span className="inline-flex items-center gap-1 rounded bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
                             <CheckCircle2 className="size-3" aria-hidden />

@@ -5,13 +5,14 @@ import { LogOut } from 'lucide-react';
 import { BrandLogo } from '@/components/BrandLogo';
 import { IconButton } from '@/components/ui/Button';
 import { SettingsMenu } from './SettingsMenu';
-import { NotificationBell } from './NotificationBell';
 
 interface MobileHeaderProps {
   profileClient: string;
   isSuperadmin: boolean;
   canEdit: boolean;
+  unreadNotifications?: number;
   onProfile: () => void;
+  onOpenNotifications: () => void;
   onOpenKyc: () => void;
   onOpenSecurity: () => void;
   onOpenSettings: () => void;
@@ -24,12 +25,14 @@ interface MobileHeaderProps {
   onLogout: () => void;
 }
 
-/** Header mobile & tablet: logo, nama workspace, notifikasi, dan menu pengaturan ikon ringkas. */
+/** Header mobile & tablet: logo, nama workspace, dan menu pengaturan ikon ringkas (termasuk Notifikasi). */
 export function MobileHeader({
   profileClient,
   isSuperadmin,
   canEdit,
+  unreadNotifications = 0,
   onProfile,
+  onOpenNotifications,
   onOpenKyc,
   onOpenSecurity,
   onOpenSettings,
@@ -58,11 +61,12 @@ export function MobileHeader({
       </div>
 
       <div className="flex shrink-0 items-center gap-1.5">
-        <NotificationBell align="right" />
         <SettingsMenu
           canEdit={canEdit}
           showUsers={isSuperadmin}
+          unreadNotifications={unreadNotifications}
           onProfile={onProfile}
+          onOpenNotifications={onOpenNotifications}
           onOpenKyc={onOpenKyc}
           onOpenSecurity={onOpenSecurity}
           onOpenSettings={onOpenSettings}

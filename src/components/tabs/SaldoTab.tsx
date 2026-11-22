@@ -15,6 +15,12 @@ export type SaldoSub = 'cashflow' | 'budget' | 'assets';
 
 interface SaldoTabProps {
   assets: AssetsApi;
+  /** Nilai saldo fisik & non-fisik yang sudah digabung dengan arus kas aktif. */
+  computedTotals: {
+    physical: number;
+    nonPhysical: number;
+    total: number;
+  };
   sub: SaldoSub;
   onSubChange: (sub: SaldoSub) => void;
   canEdit: boolean;
@@ -35,11 +41,13 @@ interface SaldoTabProps {
 }
 
 /**
- * Saldo - satu menu gabungan: ringkasan saldo fisik vs non-fisik,
+ * Saldo - satu menu gabungan: ringkasan saldo fisik vs non-fisik
+ * (terhubung langsung dengan Arus Kas & Dompet Aset),
  * lalu sub-tab Anggaran / Arus Kas / Aset.
  */
 export function SaldoTab({
   assets,
+  computedTotals,
   sub,
   onSubChange,
   canEdit,
@@ -64,12 +72,10 @@ export function SaldoTab({
   const nonPhysical = assets.accounts.filter(
     (a) => a.kind === 'bank' || a.kind === 'ewallet' || a.kind === 'crypto'
   );
-  const sum = (list: typeof physical) =>
-    list.reduce((s, a) => s + (assets.convert(a.balance, a.currency) ?? 0), 0);
 
-  const physicalTotal = sum(physical);
-  const nonPhysicalTotal = sum(nonPhysical);
-  const grandTotal = physicalTotal + nonPhysicalTotal;
+  const physicalTotal = computedTotals.physical;
+  const nonPhysicalTotal = computedTotals.nonPhysical;
+  const grandTotal = computedTotals.total;
 
   const subOptions = [
     { value: 'cashflow' as const, label: t('sub.cashflow') },

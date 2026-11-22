@@ -44,6 +44,17 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
         superadminSession.impersonateUserId || (await getOrCreateSuperadminUserId());
 
       if (adminClient && targetUserId) {
+        const { data: memberships } = await adminClient
+          .from('finance_group_members')
+          .select('group_id')
+          .eq('user_id', targetUserId)
+          .eq('status', 'active');
+        const groupIds = (memberships ?? []).map((m) => m.group_id).filter(Boolean);
+        const scopeFilter =
+          groupIds.length > 0
+            ? `user_id.eq.${targetUserId},group_id.in.(${groupIds.join(',')})`
+            : `user_id.eq.${targetUserId}`;
+
         const [{ data: profile }, { data: transactions }, { data: debts }] = await Promise.all([
           adminClient
             .from('profiles')
@@ -53,12 +64,12 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
           adminClient
             .from('transactions')
             .select('*')
-            .eq('user_id', targetUserId)
+            .or(scopeFilter)
             .order('transaction_date', { ascending: false }),
           adminClient
             .from('debts')
             .select('*')
-            .eq('user_id', targetUserId)
+            .or(scopeFilter)
             .order('created_at', { ascending: false }),
         ]);
 
