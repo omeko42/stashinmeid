@@ -103,6 +103,8 @@ export function CashflowTab({
               aria-hidden
             />
             <input
+              id="cashflow-search"
+              name="cashflowSearch"
               type="search"
               value={searchQuery}
               onChange={(e) => onSearchChange(e.target.value)}

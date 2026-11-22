@@ -73,6 +73,8 @@ export function FeedTab() {
       {/* Composer */}
       <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
         <textarea
+          id="feed-post-body"
+          name="feedPostBody"
           value={body}
           onChange={(e) => setBody(e.target.value)}
           onKeyDown={(e) => {
@@ -84,6 +86,7 @@ export function FeedTab() {
           rows={3}
           maxLength={2000}
           placeholder={t('feedComposerPlaceholder')}
+          aria-label={t('feedComposerPlaceholder')}
           className="w-full resize-none rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5 text-[13px] outline-none placeholder:text-[var(--text-faint)]"
         />
         <div className="mt-2 flex items-center justify-between gap-2">

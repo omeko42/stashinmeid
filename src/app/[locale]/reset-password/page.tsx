@@ -70,8 +70,16 @@ export default function ResetPasswordPage() {
 
         <form onSubmit={handleUpdate} className="space-y-4">
           <div>
-            <label className="block text-xs text-zinc-400 mb-1.5">Password Baru</label>
+            <label
+              htmlFor="reset-new-password"
+              className="block text-xs text-zinc-400 mb-1.5"
+            >
+              Password Baru
+            </label>
             <PasswordInput
+              id="reset-new-password"
+              name="newPassword"
+              autoComplete="new-password"
               unstyled
               required
               minLength={8}
@@ -82,8 +90,16 @@ export default function ResetPasswordPage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-zinc-400 mb-1.5">Ulangi Password Baru</label>
+            <label
+              htmlFor="reset-confirm-password"
+              className="block text-xs text-zinc-400 mb-1.5"
+            >
+              Ulangi Password Baru
+            </label>
             <PasswordInput
+              id="reset-confirm-password"
+              name="confirmPassword"
+              autoComplete="new-password"
               unstyled
               required
               minLength={8}

@@ -255,6 +255,8 @@ export function KolegaSection({ kolega, connections }: KolegaSectionProps) {
 
         <div className="mt-4 flex gap-2">
           <input
+            id="kolega-new-group-name"
+            name="groupName"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
             placeholder={t('groupName')}
@@ -344,6 +346,8 @@ export function KolegaSection({ kolega, connections }: KolegaSectionProps) {
               {g.isOwner && (
                 <div className="mt-3 flex gap-2">
                   <input
+                    id={`kolega-invite-${g.id}`}
+                    name={`inviteEmail-${g.id}`}
                     type="email"
                     value={inviteEmail}
                     onChange={(e) => setInviteEmail(e.target.value)}

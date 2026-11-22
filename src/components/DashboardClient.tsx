@@ -1510,18 +1510,24 @@ export default function DashboardClient({
       {/* Input tersembunyi */}
       <input
         ref={fileInputRef}
+        id="receipt-image-upload"
+        name="receiptImage"
         type="file"
         accept="image/*"
         capture="environment"
         onChange={handleImageUpload}
+        aria-label={t('settings.data.scan')}
         className="hidden"
         aria-hidden
       />
       <input
         ref={csvInputRef}
+        id="transactions-csv-upload"
+        name="csvFile"
         type="file"
         accept=".csv"
         onChange={handleCSVImport}
+        aria-label={t('settings.data.import')}
         className="hidden"
         aria-hidden
       />
@@ -1680,6 +1686,8 @@ export default function DashboardClient({
               </p>
             </div>
             <input
+              id="app-pin-unlock"
+              name="pinUnlock"
               type="password"
               inputMode="numeric"
               maxLength={6}

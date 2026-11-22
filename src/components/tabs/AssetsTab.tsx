@@ -131,9 +131,14 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
             </div>
             <Amount value={formatRp(assets.totalConverted)} size="xl" />
           </div>
-          <label className="flex items-center gap-2 text-[12px] text-[var(--text-muted)]">
+          <label
+            htmlFor="asset-primary-currency"
+            className="flex items-center gap-2 text-[12px] text-[var(--text-muted)]"
+          >
             {t('primaryCurrency')}
             <select
+              id="asset-primary-currency"
+              name="primaryCurrency"
               value={primary}
               onChange={async (e) => {
                 try {
@@ -237,6 +242,8 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
         </h3>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <input
+            id="asset-name"
+            name="assetName"
             value={form.name}
             onChange={(e) => setForm({ ...form, name: e.target.value })}
             placeholder={t('form.name')}
@@ -244,6 +251,8 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
             className="h-9 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
           />
           <select
+            id="asset-kind"
+            name="assetKind"
             value={form.kind}
             onChange={(e) => setForm({ ...form, kind: e.target.value as AccountKind })}
             aria-label={t('form.kind')}
@@ -256,6 +265,8 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
             ))}
           </select>
           <input
+            id="asset-institution"
+            name="assetInstitution"
             value={form.institution}
             onChange={(e) => setForm({ ...form, institution: e.target.value })}
             placeholder={t('form.institution')}
@@ -263,6 +274,8 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
             className="h-9 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
           />
           <select
+            id="asset-currency"
+            name="assetCurrency"
             value={form.currency}
             onChange={(e) => setForm({ ...form, currency: e.target.value })}
             aria-label={t('form.currency')}
@@ -276,6 +289,8 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
           </select>
           <div className="flex gap-2">
             <input
+              id="asset-balance"
+              name="assetBalance"
               value={form.balance}
               onChange={(e) => setForm({ ...form, balance: e.target.value })}
               placeholder={t('form.balance')}
@@ -319,6 +334,8 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
 
         <div className="mt-3 flex flex-wrap gap-2">
           <select
+            id="fx-rate-currency"
+            name="rateCurrency"
             value={rateDraft.currency}
             onChange={(e) => setRateDraft({ ...rateDraft, currency: e.target.value })}
             aria-label={t('form.currency')}
@@ -331,6 +348,8 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
             ))}
           </select>
           <input
+            id="fx-rate-value"
+            name="rateValue"
             value={rateDraft.rate}
             onChange={(e) => setRateDraft({ ...rateDraft, rate: e.target.value })}
             placeholder={t('ratePlaceholder', { currency: primary })}

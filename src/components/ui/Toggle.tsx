@@ -116,6 +116,7 @@ export function Checkbox({
     <div className={cn('flex items-start gap-2.5', className)}>
       <input
         id={boxId}
+        name={boxId}
         type="checkbox"
         checked={checked}
         disabled={disabled}

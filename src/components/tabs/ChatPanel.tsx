@@ -197,9 +197,12 @@ export function ChatPanel() {
           <div className="flex items-center gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-1.5">
             <Search className="size-3.5 shrink-0 text-[var(--text-faint)]" aria-hidden />
             <input
+              id="chat-search"
+              name="chatSearch"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('chatSearchPlaceholder')}
+              aria-label={t('chatSearchPlaceholder')}
               className="w-full bg-transparent text-[13px] outline-none placeholder:text-[var(--text-faint)]"
             />
           </div>
@@ -349,6 +352,8 @@ export function ChatPanel() {
 
           <div className="flex items-end gap-2 border-t border-[var(--line)] p-3">
             <textarea
+              id="chat-message-input"
+              name="chatMessage"
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={(e) => {
@@ -359,6 +364,7 @@ export function ChatPanel() {
               }}
               rows={1}
               placeholder={t('chatInputPlaceholder')}
+              aria-label={t('chatInputPlaceholder')}
               className="max-h-24 min-h-9 flex-1 resize-none rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-[13px] outline-none placeholder:text-[var(--text-faint)]"
             />
             <Button size="sm" onClick={send} loading={sending} disabled={!input.trim()} aria-label={t('chatSend')}>

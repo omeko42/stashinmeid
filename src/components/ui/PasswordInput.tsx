@@ -43,6 +43,7 @@ export const PasswordInput = forwardRef<
     required,
     className,
     id,
+    name,
     hideLabel = 'Sembunyikan password',
     showLabel = 'Lihat password',
     unstyled = false,
@@ -59,6 +60,7 @@ export const PasswordInput = forwardRef<
     <input
       ref={ref}
       id={fieldId}
+      name={name ?? fieldId}
       type={visible ? 'text' : 'password'}
       required={required}
       aria-invalid={error ? true : undefined}

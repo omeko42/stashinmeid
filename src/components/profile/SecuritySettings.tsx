@@ -111,6 +111,8 @@ export function SecuritySettings({
             </p>
             <div className="flex gap-2">
               <input
+                id="security-mfa-code"
+                name="mfaCode"
                 type="text"
                 inputMode="numeric"
                 maxLength={6}
@@ -148,6 +150,8 @@ export function SecuritySettings({
           <>
             <div className="mt-3 flex gap-2">
               <input
+                id="security-new-pin"
+                name="newPin"
                 type="password"
                 inputMode="numeric"
                 maxLength={6}

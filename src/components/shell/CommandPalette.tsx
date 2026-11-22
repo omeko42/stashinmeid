@@ -82,10 +82,13 @@ export function CommandPalette({
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[var(--text-faint)]" />
           <input
             ref={inputRef}
+            id="command-palette-search"
+            name="commandSearch"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
             placeholder={t('placeholder')}
+            aria-label={t('placeholder')}
             className={cn(
               'w-full h-11 pl-10 pr-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)]',
               'text-sm text-[var(--text)] placeholder:text-[var(--text-faint)] outline-none',

@@ -212,8 +212,11 @@ export function ProfileTab({
 
       <input
         ref={avatarInputRef}
+        id="profile-avatar-upload"
+        name="avatarUpload"
         type="file"
         accept="image/*"
+        aria-label="Ganti foto profil"
         className="hidden"
         aria-hidden
         onChange={(e) => {
@@ -224,8 +227,11 @@ export function ProfileTab({
       />
       <input
         ref={bannerInputRef}
+        id="profile-banner-upload"
+        name="bannerUpload"
         type="file"
         accept="image/*"
+        aria-label="Ubah banner"
         className="hidden"
         aria-hidden
         onChange={(e) => {

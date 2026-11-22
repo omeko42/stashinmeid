@@ -124,10 +124,15 @@ export function DebtsTab({
           className="grid grid-cols-1 gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4 sm:grid-cols-3"
         >
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]">
+            <label
+              htmlFor="debt-platform"
+              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+            >
               {tDebts('form.platform')}
             </label>
             <input
+              id="debt-platform"
+              name="platform"
               type="text"
               required
               value={debtForm.platform}
@@ -137,10 +142,15 @@ export function DebtsTab({
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]">
+            <label
+              htmlFor="debt-contract"
+              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+            >
               {tDebts('form.contract')}
             </label>
             <input
+              id="debt-contract"
+              name="contract"
               type="text"
               value={debtForm.contract}
               onChange={(e) => set('contract')(e.target.value)}
@@ -148,10 +158,15 @@ export function DebtsTab({
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]">
+            <label
+              htmlFor="debt-balance"
+              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+            >
               {tDebts('form.balance')}
             </label>
             <input
+              id="debt-balance"
+              name="balance"
               type="number"
               required
               min="1"
@@ -162,10 +177,15 @@ export function DebtsTab({
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]">
+            <label
+              htmlFor="debt-installment"
+              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+            >
               {tDebts('form.installment')}
             </label>
             <input
+              id="debt-installment"
+              name="installment"
               type="number"
               min="0"
               value={debtForm.installment}
@@ -175,10 +195,15 @@ export function DebtsTab({
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]">
+            <label
+              htmlFor="debt-tenor"
+              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+            >
               {tDebts('form.tenor')}
             </label>
             <input
+              id="debt-tenor"
+              name="tenor"
               type="number"
               min="1"
               value={debtForm.tenor}
@@ -188,10 +213,15 @@ export function DebtsTab({
             />
           </div>
           <div>
-            <label className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]">
+            <label
+              htmlFor="debt-due-day"
+              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+            >
               {tDebts('form.dueDay')}
             </label>
             <input
+              id="debt-due-day"
+              name="dueDay"
               type="number"
               min="1"
               max="31"
@@ -262,6 +292,8 @@ export function DebtsTab({
                   <div className="flex min-w-0 items-start gap-2.5">
                     {!settled && canEdit && (
                       <input
+                        id={`debt-sim-${debt.id}`}
+                        name={`debt-sim-${debt.id}`}
                         type="checkbox"
                         checked={isSimSelected}
                         onChange={() => onToggleSim(debt.id)}

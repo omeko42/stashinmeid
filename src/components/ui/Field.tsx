@@ -52,7 +52,7 @@ export function FieldShell({
 export const Input = forwardRef<
   HTMLInputElement,
   InputHTMLAttributes<HTMLInputElement> & { label?: string; hint?: string; error?: string }
->(function Input({ label, hint, error, required, className, id, ...props }, ref) {
+>(function Input({ label, hint, error, required, className, id, name, ...props }, ref) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
 
@@ -67,7 +67,9 @@ export const Input = forwardRef<
       <input
         ref={ref}
         id={fieldId}
+        name={name ?? fieldId}
         required={required}
+        aria-label={!label ? (props['aria-label'] ?? props.placeholder) : props['aria-label']}
         aria-invalid={error ? true : undefined}
         className={cn(FIELD_BASE, error && 'border-[var(--out)]', className)}
         {...props}
@@ -79,7 +81,7 @@ export const Input = forwardRef<
 export const Textarea = forwardRef<
   HTMLTextAreaElement,
   TextareaHTMLAttributes<HTMLTextAreaElement> & { label?: string; hint?: string; error?: string }
->(function Textarea({ label, hint, error, required, className, id, ...props }, ref) {
+>(function Textarea({ label, hint, error, required, className, id, name, ...props }, ref) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
 
@@ -94,7 +96,9 @@ export const Textarea = forwardRef<
       <textarea
         ref={ref}
         id={fieldId}
+        name={name ?? fieldId}
         required={required}
+        aria-label={!label ? (props['aria-label'] ?? props.placeholder) : props['aria-label']}
         aria-invalid={error ? true : undefined}
         className={cn(FIELD_BASE, 'resize-none', error && 'border-[var(--out)]', className)}
         {...props}
@@ -106,7 +110,7 @@ export const Textarea = forwardRef<
 export const Select = forwardRef<
   HTMLSelectElement,
   SelectHTMLAttributes<HTMLSelectElement> & { label?: string; hint?: string; error?: string }
->(function Select({ label, hint, error, required, className, id, children, ...props }, ref) {
+>(function Select({ label, hint, error, required, className, id, name, children, ...props }, ref) {
   const generatedId = useId();
   const fieldId = id ?? generatedId;
 
@@ -121,6 +125,7 @@ export const Select = forwardRef<
       <select
         ref={ref}
         id={fieldId}
+        name={name ?? fieldId}
         required={required}
         aria-invalid={error ? true : undefined}
         className={cn(FIELD_BASE, 'cursor-pointer', error && 'border-[var(--out)]', className)}

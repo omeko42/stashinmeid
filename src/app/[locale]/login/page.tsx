@@ -270,9 +270,17 @@ export default function LoginPage() {
         {isSignUp && signUpStep === 1 ? (
           <form onSubmit={handleNextStep} className="space-y-4">
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">Email</label>
+              <label
+                htmlFor="signup-email"
+                className="block text-xs font-medium text-slate-400 mb-1.5"
+              >
+                Email
+              </label>
               <input
+                id="signup-email"
+                name="email"
                 type="email"
+                autoComplete="email"
                 required
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
@@ -282,10 +290,16 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
+              <label
+                htmlFor="signup-password"
+                className="block text-xs font-medium text-slate-400 mb-1.5"
+              >
                 Password (min. 8 karakter, huruf & angka)
               </label>
               <PasswordInput
+                id="signup-password"
+                name="password"
+                autoComplete="new-password"
                 unstyled
                 required
                 minLength={8}
@@ -297,10 +311,16 @@ export default function LoginPage() {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-slate-400 mb-1.5">
+              <label
+                htmlFor="signup-confirm-password"
+                className="block text-xs font-medium text-slate-400 mb-1.5"
+              >
                 Ulangi Password
               </label>
               <PasswordInput
+                id="signup-confirm-password"
+                name="confirmPassword"
+                autoComplete="new-password"
                 unstyled
                 required
                 minLength={8}
@@ -336,11 +356,17 @@ export default function LoginPage() {
             {isSignUp ? (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  <label
+                    htmlFor="signup-full-name"
+                    className="block text-xs font-medium text-slate-400 mb-1.5"
+                  >
                     Nama Lengkap
                   </label>
                   <input
+                    id="signup-full-name"
+                    name="fullName"
                     type="text"
+                    autoComplete="name"
                     required
                     value={fullName}
                     onChange={(e) => setFullName(e.target.value)}
@@ -350,11 +376,17 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  <label
+                    htmlFor="signup-client-name"
+                    className="block text-xs font-medium text-slate-400 mb-1.5"
+                  >
                     Nama Client / Workspace
                   </label>
                   <input
+                    id="signup-client-name"
+                    name="clientName"
                     type="text"
+                    autoComplete="organization"
                     required
                     value={clientName}
                     onChange={(e) => setClientName(e.target.value)}
@@ -364,10 +396,15 @@ export default function LoginPage() {
                 </div>
 
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  <label
+                    htmlFor="signup-bio"
+                    className="block text-xs font-medium text-slate-400 mb-1.5"
+                  >
                     Bio Singkat (Opsional)
                   </label>
                   <input
+                    id="signup-bio"
+                    name="bio"
                     type="text"
                     value={bio}
                     onChange={(e) => setBio(e.target.value)}
@@ -406,11 +443,17 @@ export default function LoginPage() {
             ) : (
               <>
                 <div>
-                  <label className="block text-xs font-medium text-slate-400 mb-1.5">
+                  <label
+                    htmlFor="login-identifier"
+                    className="block text-xs font-medium text-slate-400 mb-1.5"
+                  >
                     Email atau Username
                   </label>
                   <input
+                    id="login-identifier"
+                    name="identifier"
                     type="text"
+                    autoComplete="username"
                     required
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -421,7 +464,12 @@ export default function LoginPage() {
 
                 <div>
                   <div className="flex items-center justify-between mb-1.5">
-                    <label className="block text-xs font-medium text-slate-400">Password</label>
+                    <label
+                      htmlFor="login-password"
+                      className="block text-xs font-medium text-slate-400"
+                    >
+                      Password
+                    </label>
                     <button
                       type="button"
                       onClick={handleForgotPassword}
@@ -431,6 +479,9 @@ export default function LoginPage() {
                     </button>
                   </div>
                   <PasswordInput
+                    id="login-password"
+                    name="password"
+                    autoComplete="current-password"
                     unstyled
                     required
                     value={password}

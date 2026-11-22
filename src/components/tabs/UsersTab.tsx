@@ -3,7 +3,6 @@
 import { useTranslations } from 'next-intl';
 import { KeyRound, Loader2, Trash2, UserCheck } from 'lucide-react';
 import type { UserRole } from '@/types/finance';
-import { Label } from '@/components/ui/Surface';
 import { Modal } from '@/components/ui/Modal';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -135,6 +134,7 @@ export function UsersTab({
                   </label>
                   <select
                     id={`role-${u.id}`}
+                    name={`role-${u.id}`}
                     value={u.role}
                     onChange={(e) =>
                       onChangeRole(u.id, e.target.value as UserRole)
@@ -213,8 +213,15 @@ export function UsersTab({
       >
         <div className="space-y-3">
           <div>
-            <Label>{tUsers('editTitle', { name: editUserEmail })}</Label>
+            <label
+              htmlFor="edit-user-email"
+              className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+            >
+              {tUsers('editTitle', { name: editUserEmail })}
+            </label>
             <input
+              id="edit-user-email"
+              name="editUserEmail"
               type="email"
               value={editUserEmail}
               onChange={(e) => onEditFieldChange('email', e.target.value)}
@@ -224,8 +231,15 @@ export function UsersTab({
             />
           </div>
           <div>
-            <Label>{tUsers('edit')}</Label>
+            <label
+              htmlFor="edit-user-client"
+              className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
+            >
+              {tUsers('edit')}
+            </label>
             <input
+              id="edit-user-client"
+              name="editUserClient"
               type="text"
               value={editUserClient}
               onChange={(e) => onEditFieldChange('client_name', e.target.value)}

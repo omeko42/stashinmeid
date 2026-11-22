@@ -88,10 +88,15 @@ export function BudgetTab({
           className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4 sm:flex-row sm:items-end"
         >
           <div className="flex-1">
-            <label className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]">
+            <label
+              htmlFor="budget-category"
+              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+            >
               {t('common.category')}
             </label>
             <input
+              id="budget-category"
+              name="category"
               type="text"
               required
               value={category}
@@ -101,10 +106,15 @@ export function BudgetTab({
             />
           </div>
           <div className="flex-1">
-            <label className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]">
+            <label
+              htmlFor="budget-amount"
+              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+            >
               {tBudget('placeholder')}
             </label>
             <input
+              id="budget-amount"
+              name="amount"
               type="number"
               required
               min="1"
