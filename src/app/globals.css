@@ -198,5 +198,9 @@ html[data-theme] body {
 }
 
 .ann-marquee {
-  animation: ann-marquee 24s linear infinite;
+  animation: ann-marquee 60s linear infinite;
+}
+
+.ann-marquee:hover {
+  animation-play-state: paused;
 }

@@ -3,12 +3,12 @@ import { routing } from '@/i18n/routing';
 import { setRequestLocale } from 'next-intl/server';
 import { Suspense } from 'react';
 import { cookies } from 'next/headers';
-import { redirect } from '@/i18n/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getOrCreateSuperadminUserId } from '@/lib/superadminUser';
 import { verifySuperadminToken } from '@/lib/jwt';
 import DashboardClient from '@/components/DashboardClient';
+import { LandingPage } from '@/components/auth/LandingPage';
 import { DashboardSkeleton } from '@/components/shell/DashboardSkeleton';
 import type { Transaction, Debt } from '@/types/finance';
 
@@ -154,7 +154,7 @@ async function DashboardLoader({ locale }: { locale: Locale }) {
   }
 
   if (!user) {
-    redirect({ href: '/login', locale });
+    return <LandingPage defaultModalOpen={false} />;
   } else {
     let profile: Record<string, unknown> | null = null;
     let transactions: Transaction[] = [];

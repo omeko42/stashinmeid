@@ -17,6 +17,7 @@ import { Button } from '@/components/ui/Button';
 import { Input, Select } from '@/components/ui/Field';
 import { Modal } from '@/components/ui/Modal';
 import { createClient } from '@/lib/supabase/client';
+import { readCachedApiIntegrations } from '@/components/profile/ApiIntegrationsManager';
 
 interface KycExtendedForm {
   id_type: 'ktp' | 'passport' | 'sim';
@@ -376,7 +377,18 @@ export function KycModal({
         {/* Ringkasan Status & Progress Kelengkapan */}
         <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)]/70 p-3.5">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            {statusBadge()}
+            <div className="flex flex-wrap items-center gap-2">
+              {statusBadge()}
+              {(() => {
+                const kycApi = readCachedApiIntegrations().kyc;
+                if (!kycApi.enabled) return null;
+                return (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--info-soft)] px-2.5 py-1 text-[10px] font-semibold text-[var(--info)]">
+                    e-KYC API: {kycApi.provider.toUpperCase()} (Hemat DB)
+                  </span>
+                );
+              })()}
+            </div>
             <span className="tnum text-[12px] font-semibold text-[var(--text)]">
               Kelengkapan Data: {completeness}%
             </span>

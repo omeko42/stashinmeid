@@ -10,9 +10,8 @@ import { useTranslations } from 'next-intl';
  *
  * - Ditutup (tombol X): hanya menyembunyikan untuk tampilan saat ini,
  *   sehingga saat halaman di-reload pita muncul kembali.
- * - Dua track kembar dengan `min-w-full shrink-0` dan beberapa item
- *   di dalamnya supaya pada monitor desktop PC yang lebar sekalipun
- *   tidak pernah menyisakan ruang kosong di sebelah kanan.
+ * - Jarak antar teks dibuat rapat & konsisten (gap-6 dengan pemisah titik),
+ *   dan kecepatan gulir diperlambat agar nyaman dibaca di layar lebar.
  */
 export function AnnouncementBar() {
   const t = useTranslations('announcement');
@@ -64,7 +63,9 @@ export function AnnouncementBar() {
     setHidden(true);
   };
 
-  const trackItems = [0, 1, 2];
+  // 6 item per track supaya di layar ultra-wide sekalipun selalu penuh
+  // tanpa perlu justify-around yang membuat jarak antar teks terlalu jauh.
+  const trackItems = [0, 1, 2, 3, 4, 5];
 
   return (
     <div
@@ -76,7 +77,7 @@ export function AnnouncementBar() {
           <div
             key={groupIdx}
             aria-hidden={groupIdx === 1 ? true : undefined}
-            className="flex min-w-full shrink-0 items-center justify-around gap-12 pr-12"
+            className="flex shrink-0 items-center gap-6 pr-6"
           >
             {trackItems.map((itemIdx) => (
               <span
@@ -86,6 +87,12 @@ export function AnnouncementBar() {
               >
                 <Megaphone className="size-3 shrink-0" aria-hidden />
                 <span>{text}</span>
+                <span
+                  aria-hidden
+                  className="ml-4 text-[10px] text-[var(--brand)]/50"
+                >
+                  •
+                </span>
               </span>
             ))}
           </div>

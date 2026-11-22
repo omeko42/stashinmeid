@@ -8,6 +8,7 @@ import {
   Globe,
   Megaphone,
   MoonStar,
+  Plug,
   Shield,
   SlidersHorizontal,
   UserCog,
@@ -19,11 +20,17 @@ import {
   AnnouncementEditor,
   NotificationPreferences,
 } from '@/components/profile/NotificationSettings';
+import { ApiIntegrationsManager } from '@/components/profile/ApiIntegrationsManager';
 import { DangerZone } from '@/components/profile/DangerZone';
 import { BalanceVisibilityToggle } from '@/components/ui/BalanceVisibilityToggle';
 import { useBalancePrivacy } from '@/components/ui/BalancePrivacy';
 
-type SettingsSection = 'appearance' | 'notifications' | 'data' | 'account';
+type SettingsSection =
+  | 'appearance'
+  | 'notifications'
+  | 'integrations'
+  | 'data'
+  | 'account';
 
 interface SettingsTabProps {
   canEdit: boolean;
@@ -75,6 +82,11 @@ export function SettingsTab({
       id: 'notifications',
       label: tSettings('sections.notifications'),
       icon: <Bell className="size-4" />,
+    },
+    {
+      id: 'integrations',
+      label: 'Koneksi API',
+      icon: <Plug className="size-4" />,
     },
     {
       id: 'data',
@@ -201,6 +213,12 @@ export function SettingsTab({
             </div>
           )}
         </div>
+      )}
+
+      {section === 'integrations' && (
+        <section role="tabpanel" aria-label="Koneksi API">
+          <ApiIntegrationsManager />
+        </section>
       )}
 
       {section === 'data' && (
