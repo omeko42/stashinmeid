@@ -7,9 +7,11 @@ import { getOrCreateSuperadminUserId } from '@/lib/superadminUser';
 import { notifyMany } from '@/lib/notifications';
 import {
   MEMBERSHIP_PLANS,
+  addMonthsIso,
   getMaxGroupsForTier,
   getPlanPrice,
   normalizeTier,
+  resolveMembershipStatus,
   type BillingCycle,
   type EnterpriseInquiry,
   type MembershipOrder,
@@ -190,9 +192,8 @@ export async function GET() {
     string,
     unknown
   >;
-  const tier: MembershipTier = isAdmin
-    ? normalizeTier(userMeta.membership_tier ?? 'business')
-    : normalizeTier(userMeta.membership_tier);
+  const membershipStatus = resolveMembershipStatus(userMeta, isAdmin);
+  const tier: MembershipTier = membershipStatus.effectiveTier;
 
   let orders: MembershipOrder[] = [];
   let inquiries: EnterpriseInquiry[] = [];
@@ -219,6 +220,12 @@ export async function GET() {
 
   return NextResponse.json({
     tier,
+    storedTier: membershipStatus.storedTier,
+    expiresAt: membershipStatus.expiresAt,
+    durationMonths: membershipStatus.durationMonths,
+    note: membershipStatus.note,
+    isExpired: membershipStatus.isExpired,
+    daysLeft: membershipStatus.daysLeft,
     maxGroups: getMaxGroupsForTier(tier),
     ownedGroups: groupCountRes.count ?? 0,
     isAdmin,
@@ -467,10 +474,14 @@ export async function POST(req: NextRequest) {
         string,
         unknown
       >;
+      const durationMonths = targetOrder.billingCycle === 'yearly' ? 12 : 1;
       await admin.auth.admin.updateUserById(targetOrder.userId, {
         user_metadata: {
           ...buyerMeta,
           membership_tier: targetOrder.requestedTier,
+          membership_duration_months: durationMonths,
+          membership_expires_at: addMonthsIso(durationMonths),
+          membership_note: `Invoice ${targetOrder.invoiceNo}`,
           membership_activated_at: new Date().toISOString(),
         },
       });

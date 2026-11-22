@@ -1370,19 +1370,40 @@ export default function DashboardClient({
     }
   };
 
-  const handleChangeUserTier = async (userId: string, tier: MembershipTier) => {
+  const handleChangeUserTier = async (
+    userId: string,
+    tier: MembershipTier,
+    opts?: { durationMonths?: number; note?: string }
+  ) => {
     const u = managedUsers.find((x) => x.id === userId);
+    const months = opts?.durationMonths ?? 0;
+    const note = opts?.note ?? '';
+    const durLabel =
+      tier === 'free'
+        ? ''
+        : months > 0
+          ? isEn
+            ? ` for ${months} month(s)`
+            : ` selama ${months} bulan`
+          : isEn
+            ? ' (Permanent)'
+            : ' (Permanen)';
+
     const ok = await confirm({
       title: isEn
-        ? `Change plan of ${u?.client_name || 'user'} to ${tier.toUpperCase()}?`
-        : `Ubah paket ${u?.client_name || 'pengguna'} ke ${tier.toUpperCase()}?`,
-      description: isEn
-        ? 'Group quota for this account will update immediately.'
-        : 'Kuota grup akun ini akan langsung menyesuaikan paket yang dipilih.',
+        ? `Set ${u?.client_name || 'user'} to ${tier.toUpperCase()}${durLabel}?`
+        : `Atur paket ${u?.client_name || 'pengguna'} ke ${tier.toUpperCase()}${durLabel}?`,
+      description: note
+        ? isEn
+          ? `Note: "${note}". Group quota and duration update immediately.`
+          : `Catatan: "${note}". Kuota grup dan masa aktif langsung berlaku.`
+        : isEn
+          ? 'Group quota and subscription duration for this account will update immediately.'
+          : 'Kuota grup dan durasi langganan akun ini akan langsung berlaku.',
       audit: {
-        action: 'Ubah Paket Membership',
+        action: 'Atur Paket & Durasi Membership',
         category: 'membership',
-        detail: `${u?.client_name || userId} → ${tier.toUpperCase()}`,
+        detail: `${u?.client_name || userId} → ${tier.toUpperCase()}${durLabel}${note ? ` · ${note}` : ''}`,
         targetUserId: userId,
       },
     });
@@ -1391,14 +1412,45 @@ export default function DashboardClient({
     const res = await fetch('/api/admin/users', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, membership_tier: tier }),
+      body: JSON.stringify({
+        userId,
+        membership_tier: tier,
+        membership_duration_months: months,
+        membership_note: note,
+      }),
     });
     const json = await res.json().catch(() => ({}));
     if (res.ok) {
+      const m = json.membership as
+        | {
+            effectiveTier?: MembershipTier;
+            storedTier?: MembershipTier;
+            expiresAt?: string | null;
+            durationMonths?: number | null;
+            note?: string | null;
+            isExpired?: boolean;
+            daysLeft?: number | null;
+          }
+        | undefined;
       setManagedUsers((prev) =>
-        prev.map((u) => (u.id === userId ? { ...u, membership_tier: tier } : u))
+        prev.map((userRow) =>
+          userRow.id === userId
+            ? {
+                ...userRow,
+                membership_tier: m?.effectiveTier ?? tier,
+                membership_stored_tier: m?.storedTier ?? tier,
+                membership_expires_at: m?.expiresAt ?? null,
+                membership_duration_months: m?.durationMonths ?? months,
+                membership_note: m?.note ?? (note || null),
+                membership_is_expired: m?.isExpired ?? false,
+                membership_days_left: m?.daysLeft ?? null,
+              }
+            : userRow
+        )
       );
-      toast.success(`Paket membership diubah ke ${tier.toUpperCase()}.`);
+      toast.success(
+        `Paket ${u?.client_name || 'pengguna'} diatur ke ${tier.toUpperCase()}${durLabel}.`
+      );
     } else {
       toast.error(json.error || t('errors.generic'));
     }

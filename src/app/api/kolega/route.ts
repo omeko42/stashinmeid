@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCallerUserId } from '@/lib/currentUser';
 import { getDisplayName, notifyMany } from '@/lib/notifications';
-import { getMaxGroupsForTier, normalizeTier } from '@/lib/membership';
+import { getMaxGroupsForTier, resolveMembershipStatus } from '@/lib/membership';
 
 /**
  * Kolaborator keuangan.
@@ -157,10 +157,8 @@ export async function POST(req: NextRequest) {
       string,
       unknown
     >;
-    const tier =
-      profile?.role === 'admin'
-        ? normalizeTier(userMeta.membership_tier ?? 'enterprise')
-        : normalizeTier(userMeta.membership_tier);
+    const membership = resolveMembershipStatus(userMeta, profile?.role === 'admin');
+    const tier = membership.effectiveTier;
     const maxGroups = getMaxGroupsForTier(tier);
 
     if ((ownedCount ?? 0) >= maxGroups) {

@@ -3,6 +3,8 @@
 import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
+  CalendarClock,
+  Crown,
   KeyRound,
   Loader2,
   Plus,
@@ -14,7 +16,12 @@ import {
   UserPlus,
 } from 'lucide-react';
 import type { UserRole } from '@/types/finance';
-import type { MembershipTier } from '@/lib/membership';
+import {
+  MEMBERSHIP_PLANS,
+  MEMBERSHIP_TIER_ORDER,
+  addMonthsIso,
+  type MembershipTier,
+} from '@/lib/membership';
 import { Modal } from '@/components/ui/Modal';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -28,6 +35,12 @@ export interface ManagedUser {
   bio?: string | null;
   role: UserRole;
   membership_tier?: MembershipTier;
+  membership_stored_tier?: MembershipTier;
+  membership_expires_at?: string | null;
+  membership_duration_months?: number | null;
+  membership_note?: string | null;
+  membership_is_expired?: boolean;
+  membership_days_left?: number | null;
   is_demo?: boolean;
   created_at: string;
 }
@@ -51,7 +64,11 @@ interface UsersTabProps {
   editUserPassword?: string;
   onRefresh: () => void;
   onChangeRole: (userId: string, role: UserRole) => void;
-  onChangeTier?: (userId: string, tier: MembershipTier) => void;
+  onChangeTier?: (
+    userId: string,
+    tier: MembershipTier,
+    opts?: { durationMonths?: number; note?: string }
+  ) => Promise<void> | void;
   onResetPassword: (email: string) => void;
   onImpersonate: (user: ManagedUser) => void;
   onDelete: (userId: string) => void;
@@ -103,6 +120,41 @@ export function UsersTab({
   const [newPassword, setNewPassword] = useState('');
   const [newBio, setNewBio] = useState('');
   const [newRole, setNewRole] = useState<UserRole>('user');
+
+  // Modal Atur Paket & Durasi Langganan (mis. harga teman gratis 3 bulan)
+  const [planUser, setPlanUser] = useState<ManagedUser | null>(null);
+  const [draftTier, setDraftTier] = useState<MembershipTier>('standard');
+  const [draftMonths, setDraftMonths] = useState<number>(3);
+  const [draftNote, setDraftNote] = useState<string>('');
+  const [savingPlan, setSavingPlan] = useState(false);
+
+  const openPlanModal = (u: ManagedUser) => {
+    setPlanUser(u);
+    setDraftTier(u.membership_tier || 'free');
+    setDraftMonths(
+      typeof u.membership_duration_months === 'number'
+        ? u.membership_duration_months
+        : u.membership_expires_at
+          ? 3
+          : 0
+    );
+    setDraftNote(u.membership_note || '');
+  };
+
+  const handleSavePlanModal = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!planUser || !onChangeTier) return;
+    setSavingPlan(true);
+    try {
+      await onChangeTier(planUser.id, draftTier, {
+        durationMonths: draftTier === 'free' ? 0 : draftMonths,
+        note: draftTier === 'free' ? '' : draftNote.trim(),
+      });
+      setPlanUser(null);
+    } finally {
+      setSavingPlan(false);
+    }
+  };
 
   const roleOptions: { value: UserRole; label: string }[] = [
     { value: 'admin', label: tUsers('roles.admin') },
@@ -246,6 +298,45 @@ export function UsersTab({
                           Demo
                         </span>
                       )}
+                      {(() => {
+                        const effTier = u.membership_tier || 'free';
+                        const planInfo = MEMBERSHIP_PLANS[effTier];
+                        return (
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                              u.membership_is_expired
+                                ? 'bg-[var(--out-soft)] text-[var(--out)]'
+                                : effTier === 'free'
+                                  ? 'bg-[var(--surface-2)] text-[var(--text-muted)]'
+                                  : 'bg-[var(--in-soft)] text-[var(--in)]'
+                            }`}
+                          >
+                            <Crown className="size-3" />
+                            {planInfo.labelId}
+                            {u.membership_is_expired
+                              ? ' (Kedaluwarsa)'
+                              : effTier !== 'free' && u.membership_expires_at
+                                ? ` · s/d ${new Intl.DateTimeFormat('id-ID', {
+                                    timeZone: APP_TIMEZONE,
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric',
+                                  }).format(new Date(u.membership_expires_at))}${
+                                    typeof u.membership_days_left === 'number'
+                                      ? ` (${u.membership_days_left}h)`
+                                      : ''
+                                  }`
+                                : effTier !== 'free'
+                                  ? ' · Permanen'
+                                  : ''}
+                          </span>
+                        );
+                      })()}
+                      {u.membership_note && (
+                        <span className="rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] italic text-[var(--text-muted)]">
+                          {u.membership_note}
+                        </span>
+                      )}
                     </div>
                     <p className="truncate text-[12px] text-[var(--text-muted)]">
                       {u.email} · Terdaftar{' '}
@@ -285,25 +376,14 @@ export function UsersTab({
                   </select>
 
                   {onChangeTier && (
-                    <>
-                      <label className="sr-only" htmlFor={`tier-${u.id}`}>
-                        Paket Membership
-                      </label>
-                      <select
-                        id={`tier-${u.id}`}
-                        name={`tier-${u.id}`}
-                        value={u.membership_tier || 'free'}
-                        onChange={(e) =>
-                          onChangeTier(u.id, e.target.value as MembershipTier)
-                        }
-                        className="h-8 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
-                      >
-                        <option value="free">Gratis (3 Grup)</option>
-                        <option value="standard">Standard (5 Grup)</option>
-                        <option value="pro">Pro (9 Grup)</option>
-                        <option value="business">Business (15 Grup)</option>
-                      </select>
-                    </>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon={<Crown className="size-3.5 text-[var(--brand)]" />}
+                      onClick={() => openPlanModal(u)}
+                    >
+                      Atur Paket
+                    </Button>
                   )}
 
                   <Button
@@ -346,6 +426,173 @@ export function UsersTab({
           ))}
         </div>
       )}
+
+      {/* Modal Atur Paket & Durasi Langganan Manual (Harga Teman / Promo / Komplimen) */}
+      <Modal
+        open={planUser !== null}
+        onClose={() => setPlanUser(null)}
+        title={
+          planUser
+            ? `Atur Membership — ${planUser.client_name || planUser.email}`
+            : 'Atur Membership'
+        }
+        description="Atur paket aktif dan berapa bulan masa berlakunya (cocok untuk harga teman, gratis 3 bulan, atau aktivasi manual)."
+        size="md"
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => setPlanUser(null)}
+            >
+              {tCommon('cancel')}
+            </Button>
+            <Button
+              size="sm"
+              icon={<Crown className="size-3.5" />}
+              loading={savingPlan}
+              onClick={handleSavePlanModal}
+            >
+              Simpan Paket
+            </Button>
+          </>
+        }
+      >
+        {planUser && (
+          <form onSubmit={handleSavePlanModal} className="space-y-4">
+            <div>
+              <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                Pilih Paket Aktif
+              </span>
+              <div className="mt-1.5 grid grid-cols-2 gap-2">
+                {MEMBERSHIP_TIER_ORDER.map((tid) => {
+                  const p = MEMBERSHIP_PLANS[tid];
+                  const active = draftTier === tid;
+                  return (
+                    <button
+                      key={tid}
+                      type="button"
+                      onClick={() => {
+                        setDraftTier(tid);
+                        if (tid !== 'free' && draftMonths === 0) {
+                          setDraftMonths(3);
+                        }
+                      }}
+                      className={`rounded-xl border p-2.5 text-left transition ${
+                        active
+                          ? 'border-[var(--brand)] bg-[var(--brand-soft)]/30'
+                          : 'border-[var(--line)] bg-[var(--surface-2)]/70 hover:border-[var(--line-strong)]'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between gap-1">
+                        <span className="text-[13px] font-semibold text-[var(--text)]">
+                          {p.labelId}
+                        </span>
+                        <span className="text-[10px] font-semibold text-[var(--brand)]">
+                          {p.badgeId}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-[11px] text-[var(--text-muted)]">
+                        {p.priceIdrMonthly === 0
+                          ? 'Rp 0'
+                          : `Rp ${p.priceIdrMonthly.toLocaleString('id-ID')}/bln`}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {draftTier !== 'free' && (
+              <>
+                <div>
+                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+                    Durasi Masa Aktif (Bulan)
+                  </span>
+                  <div className="mt-1.5 flex flex-wrap gap-1.5">
+                    {[
+                      { m: 1, label: '1 Bulan' },
+                      { m: 3, label: '3 Bulan' },
+                      { m: 6, label: '6 Bulan' },
+                      { m: 12, label: '12 Bulan' },
+                      { m: 0, label: 'Permanen' },
+                    ].map((opt) => (
+                      <button
+                        key={opt.m}
+                        type="button"
+                        onClick={() => setDraftMonths(opt.m)}
+                        className={`rounded-lg border px-2.5 py-1.5 text-[12px] font-semibold transition ${
+                          draftMonths === opt.m
+                            ? 'border-[var(--brand)] bg-[var(--brand)] text-[var(--brand-contrast)]'
+                            : 'border-[var(--line)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="mt-2.5 flex items-center gap-2">
+                    <label
+                      htmlFor="admin-plan-months"
+                      className="text-[12px] text-[var(--text-muted)]"
+                    >
+                      Atau isi manual (bulan, 0 = permanen):
+                    </label>
+                    <input
+                      id="admin-plan-months"
+                      name="adminPlanMonths"
+                      type="number"
+                      min={0}
+                      max={120}
+                      value={draftMonths}
+                      onChange={(e) =>
+                        setDraftMonths(Math.max(0, Math.min(120, Number(e.target.value) || 0)))
+                      }
+                      className="h-8 w-20 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-center text-[13px] font-semibold text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label
+                    htmlFor="admin-plan-note"
+                    className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]"
+                  >
+                    Catatan Langganan (Opsional)
+                  </label>
+                  <input
+                    id="admin-plan-note"
+                    name="adminPlanNote"
+                    type="text"
+                    value={draftNote}
+                    onChange={(e) => setDraftNote(e.target.value)}
+                    placeholder="Mis. Harga teman — gratis 3 bulan / Promo launching"
+                    className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2 rounded-xl border border-[var(--in)]/30 bg-[var(--in-soft)] px-3.5 py-2.5 text-[12px] text-[var(--text)]">
+                  <CalendarClock className="size-4 shrink-0 text-[var(--in)]" />
+                  <span>
+                    {draftMonths === 0
+                      ? `Paket ${MEMBERSHIP_PLANS[draftTier].labelId} akan aktif permanen tanpa batas waktu.`
+                      : `Aktif ${draftMonths} bulan hingga ${new Intl.DateTimeFormat(
+                          'id-ID',
+                          {
+                            timeZone: APP_TIMEZONE,
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric',
+                          }
+                        ).format(new Date(addMonthsIso(draftMonths)))}, setelah itu otomatis kembali ke Gratis.`}
+                  </span>
+                </div>
+              </>
+            )}
+          </form>
+        )}
+      </Modal>
 
       {/* Modal Tambah Pengguna Baru */}
       <Modal

@@ -29,7 +29,7 @@ import {
   type MembershipOrder,
   type MembershipTier,
 } from '@/lib/membership';
-import { formatRp } from '@/lib/format';
+import { APP_TIMEZONE, formatRp } from '@/lib/format';
 import { useCurrency } from '@/components/ui/CurrencyContext';
 
 export function MembershipPanel() {
@@ -40,6 +40,10 @@ export function MembershipPanel() {
 
   const [loading, setLoading] = useState(true);
   const [tier, setTier] = useState<MembershipTier>('free');
+  const [expiresAt, setExpiresAt] = useState<string | null>(null);
+  const [daysLeft, setDaysLeft] = useState<number | null>(null);
+  const [planNote, setPlanNote] = useState<string | null>(null);
+  const [isExpired, setIsExpired] = useState(false);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
   const [maxGroups, setMaxGroups] = useState(3);
   const [ownedGroups, setOwnedGroups] = useState(0);
@@ -75,6 +79,10 @@ export function MembershipPanel() {
       const json = await res.json().catch(() => ({}));
       if (res.ok) {
         setTier(json.tier || 'free');
+        setExpiresAt(typeof json.expiresAt === 'string' ? json.expiresAt : null);
+        setDaysLeft(typeof json.daysLeft === 'number' ? json.daysLeft : null);
+        setPlanNote(typeof json.note === 'string' ? json.note : null);
+        setIsExpired(Boolean(json.isExpired));
         setMaxGroups(json.maxGroups ?? 3);
         setOwnedGroups(json.ownedGroups ?? 0);
         setIsAdmin(Boolean(json.isAdmin));
@@ -303,6 +311,37 @@ export function MembershipPanel() {
               <p className="text-[12px] text-[var(--text-muted)]">
                 {isEn ? activePlan.summaryEn : activePlan.summaryId}
               </p>
+              {(expiresAt || planNote || isExpired) && (
+                <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px]">
+                  {isExpired ? (
+                    <span className="rounded-md bg-[var(--out-soft)] px-2 py-0.5 font-semibold text-[var(--out)]">
+                      {isEn
+                        ? 'Previous plan expired · Reverted to Free'
+                        : 'Langganan sebelumnya kedaluwarsa · Kembali ke Gratis'}
+                    </span>
+                  ) : expiresAt ? (
+                    <span className="rounded-md bg-[var(--in-soft)] px-2 py-0.5 font-semibold text-[var(--in)]">
+                      {isEn ? 'Valid until' : 'Aktif hingga'}{' '}
+                      {new Intl.DateTimeFormat(isEn ? 'en-GB' : 'id-ID', {
+                        timeZone: APP_TIMEZONE,
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric',
+                      }).format(new Date(expiresAt))}
+                      {typeof daysLeft === 'number'
+                        ? isEn
+                          ? ` (${daysLeft} days left)`
+                          : ` (sisa ${daysLeft} hari)`
+                        : ''}
+                    </span>
+                  ) : null}
+                  {planNote && (
+                    <span className="rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-2 py-0.5 italic text-[var(--text-muted)]">
+                      {planNote}
+                    </span>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

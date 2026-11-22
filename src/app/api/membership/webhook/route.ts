@@ -5,6 +5,7 @@ import { getOrCreateSuperadminUserId } from '@/lib/superadminUser';
 import { mergeIntegrations } from '@/lib/integrations';
 import {
   MEMBERSHIP_PLANS,
+  addMonthsIso,
   type MembershipOrder,
 } from '@/lib/membership';
 import { notifyMany } from '@/lib/notifications';
@@ -126,10 +127,14 @@ export async function POST(req: NextRequest) {
     string,
     unknown
   >;
+  const durationMonths = target.billingCycle === 'yearly' ? 12 : 1;
   await admin.auth.admin.updateUserById(target.userId, {
     user_metadata: {
       ...buyerMeta,
       membership_tier: target.requestedTier,
+      membership_duration_months: durationMonths,
+      membership_expires_at: addMonthsIso(durationMonths),
+      membership_note: `Auto-paid ${target.invoiceNo}`,
       membership_activated_at: new Date().toISOString(),
     },
   });

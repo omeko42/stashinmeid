@@ -3,6 +3,14 @@ import { cookies } from 'next/headers';
 import { verifySuperadminToken } from '@/lib/jwt';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { createClient } from '@/lib/supabase/server';
+import { getCallerUserId } from '@/lib/currentUser';
+import { notifyMany } from '@/lib/notifications';
+import {
+  MEMBERSHIP_PLANS,
+  addMonthsIso,
+  normalizeTier,
+  resolveMembershipStatus,
+} from '@/lib/membership';
 
 const VALID_ROLES = ['admin', 'user'] as const;
 
@@ -68,15 +76,16 @@ export async function GET() {
 
   const enriched = (data || []).map((u) => {
     const meta = metaById.get(u.id) ?? {};
-    const tier =
-      meta.membership_tier === 'pro' || meta.membership_tier === 'enterprise'
-        ? meta.membership_tier
-        : u.role === 'admin'
-          ? 'enterprise'
-          : 'free';
+    const status = resolveMembershipStatus(meta, u.role === 'admin');
     return {
       ...u,
-      membership_tier: tier,
+      membership_tier: status.effectiveTier,
+      membership_stored_tier: status.storedTier,
+      membership_expires_at: status.expiresAt,
+      membership_duration_months: status.durationMonths,
+      membership_note: status.note,
+      membership_is_expired: status.isExpired,
+      membership_days_left: status.daysLeft,
       is_demo: Boolean(meta.is_demo),
     };
   });
@@ -171,8 +180,17 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  const { userId, role, email, client_name, bio, password, membership_tier } =
-    await req.json();
+  const {
+    userId,
+    role,
+    email,
+    client_name,
+    bio,
+    password,
+    membership_tier,
+    membership_duration_months,
+    membership_note,
+  } = await req.json();
   if (!userId) {
     return NextResponse.json({ error: 'userId wajib diisi.' }, { status: 400 });
   }
@@ -190,16 +208,33 @@ export async function PATCH(req: NextRequest) {
   if (password && String(password).trim().length >= 6) {
     authUpdates.password = String(password).trim();
   }
-  if (
-    membership_tier === 'free' ||
-    membership_tier === 'pro' ||
-    membership_tier === 'enterprise'
-  ) {
+
+  let updatedMembershipSummary: ReturnType<typeof resolveMembershipStatus> | null =
+    null;
+
+  if (typeof membership_tier === 'string' && membership_tier.trim()) {
+    const nextTier = normalizeTier(membership_tier);
+    const monthsNum =
+      typeof membership_duration_months === 'number' &&
+      Number.isFinite(membership_duration_months)
+        ? Math.max(0, Math.min(120, Math.round(membership_duration_months)))
+        : 0;
+    const nextExpiresAt =
+      nextTier === 'free' || monthsNum === 0 ? null : addMonthsIso(monthsNum);
+    const cleanNote =
+      typeof membership_note === 'string' ? membership_note.trim().slice(0, 140) : '';
+
     const { data: currentAuth } = await admin.auth.admin.getUserById(userId);
-    authUpdates.user_metadata = {
+    const nextMeta = {
       ...((currentAuth?.user?.user_metadata ?? {}) as Record<string, unknown>),
-      membership_tier,
+      membership_tier: nextTier,
+      membership_duration_months: nextTier === 'free' ? null : monthsNum,
+      membership_expires_at: nextExpiresAt,
+      membership_note: nextTier === 'free' ? null : cleanNote || null,
+      membership_activated_at: new Date().toISOString(),
     };
+    authUpdates.user_metadata = nextMeta;
+    updatedMembershipSummary = resolveMembershipStatus(nextMeta, false);
   }
 
   if (Object.keys(authUpdates).length > 0) {
@@ -207,6 +242,31 @@ export async function PATCH(req: NextRequest) {
     if (authErr) {
       return NextResponse.json({ error: authErr.message }, { status: 500 });
     }
+  }
+
+  if (updatedMembershipSummary) {
+    const actorId = (await getCallerUserId()) || userId;
+    const plan = MEMBERSHIP_PLANS[updatedMembershipSummary.effectiveTier];
+    const durText = updatedMembershipSummary.expiresAt
+      ? `selama ${updatedMembershipSummary.durationMonths} bulan (s/d ${new Intl.DateTimeFormat(
+          'id-ID',
+          { timeZone: 'Asia/Jakarta', day: 'numeric', month: 'short', year: 'numeric' }
+        ).format(new Date(updatedMembershipSummary.expiresAt))})`
+      : updatedMembershipSummary.effectiveTier === 'free'
+        ? ''
+        : '(Permanen)';
+    const noteText = updatedMembershipSummary.note
+      ? ` · Catatan: ${updatedMembershipSummary.note}`
+      : '';
+    await notifyMany(
+      admin,
+      [userId],
+      actorId,
+      'connection_accepted',
+      `Paket Membership: ${plan.labelId}`,
+      `Admin mengatur paketmu ke ${plan.labelId} (maks. ${plan.maxGroups} grup) ${durText}${noteText}`.trim(),
+      'tab:settings'
+    ).catch(() => {});
   }
 
   const profileUpdates: Record<string, string | null> = {};
@@ -222,7 +282,10 @@ export async function PATCH(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({
+    ok: true,
+    membership: updatedMembershipSummary,
+  });
 }
 
 export async function DELETE(req: NextRequest) {

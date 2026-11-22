@@ -86,7 +86,7 @@ export const MEMBERSHIP_PLANS: Record<MembershipTier, MembershipPlan> = {
     id: 'standard',
     maxGroups: 5,
     priceUsdMonthly: 10,
-    priceIdrMonthly: 159000,
+    priceIdrMonthly: 100000,
     labelId: 'Standard',
     labelEn: 'Standard',
     badgeId: 'Maks. 5 Grup',
@@ -108,7 +108,7 @@ export const MEMBERSHIP_PLANS: Record<MembershipTier, MembershipPlan> = {
     id: 'pro',
     maxGroups: 9,
     priceUsdMonthly: 30,
-    priceIdrMonthly: 479000,
+    priceIdrMonthly: 500000,
     labelId: 'Pro',
     labelEn: 'Pro',
     badgeId: 'Maks. 9 Grup',
@@ -130,7 +130,7 @@ export const MEMBERSHIP_PLANS: Record<MembershipTier, MembershipPlan> = {
     id: 'business',
     maxGroups: 15,
     priceUsdMonthly: 100,
-    priceIdrMonthly: 1590000,
+    priceIdrMonthly: 1000000,
     labelId: 'Business',
     labelEn: 'Business',
     badgeId: 'Maks. 15 Grup',
@@ -165,7 +165,10 @@ export function getPlanPrice(plan: MembershipPlan, cycle: BillingCycle) {
 
 /**
  * Hitung tampilan harga paket dalam mata uang pilihan user secara konsisten:
- * `yearlyTotal` dijamin tepat `monthlyEffective × 12` tanpa selisih pembulatan.
+ * - IDR memakai harga lokal khusus Indonesia (Rp 100rb / Rp 500rb / Rp 1jt).
+ * - USD memakai harga global ($10 / $30 / $100).
+ * - Mata uang asing lain dikonversi dari harga global USD.
+ * - `yearlyTotal` dijamin tepat `monthlyEffective × 12` tanpa selisih pembulatan.
  */
 export function computePlanDisplayPricing(opts: {
   plan: MembershipPlan;
@@ -179,16 +182,16 @@ export function computePlanDisplayPricing(opts: {
   const usdToIdr = idrPerUnit.USD || 15865;
   const targetPerIdr = idrPerUnit[code] || 1;
 
-  const convertUsdClean = (usd: number): number => {
-    if (usd === 0) return 0;
-    if (code === 'USD') return usd;
-    const raw = (usd * usdToIdr) / targetPerIdr;
-    if (code === 'IDR') return Math.round(raw / 1000) * 1000;
+  const getMonthlyRegular = (): number => {
+    if (plan.priceUsdMonthly === 0) return 0;
+    if (code === 'IDR') return plan.priceIdrMonthly;
+    if (code === 'USD') return plan.priceUsdMonthly;
+    const raw = (plan.priceUsdMonthly * usdToIdr) / targetPerIdr;
     if (code === 'JPY') return Math.round(raw / 10) * 10;
     return Math.round(raw);
   };
 
-  const monthlyRegular = convertUsdClean(plan.priceUsdMonthly);
+  const monthlyRegular = getMonthlyRegular();
   const discountedRaw = monthlyRegular * ((100 - YEARLY_DISCOUNT_PCT) / 100);
   const monthlyEffective =
     cycle === 'yearly'
@@ -214,6 +217,99 @@ export function computePlanDisplayPricing(opts: {
     formattedMonthlyEffective: formatMoney(monthlyEffective, code, locale),
     formattedYearlyTotal: formatMoney(yearlyTotal, code, locale),
     formattedYearlySavings: formatMoney(yearlySavings, code, locale),
+  };
+}
+
+export interface MembershipStatusInfo {
+  storedTier: MembershipTier;
+  effectiveTier: MembershipTier;
+  expiresAt: string | null;
+  durationMonths: number | null;
+  note: string | null;
+  isExpired: boolean;
+  daysLeft: number | null;
+}
+
+/** Tambah N bulan kalender dari waktu sekarang (ISO string). */
+export function addMonthsIso(months: number, from = new Date()): string {
+  const d = new Date(from.getTime());
+  d.setMonth(d.getMonth() + months);
+  return d.toISOString();
+}
+
+/**
+ * Evaluasi status paket & masa berlaku dari `auth.users.user_metadata`.
+ * Jika masa langganan sudah lewat (`expiresAt < now`), efektif otomatis turun ke `'free'`.
+ */
+export function resolveMembershipStatus(
+  meta: Record<string, unknown> | null | undefined,
+  isAdmin = false
+): MembershipStatusInfo {
+  const m = meta ?? {};
+  const storedTier: MembershipTier =
+    isAdmin && !m.membership_tier
+      ? 'business'
+      : normalizeTier(m.membership_tier);
+  const expiresAt =
+    typeof m.membership_expires_at === 'string' && m.membership_expires_at
+      ? m.membership_expires_at
+      : null;
+  const durationMonths =
+    typeof m.membership_duration_months === 'number'
+      ? m.membership_duration_months
+      : null;
+  const note =
+    typeof m.membership_note === 'string' && m.membership_note.trim()
+      ? m.membership_note.trim()
+      : null;
+
+  if (storedTier === 'free' || !expiresAt) {
+    return {
+      storedTier,
+      effectiveTier: storedTier,
+      expiresAt,
+      durationMonths,
+      note,
+      isExpired: false,
+      daysLeft: null,
+    };
+  }
+
+  const expMs = new Date(expiresAt).getTime();
+  const nowMs = Date.now();
+  if (Number.isNaN(expMs)) {
+    return {
+      storedTier,
+      effectiveTier: storedTier,
+      expiresAt: null,
+      durationMonths,
+      note,
+      isExpired: false,
+      daysLeft: null,
+    };
+  }
+
+  const diffMs = expMs - nowMs;
+  if (diffMs <= 0) {
+    return {
+      storedTier,
+      effectiveTier: 'free',
+      expiresAt,
+      durationMonths,
+      note,
+      isExpired: true,
+      daysLeft: 0,
+    };
+  }
+
+  return {
+    storedTier,
+    effectiveTier: storedTier,
+    expiresAt,
+    durationMonths,
+    note,
+    isExpired: false,
+    daysLeft: Math.max(1, Math.ceil(diffMs / 86_400_000)),
   };
 }
 
