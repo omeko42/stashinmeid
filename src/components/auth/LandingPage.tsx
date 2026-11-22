@@ -863,11 +863,11 @@ export function LandingPage({
                 dalam satu workspace.
               </p>
               <a
-                href="mailto:hello@stashinmeid.app"
+                href="mailto:stashinmeid@gmail.com"
                 className="inline-flex items-center gap-1.5 text-[12px] font-medium text-emerald-400 transition hover:text-emerald-300"
               >
                 <Mail className="size-3.5" />
-                hello@stashinmeid.app
+                stashinmeid@gmail.com
               </a>
             </div>
 
@@ -922,7 +922,7 @@ export function LandingPage({
                 </li>
                 <li>
                   <a
-                    href="mailto:partner@stashinmeid.app?subject=Partnership%20stashinmeid"
+                    href="mailto:stashinmeid@gmail.com?subject=Partnership%20stashinmeid"
                     className="inline-flex items-center gap-1 transition hover:text-white"
                   >
                     Become a Partner
@@ -950,18 +950,18 @@ export function LandingPage({
               <ul className="space-y-2 text-[12px] text-zinc-400">
                 <li>
                   <a
-                    href="mailto:hello@stashinmeid.app"
+                    href="mailto:stashinmeid@gmail.com"
                     className="transition hover:text-white"
                   >
-                    hello@stashinmeid.app
+                    stashinmeid@gmail.com
                   </a>
                 </li>
                 <li>
                   <a
-                    href="mailto:partner@stashinmeid.app"
+                    href="mailto:stashinmeid@gmail.com?subject=Partnership%20stashinmeid"
                     className="transition hover:text-white"
                   >
-                    partner@stashinmeid.app
+                    Kemitraan &amp; Media
                   </a>
                 </li>
                 <li className="text-zinc-500">Indonesia · WIB</li>
