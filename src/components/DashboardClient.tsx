@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from '@/i18n/navigation';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
 import { useHotkey } from '@/hooks/useHotkey';
 import { useCountUp } from '@/hooks/useCountUp';
@@ -44,6 +44,7 @@ import { Input } from '@/components/ui/Field';
 import { PasswordInput } from '@/components/ui/PasswordInput';
 import { createClient } from '@/lib/supabase/client';
 import type { Debt, Transaction, TransactionType, UserRole } from '@/types/finance';
+import type { MembershipTier } from '@/lib/membership';
 import {
   exportToCSV,
   exportToPDF,
@@ -111,6 +112,8 @@ export default function DashboardClient({
   initialAvatarUrl = null,
   initialBannerUrl = null,
 }: DashboardClientProps) {
+  const locale = useLocale();
+  const isEn = locale === 'en';
   const t = useTranslations();
   const tNav = useTranslations('nav');
   const tCashflow = useTranslations('cashflow');
@@ -1161,12 +1164,14 @@ export default function DashboardClient({
   };
 
   const handleResetDemo = async () => {
-    setTransactions(createDemoTransactions());
-    setDebts(createDemoDebts());
+    setTransactions(createDemoTransactions(isEn ? 'en' : 'id'));
+    setDebts(createDemoDebts(isEn ? 'en' : 'id'));
     setActiveScope('personal');
     setSimSelectedIds([]);
     await assets.refresh();
-    toast.success('Data demo dikembalikan ke awal.');
+    toast.success(
+      isEn ? 'Demo data reset to initial state.' : 'Data demo dikembalikan ke awal.'
+    );
   };
 
   // ------------------------------------------------------------------
@@ -1269,8 +1274,23 @@ export default function DashboardClient({
       setManagedUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
       toast.success(tUsers('saved'));
     } else {
-      // Tanpa cabang ini, perubahan role yang gagal diam-diam dan UI
-      // menampilkan role lama seolah sudah tersimpan.
+      toast.error(json.error || t('errors.generic'));
+    }
+  };
+
+  const handleChangeUserTier = async (userId: string, tier: MembershipTier) => {
+    const res = await fetch('/api/admin/users', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ userId, membership_tier: tier }),
+    });
+    const json = await res.json().catch(() => ({}));
+    if (res.ok) {
+      setManagedUsers((prev) =>
+        prev.map((u) => (u.id === userId ? { ...u, membership_tier: tier } : u))
+      );
+      toast.success(`Paket membership diubah ke ${tier.toUpperCase()}.`);
+    } else {
       toast.error(json.error || t('errors.generic'));
     }
   };
@@ -1492,7 +1512,10 @@ export default function DashboardClient({
               <span className="inline-flex items-center gap-2">
                 <FlaskConical className="size-4 shrink-0 text-[var(--due)]" aria-hidden />
                 <span>
-                  <strong>Mode Demo</strong> · Perubahan hanya sementara dan kembali ke awal saat dimuat ulang.
+                  <strong>{isEn ? 'Demo Mode' : 'Mode Demo'}</strong> ·{' '}
+                  {isEn
+                    ? 'Changes are temporary and reset automatically on reload.'
+                    : 'Perubahan hanya sementara dan kembali ke awal saat dimuat ulang.'}
                 </span>
               </span>
               <div className="flex items-center gap-2">
@@ -1502,10 +1525,10 @@ export default function DashboardClient({
                   icon={<RotateCcw className="size-3.5" />}
                   onClick={handleResetDemo}
                 >
-                  Reset Data
+                  {isEn ? 'Reset Data' : 'Reset Data'}
                 </Button>
                 <Button size="sm" onClick={handleLogout}>
-                  Daftar / Keluar
+                  {isEn ? 'Sign Up / Exit' : 'Daftar / Keluar'}
                 </Button>
               </div>
             </div>
@@ -1821,6 +1844,7 @@ export default function DashboardClient({
                   editUserPassword={editUserPassword}
                   onRefresh={loadManagedUsers}
                   onChangeRole={handleChangeUserRole}
+                  onChangeTier={handleChangeUserTier}
                   onResetPassword={handleAdminResetPassword}
                   onImpersonate={handleImpersonate}
                   onDelete={handleDeleteUser}

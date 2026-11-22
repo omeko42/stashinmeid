@@ -14,6 +14,7 @@ import {
   UserPlus,
 } from 'lucide-react';
 import type { UserRole } from '@/types/finance';
+import type { MembershipTier } from '@/lib/membership';
 import { Modal } from '@/components/ui/Modal';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -26,6 +27,8 @@ export interface ManagedUser {
   client_name: string;
   bio?: string | null;
   role: UserRole;
+  membership_tier?: MembershipTier;
+  is_demo?: boolean;
   created_at: string;
 }
 
@@ -48,6 +51,7 @@ interface UsersTabProps {
   editUserPassword?: string;
   onRefresh: () => void;
   onChangeRole: (userId: string, role: UserRole) => void;
+  onChangeTier?: (userId: string, tier: MembershipTier) => void;
   onResetPassword: (email: string) => void;
   onImpersonate: (user: ManagedUser) => void;
   onDelete: (userId: string) => void;
@@ -78,6 +82,7 @@ export function UsersTab({
   editUserPassword = '',
   onRefresh,
   onChangeRole,
+  onChangeTier,
   onResetPassword,
   onImpersonate,
   onDelete,
@@ -236,6 +241,11 @@ export function UsersTab({
                         {u.role === 'admin' && <ShieldCheck className="size-3" />}
                         {u.role === 'admin' ? 'Admin' : 'Pengguna'}
                       </span>
+                      {u.is_demo && (
+                        <span className="rounded-full bg-[var(--due-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--due)]">
+                          Demo
+                        </span>
+                      )}
                     </div>
                     <p className="truncate text-[12px] text-[var(--text-muted)]">
                       {u.email} · Terdaftar{' '}
@@ -273,6 +283,27 @@ export function UsersTab({
                       </option>
                     ))}
                   </select>
+
+                  {onChangeTier && (
+                    <>
+                      <label className="sr-only" htmlFor={`tier-${u.id}`}>
+                        Paket Membership
+                      </label>
+                      <select
+                        id={`tier-${u.id}`}
+                        name={`tier-${u.id}`}
+                        value={u.membership_tier || 'free'}
+                        onChange={(e) =>
+                          onChangeTier(u.id, e.target.value as MembershipTier)
+                        }
+                        className="h-8 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                      >
+                        <option value="free">Gratis (3 Grup)</option>
+                        <option value="pro">Pro (5 Grup)</option>
+                        <option value="enterprise">Enterprise (9 Grup)</option>
+                      </select>
+                    </>
+                  )}
 
                   <Button
                     size="sm"

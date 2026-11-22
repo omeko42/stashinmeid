@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
 export interface LiveTickerItem {
   sym: string;
@@ -19,58 +19,37 @@ export interface LiveNewsItem {
   publishedAt: string;
 }
 
-const FALLBACK_TICKERS: LiveTickerItem[] = [
-  { sym: 'BTC', label: 'BTC / IDR', price: 'Rp 1,54 M', delta: '+2,1%', up: true },
-  { sym: 'ETH', label: 'ETH / IDR', price: 'Rp 49,3 Jt', delta: '+1,4%', up: true },
-  { sym: 'SOL', label: 'SOL / IDR', price: 'Rp 3,42 Jt', delta: '+3,8%', up: true },
-  { sym: 'USDT', label: 'USDT / IDR', price: 'Rp 15.870', delta: '+0,1%', up: true },
-  { sym: 'USD', label: 'USD / IDR', price: 'Rp 15.865', delta: 'ECB', up: true },
-  { sym: 'SGD', label: 'SGD / IDR', price: 'Rp 11.820', delta: 'ECB', up: true },
-];
+const ALLOWED_BASES = ['IDR', 'USD', 'EUR', 'SGD'] as const;
+type BaseCurrency = (typeof ALLOWED_BASES)[number];
 
-const FALLBACK_NEWS: LiveNewsItem[] = [
-  {
-    id: 'fallback-1',
-    region: 'lokal',
-    regionLabel: 'Indonesia',
-    title: 'BI Jaga Stabilitas Nilai Tukar Rupiah dan Likuiditas Perbankan',
-    summary:
-      'Suku bunga acuan tetap terjaga guna menopang penyaluran kredit usaha dan daya beli rumah tangga.',
-    source: 'CNBC Indonesia',
-    url: 'https://www.cnbcindonesia.com/market',
-    publishedAt: 'Hari ini',
-  },
-  {
-    id: 'fallback-2',
-    region: 'crypto',
-    regionLabel: 'Crypto',
-    title: 'Pergerakan Bitcoin dan Stablecoin Jadi Acuan Likuiditas Pasar Aset Digital',
-    summary:
-      'Volume transaksi aset kripto utama dan stablecoin terus dipantau pelaku pasar global.',
-    source: 'CoinTelegraph',
-    url: 'https://cointelegraph.com',
-    publishedAt: 'Hari ini',
-  },
-];
-
-function formatCompactIdr(num: number): string {
-  if (!Number.isFinite(num) || num <= 0) return 'Rp 0';
-  if (num >= 1_000_000_000) {
-    return `Rp ${(num / 1_000_000_000).toFixed(2).replace('.', ',')} M`;
+function formatPriceByBase(num: number, base: BaseCurrency): string {
+  if (!Number.isFinite(num) || num <= 0) return '0';
+  if (base === 'IDR') {
+    if (num >= 1_000_000_000) {
+      return `Rp ${(num / 1_000_000_000).toFixed(2).replace('.', ',')} M`;
+    }
+    if (num >= 1_000_000) {
+      return `Rp ${(num / 1_000_000).toFixed(1).replace('.', ',')} Jt`;
+    }
+    return `Rp ${Math.round(num).toLocaleString('id-ID')}`;
   }
-  if (num >= 1_000_000) {
-    return `Rp ${(num / 1_000_000).toFixed(1).replace('.', ',')} Jt`;
+  const symbol = base === 'USD' ? '$' : base === 'EUR' ? '€' : 'S$';
+  if (num >= 1000) {
+    return `${symbol}${Math.round(num).toLocaleString('en-US')}`;
   }
-  return `Rp ${Math.round(num).toLocaleString('id-ID')}`;
+  if (num >= 1) {
+    return `${symbol}${num.toFixed(2)}`;
+  }
+  return `${symbol}${num.toFixed(4)}`;
 }
 
 function formatDelta(pct?: number): { delta: string; up: boolean } {
   if (typeof pct !== 'number' || !Number.isFinite(pct)) {
-    return { delta: '0,0%', up: true };
+    return { delta: '0.0%', up: true };
   }
   const sign = pct >= 0 ? '+' : '';
   return {
-    delta: `${sign}${pct.toFixed(1).replace('.', ',')}%`,
+    delta: `${sign}${pct.toFixed(2)}%`,
     up: pct >= 0,
   };
 }
@@ -92,7 +71,7 @@ function decodeHtml(str: string): string {
 
 function formatPubDate(raw: string): string {
   const d = new Date(raw);
-  if (Number.isNaN(d.getTime())) return 'Baru saja';
+  if (Number.isNaN(d.getTime())) return 'Live';
   return new Intl.DateTimeFormat('id-ID', {
     timeZone: 'Asia/Jakarta',
     day: 'numeric',
@@ -124,7 +103,7 @@ function parseRssItems(
     const url = decodeHtml(linkMatch?.[1] || '');
     const rawDesc = decodeHtml(descMatch?.[1] || '');
     const summary =
-      rawDesc.length > 160 ? `${rawDesc.slice(0, 157).trim()}...` : rawDesc;
+      rawDesc.length > 155 ? `${rawDesc.slice(0, 152).trim()}...` : rawDesc;
 
     if (!title) continue;
     items.push({
@@ -135,14 +114,17 @@ function parseRssItems(
       summary: summary || title,
       source: meta.source,
       url: url || '#',
-      publishedAt: dateMatch?.[1] ? formatPubDate(dateMatch[1]) : 'Hari ini',
+      publishedAt: dateMatch?.[1] ? formatPubDate(dateMatch[1]) : 'Live',
     });
   }
 
   return items;
 }
 
-async function fetchWithTimeout(url: string, ms = 4500): Promise<Response | null> {
+async function fetchWithTimeout(
+  url: string,
+  ms = 4500
+): Promise<Response | null> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
   try {
@@ -151,7 +133,7 @@ async function fetchWithTimeout(url: string, ms = 4500): Promise<Response | null
         'User-Agent': 'stashinmeid/3.0',
         Accept: 'application/json, application/rss+xml, application/xml, text/xml',
       },
-      next: { revalidate: 300 },
+      cache: 'no-store',
       signal: controller.signal,
     });
     return res.ok ? res : null;
@@ -162,88 +144,94 @@ async function fetchWithTimeout(url: string, ms = 4500): Promise<Response | null
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const rawBase = (req.nextUrl.searchParams.get('base') || 'IDR').toUpperCase();
+  const base: BaseCurrency = ALLOWED_BASES.includes(rawBase as BaseCurrency)
+    ? (rawBase as BaseCurrency)
+    : 'IDR';
+  const includeNews = req.nextUrl.searchParams.get('news') !== '0';
+
+  const fxTargets = ['USD', 'EUR', 'SGD', 'GBP', 'JPY', 'AUD', 'IDR'].filter(
+    (c) => c !== base
+  );
+  const vsLower = base.toLowerCase();
+
   const [fxRes, cryptoRes, cnbcRes, antaraRes, ctRes] = await Promise.all([
     fetchWithTimeout(
-      'https://api.frankfurter.dev/v1/latest?base=USD&symbols=IDR,SGD,EUR'
+      `https://api.frankfurter.dev/v1/latest?base=${base}&symbols=${fxTargets.join(',')}`
     ),
     fetchWithTimeout(
-      'https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,tether&vs_currencies=idr&include_24hr_change=true'
+      `https://api.coingecko.com/api/v3/simple/price?ids=bitcoin,ethereum,solana,tether&vs_currencies=${vsLower}&include_24hr_change=true`
     ),
-    fetchWithTimeout('https://www.cnbcindonesia.com/market/rss'),
-    fetchWithTimeout('https://www.antaranews.com/rss/ekonomi.xml'),
-    fetchWithTimeout('https://cointelegraph.com/rss'),
+    includeNews
+      ? fetchWithTimeout('https://www.cnbcindonesia.com/market/rss')
+      : Promise.resolve(null),
+    includeNews
+      ? fetchWithTimeout('https://www.antaranews.com/rss/ekonomi.xml')
+      : Promise.resolve(null),
+    includeNews
+      ? fetchWithTimeout('https://cointelegraph.com/rss')
+      : Promise.resolve(null),
   ]);
 
   const tickers: LiveTickerItem[] = [];
 
+  // 1. Live Crypto vs Base Currency (CoinGecko)
   if (cryptoRes) {
     try {
       const c = (await cryptoRes.json()) as Record<
         string,
-        { idr?: number; idr_24h_change?: number }
+        Record<string, number>
       >;
-      const map: { id: string; sym: string; label: string }[] = [
-        { id: 'bitcoin', sym: 'BTC', label: 'BTC / IDR' },
-        { id: 'ethereum', sym: 'ETH', label: 'ETH / IDR' },
-        { id: 'solana', sym: 'SOL', label: 'SOL / IDR' },
-        { id: 'tether', sym: 'USDT', label: 'USDT / IDR' },
+      const coins = [
+        { id: 'bitcoin', sym: 'BTC' },
+        { id: 'ethereum', sym: 'ETH' },
+        { id: 'solana', sym: 'SOL' },
+        { id: 'tether', sym: 'USDT' },
       ];
-      for (const m of map) {
-        const entry = c[m.id];
-        if (entry?.idr) {
-          const d = formatDelta(entry.idr_24h_change);
+      for (const coin of coins) {
+        const entry = c[coin.id];
+        const val = entry?.[vsLower];
+        const chg = entry?.[`${vsLower}_24h_change`];
+        if (val) {
+          const d = formatDelta(chg);
           tickers.push({
-            sym: m.sym,
-            label: m.label,
-            price: formatCompactIdr(entry.idr),
+            sym: `${coin.sym}/${base}`,
+            label: `${coin.sym} / ${base}`,
+            price: formatPriceByBase(val, base),
             delta: d.delta,
             up: d.up,
           });
         }
       }
     } catch {
-      // Abaikan jika gagal parse
+      // Abaikan error parse
     }
   }
 
+  // 2. Live Forex vs Base Currency (Frankfurter ECB)
+  // Frankfurter returns: 1 BASE = rate * TARGET. So 1 TARGET = (1 / rate) BASE.
   if (fxRes) {
     try {
       const fx = (await fxRes.json()) as {
-        rates?: { IDR?: number; SGD?: number; EUR?: number };
+        rates?: Record<string, number>;
+        date?: string;
       };
-      const usdIdr = fx.rates?.IDR;
-      const usdSgd = fx.rates?.SGD;
-      const usdEur = fx.rates?.EUR;
-      if (usdIdr) {
-        tickers.push({
-          sym: 'USD',
-          label: 'USD / IDR',
-          price: formatCompactIdr(usdIdr),
-          delta: 'ECB',
-          up: true,
-        });
-        if (usdSgd && usdSgd > 0) {
+      for (const target of fxTargets) {
+        const inv = fx.rates?.[target];
+        if (inv && inv > 0) {
+          const valueInBase = 1 / inv;
           tickers.push({
-            sym: 'SGD',
-            label: 'SGD / IDR',
-            price: formatCompactIdr(usdIdr / usdSgd),
-            delta: 'ECB',
-            up: true,
-          });
-        }
-        if (usdEur && usdEur > 0) {
-          tickers.push({
-            sym: 'EUR',
-            label: 'EUR / IDR',
-            price: formatCompactIdr(usdIdr / usdEur),
+            sym: `${target}/${base}`,
+            label: `${target} / ${base}`,
+            price: formatPriceByBase(valueInBase, base),
             delta: 'ECB',
             up: true,
           });
         }
       }
     } catch {
-      // Abaikan jika gagal parse
+      // Abaikan error parse
     }
   }
 
@@ -282,10 +270,18 @@ export async function GET() {
     );
   }
 
-  return NextResponse.json({
-    tickers: tickers.length > 0 ? tickers : FALLBACK_TICKERS,
-    news: news.length > 0 ? news : FALLBACK_NEWS,
-    live: tickers.length > 0 || news.length > 0,
-    fetchedAt: new Date().toISOString(),
-  });
+  return NextResponse.json(
+    {
+      base,
+      tickers,
+      news,
+      live: tickers.length > 0,
+      fetchedAt: new Date().toISOString(),
+    },
+    {
+      headers: {
+        'Cache-Control': 'no-store, max-age=0',
+      },
+    }
+  );
 }

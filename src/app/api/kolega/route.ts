@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCallerUserId } from '@/lib/currentUser';
 import { getDisplayName, notifyMany } from '@/lib/notifications';
+import { getMaxGroupsForTier, normalizeTier } from '@/lib/membership';
 
 /**
  * Kolaborator keuangan.
@@ -100,6 +101,36 @@ export async function POST(req: NextRequest) {
   const groupId = typeof body?.groupId === 'string' ? body.groupId : '';
 
   if (name && !groupId) {
+    // Cek batas jumlah grup sesuai paket membership (Gratis: 3, Pro: 5, Enterprise: 9)
+    const [{ data: authUser }, { data: profile }, { count: ownedCount }] =
+      await Promise.all([
+        admin.auth.admin.getUserById(userId),
+        admin.from('profiles').select('role').eq('id', userId).maybeSingle(),
+        admin
+          .from('finance_groups')
+          .select('id', { count: 'exact', head: true })
+          .eq('owner_id', userId),
+      ]);
+
+    const userMeta = (authUser?.user?.user_metadata ?? {}) as Record<
+      string,
+      unknown
+    >;
+    const tier =
+      profile?.role === 'admin'
+        ? normalizeTier(userMeta.membership_tier ?? 'enterprise')
+        : normalizeTier(userMeta.membership_tier);
+    const maxGroups = getMaxGroupsForTier(tier);
+
+    if ((ownedCount ?? 0) >= maxGroups) {
+      return NextResponse.json(
+        {
+          error: `Batas paket ${tier.toUpperCase()} (maks. ${maxGroups} grup) tercapai. Upgrade di Pengaturan → Membership.`,
+        },
+        { status: 403 }
+      );
+    }
+
     const { data, error } = await admin
       .from('finance_groups')
       .insert({ name, owner_id: userId })

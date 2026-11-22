@@ -59,7 +59,29 @@ export async function GET() {
     return NextResponse.json({ error: error.message, users: [] }, { status: 500 });
   }
 
-  return NextResponse.json({ users: data || [] });
+  // Sertakan status paket membership & tag demo dari auth.users metadata
+  const authList = await admin.auth.admin.listUsers({ perPage: 200 }).catch(() => null);
+  const metaById = new Map<string, Record<string, unknown>>();
+  for (const au of authList?.data?.users ?? []) {
+    metaById.set(au.id, (au.user_metadata ?? {}) as Record<string, unknown>);
+  }
+
+  const enriched = (data || []).map((u) => {
+    const meta = metaById.get(u.id) ?? {};
+    const tier =
+      meta.membership_tier === 'pro' || meta.membership_tier === 'enterprise'
+        ? meta.membership_tier
+        : u.role === 'admin'
+          ? 'enterprise'
+          : 'free';
+    return {
+      ...u,
+      membership_tier: tier,
+      is_demo: Boolean(meta.is_demo),
+    };
+  });
+
+  return NextResponse.json({ users: enriched });
 }
 
 export async function POST(req: NextRequest) {
@@ -149,18 +171,35 @@ export async function PATCH(req: NextRequest) {
     );
   }
 
-  const { userId, role, email, client_name, bio, password } = await req.json();
+  const { userId, role, email, client_name, bio, password, membership_tier } =
+    await req.json();
   if (!userId) {
     return NextResponse.json({ error: 'userId wajib diisi.' }, { status: 400 });
   }
 
-  const authUpdates: { email?: string; email_confirm?: boolean; password?: string } = {};
+  const authUpdates: {
+    email?: string;
+    email_confirm?: boolean;
+    password?: string;
+    user_metadata?: Record<string, unknown>;
+  } = {};
   if (email) {
     authUpdates.email = email;
     authUpdates.email_confirm = true;
   }
   if (password && String(password).trim().length >= 6) {
     authUpdates.password = String(password).trim();
+  }
+  if (
+    membership_tier === 'free' ||
+    membership_tier === 'pro' ||
+    membership_tier === 'enterprise'
+  ) {
+    const { data: currentAuth } = await admin.auth.admin.getUserById(userId);
+    authUpdates.user_metadata = {
+      ...((currentAuth?.user?.user_metadata ?? {}) as Record<string, unknown>),
+      membership_tier,
+    };
   }
 
   if (Object.keys(authUpdates).length > 0) {

@@ -204,3 +204,12 @@ html[data-theme] body {
 .ann-marquee:hover {
   animation-play-state: paused;
 }
+
+/* Live market ticker berjalan otomatis, berhenti saat hover. */
+.market-marquee {
+  animation: ann-marquee 38s linear infinite;
+}
+
+.market-marquee:hover {
+  animation-play-state: paused;
+}

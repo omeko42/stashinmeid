@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useTranslations } from 'next-intl';
 import {
   Bell,
+  Crown,
   Database,
   Globe,
   Megaphone,
@@ -21,6 +22,7 @@ import {
   NotificationPreferences,
 } from '@/components/profile/NotificationSettings';
 import { ApiIntegrationsManager } from '@/components/profile/ApiIntegrationsManager';
+import { MembershipPanel } from '@/components/profile/MembershipPanel';
 import { DangerZone } from '@/components/profile/DangerZone';
 import { BalanceVisibilityToggle } from '@/components/ui/BalanceVisibilityToggle';
 import { useBalancePrivacy } from '@/components/ui/BalancePrivacy';
@@ -28,6 +30,7 @@ import { useBalancePrivacy } from '@/components/ui/BalancePrivacy';
 type SettingsSection =
   | 'appearance'
   | 'notifications'
+  | 'membership'
   | 'integrations'
   | 'data'
   | 'account';
@@ -82,6 +85,11 @@ export function SettingsTab({
       id: 'notifications',
       label: tSettings('sections.notifications'),
       icon: <Bell className="size-4" />,
+    },
+    {
+      id: 'membership',
+      label: 'Membership',
+      icon: <Crown className="size-4" />,
     },
     {
       id: 'integrations',
@@ -213,6 +221,12 @@ export function SettingsTab({
             </div>
           )}
         </div>
+      )}
+
+      {section === 'membership' && (
+        <section role="tabpanel" aria-label="Membership">
+          <MembershipPanel />
+        </section>
       )}
 
       {section === 'integrations' && (

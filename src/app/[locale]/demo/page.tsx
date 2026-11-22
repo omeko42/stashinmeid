@@ -5,7 +5,7 @@ import DashboardClient from '@/components/DashboardClient';
 import {
   createDemoDebts,
   createDemoTransactions,
-  DEMO_USER,
+  getDemoUser,
 } from '@/lib/demoData';
 
 export function generateStaticParams() {
@@ -23,14 +23,17 @@ export default async function DemoPage({
     : routing.defaultLocale;
   setRequestLocale(locale);
 
+  const lang = locale === 'en' ? 'en' : 'id';
+  const demoUser = getDemoUser(lang);
+
   return (
     <DashboardClient
-      initialTransactions={createDemoTransactions()}
-      initialDebts={createDemoDebts()}
-      userEmail={DEMO_USER.email}
-      clientName={DEMO_USER.clientName}
+      initialTransactions={createDemoTransactions(lang)}
+      initialDebts={createDemoDebts(lang)}
+      userEmail={demoUser.email}
+      clientName={demoUser.clientName}
       userRole="user"
-      initialBio={DEMO_USER.bio}
+      initialBio={demoUser.bio}
       isDemoMode={true}
       isSuperadmin={false}
     />
