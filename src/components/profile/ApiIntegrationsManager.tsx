@@ -202,42 +202,34 @@ const CATEGORY_META: {
 }[] = [
   {
     key: 'payment',
-    title: 'Payment Gateway & Open Banking',
-    badge: 'Pembayaran & Cicilan',
-    subtitle:
-      'Koneksi untuk pembayaran cicilan pinjaman, split-bill grup kolega, QRIS, dan Virtual Account.',
-    dbSavingNote:
-      'Database kita hanya menyimpan ID referensi transaksi & status lunas; detail kartu/VA diproses penuh di sisi gateway.',
+    title: 'Payment Gateway',
+    badge: 'Pembayaran',
+    subtitle: 'Integrasi cicilan, split-bill grup, QRIS, dan Virtual Account.',
+    dbSavingNote: 'Hanya simpan referensi & status transaksi di DB internal.',
     icon: <CreditCard className="size-4 text-[var(--brand)]" />,
   },
   {
     key: 'kyc',
-    title: 'e-KYC & Verifikasi Identitas Pihak Ketiga',
-    badge: 'Hemat Storage KYC',
-    subtitle:
-      'Offload verifikasi NIK e-KTP, foto dokumen, dan liveness check ke provider e-KYC eksternal.',
-    dbSavingNote:
-      'File foto KTP/selfie tidak disimpan di storage kita. Hanya token verifikasi & status kelulusan KYC yang dicatat.',
+    title: 'e-KYC Pihak Ketiga',
+    badge: 'Identitas',
+    subtitle: 'Verifikasi NIK e-KTP & liveness lewat provider eksternal.',
+    dbSavingNote: 'Dokumen tidak disimpan di storage kita; hanya token status.',
     icon: <FileBadge className="size-4 text-[var(--info)]" />,
   },
   {
     key: 'news',
-    title: 'API Berita Finansial & Market Data',
-    badge: '0 KB Beban Database',
-    subtitle:
-      'Suplai berita ekonomi lokal/global dan ticker kurs untuk tab Sosial → Berita secara real-time.',
-    dbSavingNote:
-      'Artikel berita di-stream langsung ke browser / edge cache tanpa menulis satu baris pun ke tabel database.',
+    title: 'API Berita & Kurs',
+    badge: 'Market Data',
+    subtitle: 'Sumber berita ekonomi & kurs live untuk menu Sosial.',
+    dbSavingNote: 'Stream langsung ke klien (0 KB beban database).',
     icon: <Newspaper className="size-4 text-[var(--in)]" />,
   },
   {
     key: 'messaging_ai',
-    title: 'AI OCR Struk & Gateway Notifikasi (WA / Webhook)',
-    badge: 'Otomasi & AI',
-    subtitle:
-      'Koneksi mesin pemindai struk belanja AI serta pengiriman pengingat jatuh tempo via WhatsApp/Webhook.',
-    dbSavingNote:
-      'Gambar struk diproses langsung di memori (stateless) lalu hanya hasil angka & kategorinya yang disimpan.',
+    title: 'AI OCR & WhatsApp',
+    badge: 'Otomasi',
+    subtitle: 'Pemindai struk AI & pengingat jatuh tempo via WhatsApp/Webhook.',
+    dbSavingNote: 'Gambar struk diproses di memori tanpa menyimpan file mentah.',
     icon: <Bot className="size-4 text-[var(--due)]" />,
   },
 ];
@@ -447,17 +439,16 @@ export function ApiIntegrationsManager() {
             <div>
               <div className="flex flex-wrap items-center gap-2">
                 <h3 className="text-[14px] font-semibold text-[var(--text)]">
-                  Hub Koneksi API &amp; Integrasi Pihak Ketiga
+                  Manajemen Koneksi API
                 </h3>
                 <span className="inline-flex items-center gap-1 rounded-full bg-[var(--in-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--in)]">
                   <Database className="size-3" />
-                  Mode Hemat DB Aktif ({activeCount}/4 Terhubung)
+                  {activeCount}/4 Aktif
                 </span>
               </div>
-              <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-muted)]">
-                Hubungkan gateway pembayaran, e-KYC pihak ketiga, penyedia berita
-                finansial, serta AI OCR eksternal agar pemrosesan berat dan file
-                dokumen tidak memenuhi database utama kita.
+              <p className="mt-1 text-[12px] text-[var(--text-muted)]">
+                Atur endpoint pihak ketiga untuk pembayaran, e-KYC, berita, dan
+                notifikasi agar beban penyimpanan tetap ringan.
               </p>
             </div>
           </div>
@@ -722,7 +713,7 @@ export function ApiIntegrationsManager() {
                 htmlFor={`api-extra-${activeCategory}`}
                 className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]"
               >
-                cakupan Fitur / Channel Aktif
+                Cakupan Fitur / Channel Aktif
               </label>
               <input
                 id={`api-extra-${activeCategory}`}
