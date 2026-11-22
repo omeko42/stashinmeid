@@ -12,7 +12,7 @@ const geistMono = Geist_Mono({
   subsets: ['latin'],
 });
 
-const DEFAULT_SITE_URL = 'https://stashinmeid.vercel.app';
+const DEFAULT_SITE_URL = 'https://stashinme.biz.id';
 const SITE_URL = (() => {
   const raw = process.env.NEXT_PUBLIC_SITE_URL?.trim();
   if (raw) {

@@ -18,7 +18,7 @@ Pilih **salah satu** provider sesuai target pasarmu di **Pengaturan → Koneksi 
    - **Server Key** → tempel ke kolom **Secret / Server Key** di stashinmeid.
 3. Masuk ke **Settings → Configuration → Payment Notification URL**, tempel:
    ```text
-   https://stashinmeid.vercel.app/api/membership/webhook
+   https://stashinme.biz.id/api/membership/webhook
    ```
 4. Di stashinmeid, pilih Provider **Midtrans**, pilih Mode (**Sandbox** untuk tes / **Production** saat live), centang **Aktif**, lalu klik **Simpan**.
 5. **Hasil**: Saat user klik Upgrade, link Snap Midtrans otomatis terbuat. Begitu lunas, webhook Midtrans otomatis mengaktifkan paket user & mengirim notifikasi ke Admin + User.
@@ -27,7 +27,7 @@ Pilih **salah satu** provider sesuai target pasarmu di **Pengaturan → Koneksi 
 1. Daftar di [dashboard.xendit.co](https://dashboard.xendit.co).
 2. Masuk ke **Settings → API Keys → Generate Secret Key** (beri izin `Invoices: Write`) → tempel ke **Secret / Server Key**.
 3. Masuk ke **Settings → Webhooks → Invoices Paid**:
-   - URL: `https://stashinmeid.vercel.app/api/membership/webhook`
+   - URL: `https://stashinme.biz.id/api/membership/webhook`
    - Salin **Callback Verification Token** → tempel ke kolom **Webhook Secret** di stashinmeid.
 4. Pilih Provider **Xendit**, centang **Aktif**, klik **Simpan**.
 
@@ -37,7 +37,7 @@ Pilih **salah satu** provider sesuai target pasarmu di **Pengaturan → Koneksi 
    - **Publishable key** (`pk_test_...` / `pk_live_...`) → tempel ke **Public / Client Key**.
    - **Secret key** (`sk_test_...` / `sk_live_...`) → tempel ke **Secret / Server Key**.
 3. Masuk ke **Developers → Webhooks → Add endpoint**:
-   - Endpoint URL: `https://stashinmeid.vercel.app/api/membership/webhook`
+   - Endpoint URL: `https://stashinme.biz.id/api/membership/webhook`
    - Event: `checkout.session.completed`
    - Salin **Signing secret** (`whsec_...`) → tempel ke **Webhook Secret**.
 4. Pilih Provider **Stripe Checkout (Global USD)**, centang **Aktif**, klik **Simpan**.

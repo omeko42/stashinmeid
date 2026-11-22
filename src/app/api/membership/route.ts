@@ -131,8 +131,8 @@ async function createThirdPartyCheckoutUrl(opts: {
       params.set('mode', 'payment');
       params.set('client_reference_id', opts.invoiceNo);
       params.set('customer_email', opts.customerEmail);
-      params.set('success_url', 'https://stashinmeid.vercel.app/?payment=success');
-      params.set('cancel_url', 'https://stashinmeid.vercel.app/?payment=cancelled');
+      params.set('success_url', 'https://stashinme.biz.id/?payment=success');
+      params.set('cancel_url', 'https://stashinme.biz.id/?payment=cancelled');
       params.set('line_items[0][quantity]', '1');
       params.set('line_items[0][price_data][currency]', 'usd');
       params.set(

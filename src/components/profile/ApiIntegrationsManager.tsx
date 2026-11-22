@@ -632,7 +632,7 @@ export function ApiIntegrationsManager() {
                     URL Webhook Pembayaran (Tempel di Dashboard Midtrans / Xendit / Stripe):
                   </p>
                   <p className="mt-0.5 truncate font-mono text-[11px] text-[var(--brand)]">
-                    https://stashinmeid.vercel.app/api/membership/webhook
+                    https://stashinme.biz.id/api/membership/webhook
                   </p>
                 </div>
                 <Button
@@ -641,7 +641,7 @@ export function ApiIntegrationsManager() {
                   icon={<Copy className="size-3.5" />}
                   onClick={() => {
                     void navigator.clipboard.writeText(
-                      'https://stashinmeid.vercel.app/api/membership/webhook'
+                      'https://stashinme.biz.id/api/membership/webhook'
                     );
                     toast.success('URL Webhook disalin!');
                   }}
@@ -806,7 +806,7 @@ export function ApiIntegrationsManager() {
                           webhookUrl: e.target.value,
                         })
                       }
-                      placeholder="https://stashinmeid.vercel.app/api/membership/webhook"
+                      placeholder="https://stashinme.biz.id/api/membership/webhook"
                       className="h-9 flex-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 font-mono text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
                     />
                     <Button

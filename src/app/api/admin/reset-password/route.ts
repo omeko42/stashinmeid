@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Email user wajib diisi.' }, { status: 400 });
   }
 
-  const origin = req.headers.get('origin') || 'https://stashinmeid.vercel.app';
+  const origin = req.headers.get('origin') || 'https://stashinme.biz.id';
   const { error } = await admin.auth.resetPasswordForEmail(email, {
     redirectTo: `${origin}/reset-password`,
   });
