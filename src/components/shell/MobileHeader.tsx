@@ -12,6 +12,9 @@ interface MobileHeaderProps {
   isSuperadmin: boolean;
   canEdit: boolean;
   onProfile: () => void;
+  onOpenKyc: () => void;
+  onOpenSecurity: () => void;
+  onOpenSettings: () => void;
   onUsers: () => void;
   onScan: () => void;
   onImport: () => void;
@@ -21,12 +24,15 @@ interface MobileHeaderProps {
   onLogout: () => void;
 }
 
-/** Header mobile: logo, nama workspace, dan menu pengaturan. */
+/** Header mobile & tablet: logo, nama workspace, notifikasi, dan menu pengaturan ikon ringkas. */
 export function MobileHeader({
   profileClient,
   isSuperadmin,
   canEdit,
   onProfile,
+  onOpenKyc,
+  onOpenSecurity,
+  onOpenSettings,
   onUsers,
   onScan,
   onImport,
@@ -51,12 +57,15 @@ export function MobileHeader({
         </div>
       </div>
 
-      <div className="flex shrink-0 items-center gap-1">
-        <NotificationBell />
+      <div className="flex shrink-0 items-center gap-1.5">
+        <NotificationBell align="right" />
         <SettingsMenu
           canEdit={canEdit}
           showUsers={isSuperadmin}
           onProfile={onProfile}
+          onOpenKyc={onOpenKyc}
+          onOpenSecurity={onOpenSecurity}
+          onOpenSettings={onOpenSettings}
           onUsers={onUsers}
           onScan={onScan}
           onImport={onImport}

@@ -47,7 +47,16 @@ export function navigateToTab(tab: string, sub?: string) {
  * Data diambil sendiri lewat `useNotifications`, jadi komponen ini bisa
  * dipakai di header mana pun tanpa drilling props.
  */
-export function NotificationBell() {
+export function NotificationBell({
+  align = 'right',
+}: {
+  /**
+   * 'left'  = panel membuka ke arah kanan (dipakai di Sidebar kiri desktop
+   *           supaya tidak terpotong tepi kiri layar).
+   * 'right' = panel membuka ke arah kiri (dipakai di header kanan).
+   */
+  align?: 'left' | 'right';
+} = {}) {
   const t = useTranslations('notifications');
   const [open, setOpen] = useState(false);
   const panelRef = useRef<HTMLDivElement>(null);
@@ -118,7 +127,16 @@ export function NotificationBell() {
           ref={panelRef}
           role="dialog"
           aria-label={t('title')}
-          className="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-1.5rem))] overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)] shadow-[var(--shadow-md)]"
+          className={cn(
+            'z-50 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)] shadow-[var(--shadow-lg)]',
+            // Di layar HP (< 640px): posisikan fixed rata kiri-kanan layar
+            // supaya tidak pernah terpotong ke kiri/kanan.
+            // Di layar >= 640px (tablet & desktop): pop-up absolut mengikuti align.
+            'fixed inset-x-3 top-14 sm:inset-x-auto sm:absolute sm:top-full sm:mt-2 sm:w-80',
+            align === 'left'
+              ? 'sm:left-0 sm:right-auto'
+              : 'sm:right-0 sm:left-auto'
+          )}
         >
           <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] px-4 py-3">
             <h3 className="text-[13px] font-semibold text-[var(--text)]">

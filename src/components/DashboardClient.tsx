@@ -1290,9 +1290,12 @@ export default function DashboardClient({
 
         <MobileHeader
           profileClient={profileClient}
-          isSuperadmin={isSuperadmin}
+          isSuperadmin={isSuperadmin || userRole === 'admin'}
           canEdit={canEdit}
           onProfile={() => navigate('profile')}
+          onOpenKyc={() => setKycOpen(true)}
+          onOpenSecurity={() => setSecurityOpen(true)}
+          onOpenSettings={() => navigate('settings')}
           onUsers={() => navigate('users')}
           onScan={() => fileInputRef.current?.click()}
           onImport={() => csvInputRef.current?.click()}

@@ -185,6 +185,7 @@ export function AnnouncementEditor() {
         throw new Error(json.error || 'Gagal memuat pengumuman');
       }
       await load();
+      window.dispatchEvent(new CustomEvent('stashinmeid:announcement-updated'));
       toast.success(t('published'));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal memuat pengumuman');
@@ -203,6 +204,7 @@ export function AnnouncementEditor() {
       if (!res.ok) throw new Error('Gagal menghapus pengumuman');
       setCurrent(null);
       setDraft('');
+      window.dispatchEvent(new CustomEvent('stashinmeid:announcement-updated'));
       toast.success(t('removed'));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : 'Gagal menghapus pengumuman');

@@ -79,7 +79,7 @@ export function Modal({
             exit={{ opacity: 0, y: 16, scale: 0.98 }}
             transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
             className={cn(
-              'relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden',
+              'relative z-10 flex max-h-[90vh] w-full flex-col overflow-hidden pb-[env(safe-area-inset-bottom)] sm:pb-0',
               'rounded-t-2xl border border-[var(--line)] bg-[var(--surface-1)] shadow-[var(--shadow-lg)] sm:rounded-2xl',
               sizes[size]
             )}

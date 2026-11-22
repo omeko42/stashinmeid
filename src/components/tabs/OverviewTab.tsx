@@ -96,7 +96,7 @@ export function OverviewTab({
     <div className="space-y-5">
       {/* HERO - pita saldo */}
       <section className="border-b border-[var(--line)] pb-5">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <Label>{tOverview('balanceLabel')}</Label>
@@ -246,7 +246,7 @@ export function OverviewTab({
       </div>
 
       {/* Jatuh tempo + transaksi terbaru */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
           <SectionTitle>
             <span className="inline-flex items-center gap-2">
@@ -283,7 +283,7 @@ export function OverviewTab({
                     <Amount value={formatRp(g.total)} tone="due" size="sm" />
 
                     {/* Detail muncul saat hover */}
-                    <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-1 hidden w-80 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] p-3 shadow-lg group-hover:block">
+                    <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-1 hidden w-[min(20rem,calc(100vw-3rem))] rounded-lg border border-[var(--line)] bg-[var(--surface-1)] p-3 shadow-lg group-hover:block">
                       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                         {tOverview('dueDetailTitle')} · {g.items.length}{' '}
                         {tOverview('dueDetailCount')}

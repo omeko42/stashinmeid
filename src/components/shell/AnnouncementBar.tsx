@@ -17,40 +17,47 @@ import { useTranslations } from 'next-intl';
  */
 export function AnnouncementBar() {
   const t = useTranslations('announcement');
+  const defaultText = t('text');
   const [text, setText] = useState<string | null>(null);
   const [hidden, setHidden] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
+    const applyText = (value: string | null) => {
+      if (cancelled) return;
+      const finalValue = value?.trim() || defaultText;
+      setText(finalValue);
+      setHidden(window.localStorage.getItem('annDismissed') === finalValue);
+    };
+
     const load = async () => {
       try {
         const res = await fetch('/api/announcements', { cache: 'no-store' });
-        if (!res.ok) return;
-        const json = await res.json();
-        if (cancelled) return;
-
-        const announcement = json.announcement as { text?: string } | null;
-        const value = announcement?.text?.trim() || null;
-        setText(value);
-
-        if (value) {
-          setHidden(window.localStorage.getItem('annDismissed') === value);
-        } else {
-          setHidden(true);
+        if (!res.ok) {
+          applyText(defaultText);
+          return;
         }
+        const json = await res.json();
+        const announcement = json.announcement as { text?: string } | null;
+        applyText(announcement?.text ?? defaultText);
       } catch {
-        // Kalau API tidak bisa dihubungi, pita tidak ditampilkan - lebih
-        // baik daripada menampilkan teks hardcoded yang bisa basi.
-        if (!cancelled) setHidden(true);
+        applyText(defaultText);
       }
     };
 
-    load();
+    void load();
+
+    const onUpdated = () => {
+      void load();
+    };
+    window.addEventListener('stashinmeid:announcement-updated', onUpdated);
+
     return () => {
       cancelled = true;
+      window.removeEventListener('stashinmeid:announcement-updated', onUpdated);
     };
-  }, []);
+  }, [defaultText]);
 
   if (!text || hidden) return null;
 
