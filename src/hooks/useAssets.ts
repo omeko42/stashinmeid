@@ -148,15 +148,16 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
       institution: string | null;
       currency: string;
       balance: number;
-    }) => {
+    }): Promise<string | undefined> => {
       if (opts.isDemoMode) {
+        const nextId = row.id ?? crypto.randomUUID();
         setAccounts((prev) => {
           if (row.id) {
             return prev.map((a) => (a.id === row.id ? { ...a, ...row, id: row.id } : a));
           }
-          return [...prev, { ...row, id: crypto.randomUUID() }];
+          return [...prev, { ...row, id: nextId }];
         });
-        return;
+        return nextId;
       }
 
       // Superadmin menulis lewat API admin (service role), bukan sesi Supabase.
@@ -174,7 +175,7 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
         const json = await res.json().catch(() => ({}));
         if (!res.ok) throw new Error(json.error || 'Gagal menyimpan dompet.');
         await refresh();
-        return;
+        return row.id ?? (json.data?.[0]?.id as string | undefined);
       }
 
       const supabase = createClient();
@@ -183,16 +184,26 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) throw new Error('Belum login');
-      const { error: err } =
-        row.id
-          ? await supabase
-              .from('accounts')
-              .update({ ...row, updated_at: new Date().toISOString() })
-              .eq('id', row.id)
-              .eq('user_id', user.id)
-          : await supabase.from('accounts').insert({ ...row, user_id: user.id });
+
+      if (row.id) {
+        const { error: err } = await supabase
+          .from('accounts')
+          .update({ ...row, updated_at: new Date().toISOString() })
+          .eq('id', row.id)
+          .eq('user_id', user.id);
+        if (err) throw err;
+        await refresh();
+        return row.id;
+      }
+
+      const { data: inserted, error: err } = await supabase
+        .from('accounts')
+        .insert({ ...row, user_id: user.id })
+        .select('id')
+        .single();
       if (err) throw err;
       await refresh();
+      return (inserted as { id?: string } | null)?.id;
     },
     [opts.isDemoMode, opts.isSuperadmin, refresh]
   );

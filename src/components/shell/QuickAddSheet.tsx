@@ -1,8 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import { useTranslations } from 'next-intl';
-import { Sparkles } from 'lucide-react';
+import { Plus, Sparkles } from 'lucide-react';
+import { toast } from 'sonner';
 import type { TransactionType } from '@/types/finance';
+import type { AccountKind } from '@/hooks/useAssets';
 import { categoryOptions } from '@/lib/categories';
 import { todayIso } from '@/lib/format';
 import { Modal } from '@/components/ui/Modal';
@@ -39,6 +42,11 @@ interface QuickAddSheetProps {
   sharedGroups?: { id: string; name: string }[];
   /** Daftar dompet aset user untuk dihubungkan dengan arus kas. */
   accounts?: { id: string; name: string; kind: string; currency: string }[];
+  /** Buat dompet baru langsung dari dropdown Dompet / Sumber Saldo. */
+  onCreateAccount?: (payload: {
+    name: string;
+    kind: AccountKind;
+  }) => Promise<string | undefined>;
   onStateChange: (next: QuickAddState) => void;
   onSubmit: (e: React.FormEvent) => void;
 }
@@ -58,11 +66,40 @@ export function QuickAddSheet({
   editing = false,
   sharedGroups = [],
   accounts = [],
+  onCreateAccount,
   onStateChange,
   onSubmit,
 }: QuickAddSheetProps) {
   const t = useTranslations();
   const tQuickAdd = useTranslations('quickAdd');
+  const [addingWallet, setAddingWallet] = useState(false);
+  const [newWalletName, setNewWalletName] = useState('');
+  const [newWalletKind, setNewWalletKind] = useState<AccountKind>('cash');
+  const [creatingWallet, setCreatingWallet] = useState(false);
+
+  const handleCreateWallet = async () => {
+    const trimmed = newWalletName.trim();
+    if (!trimmed || !onCreateAccount || creatingWallet) return;
+    setCreatingWallet(true);
+    try {
+      const createdId = await onCreateAccount({
+        name: trimmed,
+        kind: newWalletKind,
+      });
+      if (createdId) {
+        onStateChange({ ...state, accountId: createdId });
+      }
+      setNewWalletName('');
+      setAddingWallet(false);
+      toast.success(`Dompet "${trimmed}" ditambahkan & dipilih.`);
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : 'Gagal membuat dompet baru.'
+      );
+    } finally {
+      setCreatingWallet(false);
+    }
+  };
 
   const set = <K extends keyof QuickAddState>(key: K, value: QuickAddState[K]) =>
     onStateChange({ ...state, [key]: value });
@@ -174,19 +211,50 @@ export function QuickAddSheet({
         />
 
         <div className={cn('grid gap-3', sharedGroups.length > 0 ? 'grid-cols-1 sm:grid-cols-2' : 'grid-cols-1')}>
-          <Select
-            label="Dompet / Sumber Saldo"
-            value={state.accountId}
-            onChange={(e) => set('accountId', e.target.value)}
-          >
-            <option value="">Kas Tunai</option>
-            <option value="__non_physical__">Non-Tunai (Bank / E-Wallet)</option>
-            {accounts.map((acc) => (
-              <option key={acc.id} value={acc.id}>
-                {acc.name} ({acc.currency})
-              </option>
-            ))}
-          </Select>
+          <div>
+            <div className="mb-1.5 flex items-center justify-between gap-2">
+              <label
+                htmlFor="quick-add-wallet-select"
+                className="text-[12px] font-medium text-[var(--text-muted)]"
+              >
+                Dompet / Sumber Saldo
+              </label>
+              {onCreateAccount && (
+                <button
+                  type="button"
+                  onClick={() => setAddingWallet((v) => !v)}
+                  className="inline-flex items-center gap-0.5 text-[11px] font-semibold text-[var(--brand)] hover:underline"
+                >
+                  <Plus className="size-3" aria-hidden />
+                  {addingWallet ? 'Tutup' : 'Tambah dompet'}
+                </button>
+              )}
+            </div>
+            <select
+              id="quick-add-wallet-select"
+              name="accountId"
+              value={state.accountId}
+              onChange={(e) => {
+                if (e.target.value === '__create_wallet__') {
+                  setAddingWallet(true);
+                  return;
+                }
+                set('accountId', e.target.value);
+              }}
+              className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+            >
+              <option value="">Kas Tunai</option>
+              <option value="__non_physical__">Non-Tunai (Bank / E-Wallet)</option>
+              {accounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>
+                  {acc.name} ({acc.currency})
+                </option>
+              ))}
+              {onCreateAccount && (
+                <option value="__create_wallet__">+ Tambah dompet baru...</option>
+              )}
+            </select>
+          </div>
 
           {sharedGroups.length > 0 && (
             <Select
@@ -203,6 +271,63 @@ export function QuickAddSheet({
             </Select>
           )}
         </div>
+
+        {/* Form cepat tambah dompet langsung dari dalam modal transaksi */}
+        {addingWallet && onCreateAccount && (
+          <div className="rounded-xl border border-[var(--brand)]/35 bg-[var(--brand-soft)]/30 p-3 space-y-2.5">
+            <p className="text-[11.5px] font-semibold text-[var(--text)]">
+              Tambah Dompet Baru
+            </p>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+              <input
+                id="quick-add-new-wallet-name"
+                name="newWalletName"
+                type="text"
+                value={newWalletName}
+                onChange={(e) => setNewWalletName(e.target.value)}
+                placeholder="Mis. Dompet Tunai, Bank BRI, GoPay"
+                aria-label="Nama dompet baru"
+                className="h-9 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-2.5 text-[12px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none sm:col-span-2"
+              />
+              <select
+                id="quick-add-new-wallet-kind"
+                name="newWalletKind"
+                value={newWalletKind}
+                onChange={(e) => setNewWalletKind(e.target.value as AccountKind)}
+                aria-label="Jenis dompet"
+                className="h-9 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-2 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+              >
+                <option value="cash">Tunai</option>
+                <option value="bank">Bank</option>
+                <option value="ewallet">E-Wallet</option>
+                <option value="crypto">Crypto</option>
+                <option value="other">Lainnya</option>
+              </select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                onClick={() => {
+                  setAddingWallet(false);
+                  setNewWalletName('');
+                }}
+              >
+                Batal
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                loading={creatingWallet}
+                disabled={!newWalletName.trim()}
+                onClick={() => void handleCreateWallet()}
+              >
+                Buat & Pilih
+              </Button>
+            </div>
+          </div>
+        )}
       </form>
     </Modal>
   );

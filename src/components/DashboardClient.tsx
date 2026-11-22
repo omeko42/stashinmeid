@@ -2457,6 +2457,15 @@ export default function DashboardClient({
         editing={Boolean(editingTxId)}
         sharedGroups={!isDemoMode ? kolega.groups.map((g) => ({ id: g.id, name: g.name })) : []}
         accounts={assets.accounts}
+        onCreateAccount={async ({ name, kind }) =>
+          assets.saveAccount({
+            name,
+            kind,
+            institution: null,
+            currency: assets.primaryCurrency || 'IDR',
+            balance: 0,
+          })
+        }
         onStateChange={setQuickAdd}
         onSubmit={handleAddTransaction}
       />
