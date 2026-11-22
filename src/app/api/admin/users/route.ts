@@ -189,6 +189,7 @@ export async function PATCH(req: NextRequest) {
     password,
     membership_tier,
     membership_duration_months,
+    membership_expires_at,
     membership_note,
   } = await req.json();
   if (!userId) {
@@ -219,8 +220,22 @@ export async function PATCH(req: NextRequest) {
       Number.isFinite(membership_duration_months)
         ? Math.max(0, Math.min(120, Math.round(membership_duration_months)))
         : 0;
+    const explicitExp =
+      typeof membership_expires_at === 'string' && membership_expires_at.trim()
+        ? new Date(
+            membership_expires_at.length === 10
+              ? `${membership_expires_at}T23:59:59+07:00`
+              : membership_expires_at
+          )
+        : null;
     const nextExpiresAt =
-      nextTier === 'free' || monthsNum === 0 ? null : addMonthsIso(monthsNum);
+      nextTier === 'free'
+        ? null
+        : explicitExp && !Number.isNaN(explicitExp.getTime())
+          ? explicitExp.toISOString()
+          : monthsNum === 0
+            ? null
+            : addMonthsIso(monthsNum);
     const cleanNote =
       typeof membership_note === 'string' ? membership_note.trim().slice(0, 140) : '';
 

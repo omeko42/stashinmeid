@@ -39,6 +39,7 @@ import {
   UsersTab,
   type CreateUserPayload,
   type ManagedUser,
+  type SaveUserPayload,
 } from '@/components/tabs/UsersTab';
 import { SocialTab, type SocialSub } from '@/components/tabs/SocialTab';
 import { Modal } from '@/components/ui/Modal';
@@ -192,11 +193,6 @@ export default function DashboardClient({
   const [managedUsers, setManagedUsers] = useState<ManagedUser[]>([]);
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
-  const [editingUserId, setEditingUserId] = useState<string | null>(null);
-  const [editUserEmail, setEditUserEmail] = useState('');
-  const [editUserClient, setEditUserClient] = useState('');
-  const [editUserBio, setEditUserBio] = useState('');
-  const [editUserPassword, setEditUserPassword] = useState('');
 
   // Keamanan: PIN & 2FA
   const [appPin, setAppPin] = useState('');
@@ -1324,122 +1320,36 @@ export default function DashboardClient({
     }
   };
 
-  const handleSaveUserEdit = async (userId: string) => {
-    const res = await fetch('/api/admin/users', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId,
-        email: editUserEmail,
-        client_name: editUserClient,
-        bio: editUserBio,
-        ...(editUserPassword.trim().length >= 6
-          ? { password: editUserPassword.trim() }
-          : {}),
-      }),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (res.ok) {
-      setManagedUsers((prev) =>
-        prev.map((u) =>
-          u.id === userId
-            ? {
-                ...u,
-                email: editUserEmail,
-                client_name: editUserClient,
-                bio: editUserBio || null,
-              }
-            : u
-        )
-      );
-      setEditingUserId(null);
-      setEditUserPassword('');
-      toast.success(tUsers('saved'));
-    } else {
-      toast.error(json.error || t('errors.generic'));
-    }
-  };
-
-  const handleChangeUserRole = async (userId: string, role: UserRole) => {
-    const u = managedUsers.find((x) => x.id === userId);
-    const ok = await confirm({
-      title: isEn
-        ? `Change role of ${u?.client_name || 'user'} to ${role.toUpperCase()}?`
-        : `Ubah peran ${u?.client_name || 'pengguna'} menjadi ${role.toUpperCase()}?`,
-      description: isEn
-        ? 'This permission change takes effect immediately and is recorded in the audit log.'
-        : 'Perubahan hak akses langsung berlaku dan tercatat di log audit 2 arah.',
-      audit: {
-        action: 'Ubah Peran Pengguna',
-        category: 'admin',
-        detail: `${u?.client_name || userId} → ${role}`,
-        targetUserId: userId,
-      },
-    });
-    if (!ok) return;
-
-    const res = await fetch('/api/admin/users', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ userId, role }),
-    });
-    const json = await res.json().catch(() => ({}));
-    if (res.ok) {
-      setManagedUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, role } : u)));
-      toast.success(tUsers('saved'));
-    } else {
-      toast.error(json.error || t('errors.generic'));
-    }
-  };
-
-  const handleChangeUserTier = async (
-    userId: string,
-    tier: MembershipTier,
-    opts?: { durationMonths?: number; note?: string }
-  ) => {
-    const u = managedUsers.find((x) => x.id === userId);
-    const months = opts?.durationMonths ?? 0;
-    const note = opts?.note ?? '';
+  const handleSaveUser = async (payload: SaveUserPayload): Promise<boolean> => {
     const durLabel =
-      tier === 'free'
-        ? ''
-        : months > 0
-          ? isEn
-            ? ` for ${months} month(s)`
-            : ` selama ${months} bulan`
-          : isEn
-            ? ' (Permanent)'
-            : ' (Permanen)';
+      payload.membership_tier === 'free'
+        ? 'Gratis'
+        : payload.membership_expires_at
+          ? `${payload.membership_tier.toUpperCase()} s/d ${payload.membership_expires_at}`
+          : payload.membership_duration_months > 0
+            ? `${payload.membership_tier.toUpperCase()} (${payload.membership_duration_months} bln)`
+            : `${payload.membership_tier.toUpperCase()} (Permanen)`;
 
     const ok = await confirm({
       title: isEn
-        ? `Set ${u?.client_name || 'user'} to ${tier.toUpperCase()}${durLabel}?`
-        : `Atur paket ${u?.client_name || 'pengguna'} ke ${tier.toUpperCase()}${durLabel}?`,
-      description: note
-        ? isEn
-          ? `Note: "${note}". Group quota and duration update immediately.`
-          : `Catatan: "${note}". Kuota grup dan masa aktif langsung berlaku.`
-        : isEn
-          ? 'Group quota and subscription duration for this account will update immediately.'
-          : 'Kuota grup dan durasi langganan akun ini akan langsung berlaku.',
+        ? `Save changes for ${payload.client_name || payload.email}?`
+        : `Simpan perubahan untuk ${payload.client_name || payload.email}?`,
+      description: isEn
+        ? `Role: ${payload.role.toUpperCase()} · Plan: ${durLabel}${payload.membership_note ? ` · ${payload.membership_note}` : ''}`
+        : `Peran: ${payload.role.toUpperCase()} · Paket: ${durLabel}${payload.membership_note ? ` · ${payload.membership_note}` : ''}`,
       audit: {
-        action: 'Atur Paket & Durasi Membership',
-        category: 'membership',
-        detail: `${u?.client_name || userId} → ${tier.toUpperCase()}${durLabel}${note ? ` · ${note}` : ''}`,
-        targetUserId: userId,
+        action: 'Ubah Pengguna & Paket Membership',
+        category: 'admin',
+        detail: `${payload.client_name || payload.email} · Role: ${payload.role} · Paket: ${durLabel}${payload.membership_note ? ` · ${payload.membership_note}` : ''}`,
+        targetUserId: payload.userId,
       },
     });
-    if (!ok) return;
+    if (!ok) return false;
 
     const res = await fetch('/api/admin/users', {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId,
-        membership_tier: tier,
-        membership_duration_months: months,
-        membership_note: note,
-      }),
+      body: JSON.stringify(payload),
     });
     const json = await res.json().catch(() => ({}));
     if (res.ok) {
@@ -1455,27 +1365,31 @@ export default function DashboardClient({
           }
         | undefined;
       setManagedUsers((prev) =>
-        prev.map((userRow) =>
-          userRow.id === userId
+        prev.map((u) =>
+          u.id === payload.userId
             ? {
-                ...userRow,
-                membership_tier: m?.effectiveTier ?? tier,
-                membership_stored_tier: m?.storedTier ?? tier,
+                ...u,
+                email: payload.email,
+                client_name: payload.client_name,
+                bio: payload.bio || null,
+                role: payload.role,
+                membership_tier: m?.effectiveTier ?? payload.membership_tier,
+                membership_stored_tier: m?.storedTier ?? payload.membership_tier,
                 membership_expires_at: m?.expiresAt ?? null,
-                membership_duration_months: m?.durationMonths ?? months,
-                membership_note: m?.note ?? (note || null),
+                membership_duration_months:
+                  m?.durationMonths ?? payload.membership_duration_months,
+                membership_note: m?.note ?? (payload.membership_note || null),
                 membership_is_expired: m?.isExpired ?? false,
                 membership_days_left: m?.daysLeft ?? null,
               }
-            : userRow
+            : u
         )
       );
-      toast.success(
-        `Paket ${u?.client_name || 'pengguna'} diatur ke ${tier.toUpperCase()}${durLabel}.`
-      );
-    } else {
-      toast.error(json.error || t('errors.generic'));
+      toast.success(tUsers('saved'));
+      return true;
     }
+    toast.error(json.error || t('errors.generic'));
+    return false;
   };
 
   const handleAdminResetPassword = async (email: string) => {
@@ -2162,35 +2076,11 @@ export default function DashboardClient({
                   users={managedUsers}
                   loading={usersLoading}
                   error={usersError}
-                  editingUserId={editingUserId}
-                  editUserEmail={editUserEmail}
-                  editUserClient={editUserClient}
-                  editUserBio={editUserBio}
-                  editUserPassword={editUserPassword}
                   onRefresh={loadManagedUsers}
-                  onChangeRole={handleChangeUserRole}
-                  onChangeTier={handleChangeUserTier}
+                  onSaveUser={handleSaveUser}
                   onResetPassword={handleAdminResetPassword}
                   onImpersonate={handleImpersonate}
                   onDelete={handleDeleteUser}
-                  onToggleEdit={(u) => {
-                    setEditingUserId(editingUserId === u.id ? null : u.id);
-                    setEditUserEmail(u.email);
-                    setEditUserClient(u.client_name);
-                    setEditUserBio(u.bio || '');
-                    setEditUserPassword('');
-                  }}
-                  onEditFieldChange={(field, value) => {
-                    if (field === 'email') setEditUserEmail(value);
-                    else if (field === 'client_name') setEditUserClient(value);
-                    else if (field === 'bio') setEditUserBio(value);
-                    else if (field === 'password') setEditUserPassword(value);
-                  }}
-                  onSaveEdit={handleSaveUserEdit}
-                  onCancelEdit={() => {
-                    setEditingUserId(null);
-                    setEditUserPassword('');
-                  }}
                   onCreateUser={handleCreateUser}
                 />
               )}
