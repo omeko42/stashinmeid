@@ -40,7 +40,7 @@ interface SidebarProps {
   onToggleCollapse?: () => void;
   unreadNotifications?: number;
   onOpenNotifications: () => void;
-  onOpenKyc: () => void;
+  onOpenKyc?: () => void;
   onOpenSecurity: () => void;
   /** Pengaturan kini dari menu profil pojok kiri bawah, bukan item sidebar. */
   onOpenSettings: () => void;

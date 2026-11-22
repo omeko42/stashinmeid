@@ -162,39 +162,61 @@ export function ProfileTab({
   const milestones = [
     {
       id: 'identity' as const,
-      label: isEn ? 'Account & Email (+30%)' : 'Identitas & Email (+30%)',
+      label: isEn
+        ? onOpenKyc
+          ? 'Account & Email (+30%)'
+          : 'Account & Email (+40%)'
+        : onOpenKyc
+          ? 'Identitas & Email (+30%)'
+          : 'Identitas & Email (+40%)',
       done: identityDone,
       partial: false,
     },
     {
       id: 'bio' as const,
-      label: isEn ? 'Bio & Avatar (+20%)' : 'Bio & Foto Profil (+20%)',
+      label: isEn
+        ? onOpenKyc
+          ? 'Bio & Avatar (+20%)'
+          : 'Bio & Avatar (+30%)'
+        : onOpenKyc
+          ? 'Bio & Foto Profil (+20%)'
+          : 'Bio & Foto Profil (+30%)',
       done: bioMediaDone && Boolean(avatarUrl),
       partial: bioMediaDone && !avatarUrl,
     },
     {
       id: 'security' as const,
-      label: isEn ? 'PIN / 2FA Lock (+20%)' : 'Kunci PIN / 2FA (+20%)',
+      label: isEn
+        ? onOpenKyc
+          ? 'PIN / 2FA Lock (+20%)'
+          : 'PIN / 2FA Lock (+30%)'
+        : onOpenKyc
+          ? 'Kunci PIN / 2FA (+20%)'
+          : 'Kunci PIN / 2FA (+30%)',
       done: appPinSet,
       partial: false,
     },
-    {
-      id: 'kyc' as const,
-      label:
-        kycStatus === 'verified'
-          ? isEn
-            ? 'e-KYC Verified (+30%)'
-            : 'e-KYC Terverifikasi (+30%)'
-          : kycStatus === 'pending'
-            ? isEn
-              ? 'e-KYC Pending (+15%)'
-              : 'e-KYC Menunggu (+15%)'
-            : isEn
-              ? 'Verify e-KYC (+30%)'
-              : 'Verifikasi e-KYC (+30%)',
-      done: kycDone,
-      partial: kycStatus === 'pending',
-    },
+    ...(onOpenKyc
+      ? [
+          {
+            id: 'kyc' as const,
+            label:
+              kycStatus === 'verified'
+                ? isEn
+                  ? 'e-KYC Verified (+30%)'
+                  : 'e-KYC Terverifikasi (+30%)'
+                : kycStatus === 'pending'
+                  ? isEn
+                    ? 'e-KYC Pending (+15%)'
+                    : 'e-KYC Menunggu (+15%)'
+                  : isEn
+                    ? 'Verify e-KYC (+30%)'
+                    : 'Verifikasi e-KYC (+30%)',
+            done: kycDone,
+            partial: kycStatus === 'pending',
+          },
+        ]
+      : []),
   ];
 
   return (

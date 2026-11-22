@@ -437,46 +437,46 @@ export function SettingsTab({
                 </div>
               </SettingRow>
 
-              {/* Baris Verifikasi e-KYC Pihak Ketiga — Terhubung Langsung */}
-              <SettingRow
-                icon={<FileBadge className="size-4" />}
-                title={isEn ? 'Third-Party e-KYC Verification' : 'Verifikasi Identitas (e-KYC)'}
-                caption={
-                  isEn
-                    ? `Identity verification status · Completeness score: ${profileCompleteness}%`
-                    : `Verifikasi identitas pihak ketiga · Skor kelengkapan akun: ${profileCompleteness}%`
-                }
-              >
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                      kycStatus === 'verified'
-                        ? 'bg-[var(--in-soft)] text-[var(--in)]'
-                        : kycStatus === 'pending'
-                          ? 'bg-[var(--due-soft)] text-[var(--due)]'
-                          : 'bg-[var(--surface-2)] text-[var(--text-muted)]'
-                    }`}
-                  >
-                    {kycStatus === 'verified' && <BadgeCheck className="size-3" />}
-                    {kycStatus === 'verified'
-                      ? isEn
-                        ? 'Verified'
-                        : 'Terverifikasi'
-                      : kycStatus === 'pending'
+              {/* Baris Verifikasi e-KYC Pihak Ketiga — hanya tampil jika e-KYC diaktifkan */}
+              {onOpenKyc && (
+                <SettingRow
+                  icon={<FileBadge className="size-4" />}
+                  title={isEn ? 'Third-Party e-KYC Verification' : 'Verifikasi Identitas (e-KYC)'}
+                  caption={
+                    isEn
+                      ? `Identity verification status · Completeness score: ${profileCompleteness}%`
+                      : `Verifikasi identitas pihak ketiga · Skor kelengkapan akun: ${profileCompleteness}%`
+                  }
+                >
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                        kycStatus === 'verified'
+                          ? 'bg-[var(--in-soft)] text-[var(--in)]'
+                          : kycStatus === 'pending'
+                            ? 'bg-[var(--due-soft)] text-[var(--due)]'
+                            : 'bg-[var(--surface-2)] text-[var(--text-muted)]'
+                      }`}
+                    >
+                      {kycStatus === 'verified' && <BadgeCheck className="size-3" />}
+                      {kycStatus === 'verified'
                         ? isEn
-                          ? 'Pending'
-                          : 'Menunggu'
-                        : isEn
-                          ? 'Unverified'
-                          : 'Belum Verifikasi'}
-                  </span>
-                  {onOpenKyc && (
+                          ? 'Verified'
+                          : 'Terverifikasi'
+                        : kycStatus === 'pending'
+                          ? isEn
+                            ? 'Pending'
+                            : 'Menunggu'
+                          : isEn
+                            ? 'Unverified'
+                            : 'Belum Verifikasi'}
+                    </span>
                     <Button size="sm" variant="secondary" onClick={onOpenKyc}>
                       {isEn ? 'Open e-KYC' : 'Buka e-KYC'}
                     </Button>
-                  )}
-                </div>
-              </SettingRow>
+                  </div>
+                </SettingRow>
+              )}
 
               {/* Baris Profil & Workspace — Terhubung Langsung */}
               {onOpenProfile && (

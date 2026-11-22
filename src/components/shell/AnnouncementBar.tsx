@@ -7,12 +7,9 @@ import { useTranslations } from 'next-intl';
 /**
  * Pita pengumuman & pengingat nyata (tanpa teks dummy!).
  *
- * Hanya muncul jika:
- * 1. Admin menerbitkan pengumuman resmi aktif di Pengaturan (Mode Admin) → Pita Pengumuman, ATAU
- * 2. Ada pengingat keuangan / aktivitas nyata (`liveAlerts`, mis. undangan grup masuk,
- *    cicilan jatuh tempo dalam 7 hari, atau kategori anggaran melampaui batas).
- *
- * Jika tidak ada pengumuman resmi maupun pengingat aktif, pita otomatis disembunyikan.
+ * Menampilkan pengumuman resmi Admin dan pengingat aktivitas nyata
+ * (pesan obrolan masuk, permintaan kolega, undangan grup, cicilan jatuh tempo)
+ * dengan jarak antar-item lega dan kecepatan gulir santai.
  */
 export function AnnouncementBar({
   liveAlerts = [],
@@ -71,11 +68,14 @@ export function AnnouncementBar({
     ...(adminText ? [adminText] : []),
     ...liveAlerts,
   ];
-  const combinedText = segments.length > 0 ? segments.join('   •   ') : null;
 
-  if (!loaded || !combinedText || hidden) return null;
+  if (!loaded || segments.length === 0 || hidden) return null;
 
-  const trackItems = [0, 1, 2, 3, 4, 5];
+  // Ulangi daftar secukupnya agar loop marquee selalu mulus tanpa ruang kosong
+  const repeatedSegments =
+    segments.length >= 3
+      ? [...segments, ...segments]
+      : [...segments, ...segments, ...segments, ...segments];
 
   return (
     <div
@@ -92,19 +92,21 @@ export function AnnouncementBar({
           <div
             key={groupIdx}
             aria-hidden={groupIdx === 1 ? true : undefined}
-            className="flex shrink-0 items-center gap-6 pr-6"
+            className="flex shrink-0 items-center"
           >
-            {trackItems.map((itemIdx) => (
+            {repeatedSegments.map((text, itemIdx) => (
               <span
-                key={itemIdx}
-                aria-hidden={groupIdx === 1 || itemIdx > 0 ? true : undefined}
-                className="inline-flex shrink-0 items-center gap-2 whitespace-nowrap"
+                key={`${groupIdx}-${itemIdx}`}
+                aria-hidden={groupIdx === 1 || itemIdx >= segments.length ? true : undefined}
+                className="inline-flex shrink-0 items-center whitespace-nowrap"
               >
-                <Megaphone className="size-3 shrink-0" aria-hidden />
-                <span>{combinedText}</span>
+                <span className="inline-flex items-center gap-2">
+                  <Megaphone className="size-3 shrink-0" aria-hidden />
+                  <span>{text}</span>
+                </span>
                 <span
                   aria-hidden
-                  className="ml-4 text-[10px] text-[var(--brand)]/50"
+                  className="mx-8 text-[11px] text-[var(--brand)]/45 select-none"
                 >
                   •
                 </span>

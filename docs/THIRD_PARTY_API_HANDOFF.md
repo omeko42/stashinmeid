@@ -84,5 +84,5 @@ Masuk ke **Pengaturan → Koneksi API → AI Struk & Notifikasi**:
 ## Checklist Cepat Saat Mau Go-Live Berbayar
 1. Pilih gateway pembayaran (Midtrans / Xendit untuk IDR atau Stripe untuk USD).
 2. Tempel API Key & aktifkan di **Pengaturan → Koneksi API → Pembayaran**.
-3. Daftarkan Webhook URL `https://stashinmeid.vercel.app/api/membership/webhook` di dashboard payment gateway.
+3. Daftarkan Webhook URL `https://stashinme.biz.id/api/membership/webhook` di dashboard payment gateway.
 4. Uji 1 kali di mode **Sandbox** (pastikan notifikasi & paket otomatis aktif), lalu ubah Mode ke **Production (Live)**.

@@ -198,7 +198,7 @@ html[data-theme] body {
 }
 
 .ann-marquee {
-  animation: ann-marquee 60s linear infinite;
+  animation: ann-marquee 115s linear infinite;
 }
 
 .ann-marquee:hover {

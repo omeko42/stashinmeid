@@ -13,7 +13,7 @@ interface MobileHeaderProps {
   unreadNotifications?: number;
   onProfile: () => void;
   onOpenNotifications: () => void;
-  onOpenKyc: () => void;
+  onOpenKyc?: () => void;
   onOpenSecurity: () => void;
   onOpenSettings: () => void;
   onUsers: () => void;

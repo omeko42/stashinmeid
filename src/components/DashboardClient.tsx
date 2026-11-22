@@ -510,22 +510,19 @@ export default function DashboardClient({
     [budgets.budgets, scopedTransactions]
   );
 
-  // Skor Kelengkapan Akun, Keamanan & e-KYC Terpadu (0 - 100%)
-  // Dipakai bersama oleh ProfileTab, KycModal, dan SettingsTab agar angkanya selalu 100% konsisten.
+  // Skor Kelengkapan Akun & Keamanan Terpadu (0 - 100%)
+  // e-KYC saat ini dinonaktifkan untuk user umum sampai fitur simpan saldo Stash hadir.
   const profileCompleteness = useMemo(() => {
     let score = 0;
-    // 1. Identitas & Email (30%)
-    if (profileClient) score += 10;
+    // 1. Identitas & Email (40%)
+    if (profileClient) score += 15;
     if (profileUsername) score += 10;
-    if (profileEmail && profileEmail.includes('@')) score += 10;
-    // 2. Bio & Foto Profil (20%)
-    if (profileBio && profileBio.trim().length >= 5) score += 10;
-    if (profileAvatarUrl) score += 10;
-    // 3. Keamanan PIN / 2FA (20%)
-    if (appPin || mfaQr) score += 20;
-    // 4. Verifikasi e-KYC Pihak Ketiga (30%)
-    if (kycStatus === 'verified') score += 30;
-    else if (kycStatus === 'pending') score += 15;
+    if (profileEmail && profileEmail.includes('@')) score += 15;
+    // 2. Bio & Foto Profil (30%)
+    if (profileBio && profileBio.trim().length >= 5) score += 15;
+    if (profileAvatarUrl) score += 15;
+    // 3. Keamanan PIN / 2FA (30%)
+    if (appPin || mfaQr) score += 30;
     return Math.min(100, score);
   }, [
     profileClient,
@@ -535,7 +532,6 @@ export default function DashboardClient({
     profileAvatarUrl,
     appPin,
     mfaQr,
-    kycStatus,
   ]);
 
   // Pengingat keuangan & pesan masuk nyata untuk AnnouncementBar (tanpa teks dummy!)
@@ -1848,7 +1844,7 @@ export default function DashboardClient({
         onToggleCollapse={handleToggleSidebarCollapse}
         unreadNotifications={notifications.unreadCount}
         onOpenNotifications={() => setNotificationsOpen(true)}
-        onOpenKyc={() => setKycOpen(true)}
+        onOpenKyc={undefined}
         onOpenSecurity={openSecurityPage}
         onOpenSettings={() => navigate('settings')}
         onLogout={handleLogout}
@@ -1872,7 +1868,7 @@ export default function DashboardClient({
           unreadNotifications={notifications.unreadCount}
           onOpenNotifications={() => setNotificationsOpen(true)}
           onProfile={() => navigate('profile')}
-          onOpenKyc={() => setKycOpen(true)}
+          onOpenKyc={undefined}
           onOpenSecurity={openSecurityPage}
           onOpenSettings={() => navigate('settings')}
           onUsers={() => navigate('users')}
@@ -2316,7 +2312,7 @@ export default function DashboardClient({
                   kycStatus={kycStatus}
                   profileCompleteness={profileCompleteness}
                   onOpenSecurity={openSecurityPage}
-                  onOpenKyc={() => setKycOpen(true)}
+                  onOpenKyc={undefined}
                   onOpenProfile={() => navigate('profile')}
                   onOpenUsers={() => navigate('users')}
                   onBackToMain={() => navigate('overview')}
@@ -2360,7 +2356,7 @@ export default function DashboardClient({
                   canEdit={canEdit}
                   onEditProfile={openEditProfile}
                   onOpenSecurity={openSecurityPage}
-                  onOpenKyc={() => setKycOpen(true)}
+                  onOpenKyc={undefined}
                   onOpenSettings={() => navigate('settings')}
                   onProfileMediaChange={(avatar, banner) => {
                     if (avatar !== undefined) setProfileAvatarUrl(avatar);
