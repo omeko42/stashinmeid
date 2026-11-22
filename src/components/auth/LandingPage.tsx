@@ -1644,7 +1644,7 @@ export function LandingPage({
           </AnimatePresence>
         </motion.section>
 
-        {/* Minimalist Release Rail: v3.0 Live + Next TBA */}
+        {/* Minimalist Release Rail: v1.0 Live + Next TBA */}
         <motion.section
           initial={{ opacity: 0, y: 14 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -1655,7 +1655,7 @@ export function LandingPage({
           <div className="flex items-center justify-between gap-4 rounded-3xl border border-emerald-500/25 bg-emerald-500/[0.04] px-6 py-4">
             <div>
               <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400">
-                v3.0 · LIVE
+                v1.0 · LIVE
               </span>
               <p className="mt-0.5 text-[13px] font-medium text-zinc-200">
                 {isEn
@@ -1825,7 +1825,7 @@ export function LandingPage({
               >
                 {isEn ? 'Terms of Service' : 'Syarat & Ketentuan'}
               </Link>
-              <span>· v3.0 · Built in Indonesia</span>
+              <span>· v1.0 · Built in Indonesia</span>
             </div>
           </div>
         </div>
