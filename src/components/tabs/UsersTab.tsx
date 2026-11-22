@@ -319,8 +319,8 @@ export function UsersTab({
       <Modal
         open={createOpen}
         onClose={() => setCreateOpen(false)}
-        title="Tambah Pengguna Baru"
-        description="Daftarkan akun pengguna atau rekan tim secara manual. Akun langsung aktif tanpa perlu verifikasi email."
+        title="Tambah Pengguna"
+        description="Akun baru langsung aktif tanpa konfirmasi email."
         size="md"
         footer={
           <>
@@ -440,8 +440,8 @@ export function UsersTab({
       <Modal
         open={editingUserId !== null}
         onClose={onCancelEdit}
-        title={`Ubah Data Pengguna: ${editUserClient || editUserEmail}`}
-        description="Perbarui identitas workspace, alamat email login, bio, atau atur ulang password secara langsung."
+        title={`Edit: ${editUserClient || editUserEmail}`}
+        description="Ubah profil atau setel ulang password pengguna."
         size="md"
         footer={
           <>

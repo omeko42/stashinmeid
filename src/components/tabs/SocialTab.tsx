@@ -19,7 +19,6 @@ import {
   Plus,
   Search,
   Send,
-  Sparkles,
   TrendingUp,
   UserCheck,
   UserPlus,
@@ -80,65 +79,60 @@ const FINANCE_NEWS: FinanceNewsItem[] = [
   {
     id: 'bi-rate-2026',
     region: 'lokal',
-    regionLabel: 'Lokal · Indonesia',
-    title: 'Bank Indonesia Pertahankan Suku Bunga Acuan & Stabilitas Likuiditas Rupiah',
+    regionLabel: 'Indonesia',
+    title: 'BI Tahan Suku Bunga Acuan di 6,00%, Likuiditas Rupiah Terjaga',
     summary:
-      'Rapat Dewan Gubernur BI mempertahankan suku bunga acuan untuk menjaga stabilitas nilai tukar Rupiah di tengah dinamika pasar global serta mendorong penyaluran kredit modal kerja UMKM dan korporasi.',
-    impact:
-      'Bunga KPR dan kredit modal kerja cenderung stabil. Prioritaskan pelunasan pinjaman berbunga tinggi (PayLater/konsumtif) sebelum menambah fasilitas kredit baru.',
-    source: 'Macro Desk Indonesia',
-    publishedAt: 'Hari ini · 10:15 WIB',
+      'Suku bunga KPR dan kredit usaha tetap stabil; fokuskan arus kas pada pelunasan cicilan berbunga tinggi lebih dulu.',
+    impact: 'Bunga kredit stabil — prioritaskan cicilan berbunga tinggi.',
+    source: 'Macro Desk ID',
+    publishedAt: '10:15 WIB',
     sentiment: 'positif',
   },
   {
     id: 'fed-global-outlook',
     region: 'global',
-    regionLabel: 'Global · AS & Eropa',
-    title: 'The Fed Isyaratkan Pelonggaran Bertahap, Arus Modal Masuk ke Emerging Markets Meningkat',
+    regionLabel: 'Global',
+    title: 'The Fed Buka Ruang Pelonggaran, Dana Asing Masuk ke Pasar Asia',
     summary:
-      'Penurunan inflasi inti di Amerika Serikat membuka ruang pelonggaran moneter lebih lanjut. Obligasi dan pasar saham Asia Tenggara termasuk Indonesia mencatat arus masuk bersih (net inflow).',
-    impact:
-      'Peluang bagus untuk memperbesar porsi tabungan investasi jangka menengah setelah dana darurat 6x pengeluaran bulanan terpenuhi.',
-    source: 'Global Markets Wire',
-    publishedAt: 'Hari ini · 08:40 WIB',
+      'Inflasi inti AS yang melandai mendorong arus modal bersih masuk ke obligasi dan saham Asia Tenggara.',
+    impact: 'Momentum bagus untuk menambah porsi investasi jangka menengah.',
+    source: 'Global Markets',
+    publishedAt: '08:40 WIB',
     sentiment: 'positif',
   },
   {
     id: 'corp-family-separation',
     region: 'strategi',
-    regionLabel: 'Strategi Kas & Bisnis',
-    title: 'Mengapa Utang & Kas Perusahaan Tidak Boleh Tercampur dengan Rekening Keluarga',
+    regionLabel: 'Kas & Bisnis',
+    title: 'Memisahkan Cicilan Operasional Usaha dari Rekening Rumah Tangga',
     summary:
-      'Banyak pelaku usaha mengalami kebocoran arus kas karena mencampur cicilan operasional bisnis dengan pengeluaran rumah tangga. Pemisahan pembukuan grup secara tegas meningkatkan akurasi rasio utang (DSR).',
-    impact:
-      'Gunakan fitur Grup Kolega terpisah (mis. Grup Keluarga vs Grup Perusahaan) di stashinmeid agar laporan arus kas dan kewajiban cicilan tidak saling mengganggu.',
-    source: 'Stashinmeid Research',
-    publishedAt: 'Kemarin · 19:20 WIB',
+      'Pencampuran kas pribadi dan bisnis membuat rasio utang sulit dibaca. Pisahkan lewat ruang grup berbeda.',
+    impact: 'Pisahkan pembukuan Grup Keluarga vs Grup Perusahaan.',
+    source: 'Catatan Kas',
+    publishedAt: 'Kemarin',
     sentiment: 'netral',
   },
   {
     id: 'crypto-fx-volatility',
     region: 'crypto',
-    regionLabel: 'Kripto & Valas',
-    title: 'Dominasi Stablecoin (USDT/USDC) & Diversifikasi Dompet Multi-Mata Uang',
+    regionLabel: 'Crypto & Valas',
+    title: 'Penggunaan Stablecoin & Rekening Valas untuk Lindung Nilai Kurs',
     summary:
-      'Penggunaan dompet valas (USD, SGD) dan stablecoin untuk lindung nilai (hedging) terhadap fluktuasi kurs meningkat di kalangan pekerja remote dan eksportir jasa digital.',
-    impact:
-      'Catat dompet valas dan crypto secara terpisah di menu Saldo > Aset dengan sinkronisasi kurs ECB & CoinGecko otomatis.',
-    source: 'Digital Asset Insight',
-    publishedAt: 'Kemarin · 14:05 WIB',
+      'Pekerja remote dan eksportir jasa makin rutin menyimpan sebagian kas di USD, SGD, dan USDT.',
+    impact: 'Pantau dompet valas & crypto dengan kurs otomatis.',
+    source: 'Digital Asset',
+    publishedAt: 'Kemarin',
     sentiment: 'netral',
   },
   {
     id: 'paylater-alert-id',
     region: 'lokal',
-    regionLabel: 'Lokal · OJK & Konsumen',
-    title: 'OJK Ingatkan Batas Aman Rasio Cicilan Maksimal 30% dari Penghasilan Bulanan',
+    regionLabel: 'OJK · Konsumen',
+    title: 'Batas Aman Rasio Cicilan Bulanan Maksimal 30% dari Pemasukan',
     summary:
-      'Pertumbuhan transaksi PayLater dan pinjaman daring menuntut disiplin pencatatan jatuh tempo agar skor kredit SLIK tetap bersih dan terhindar dari denda keterlambatan.',
-    impact:
-      'Pantau kartu Jatuh Tempo Terdekat di Ringkasan dan gunakan Simulator Pelunasan di menu Pinjaman untuk memangkas beban bulanan.',
-    source: 'Literasi Finansial ID',
+      'Disiplin mencatat jatuh tempo PayLater dan pinjaman daring menjaga skor SLIK tetap bersih.',
+    impact: 'Cek jatuh tempo terdekat & simulasi pelunasan di menu Pinjaman.',
+    source: 'Literasi ID',
     publishedAt: '2 hari lalu',
     sentiment: 'waspada',
   },
@@ -420,17 +414,17 @@ export function SocialTab({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <h2 className="text-[18px] font-semibold text-[var(--text)]">
-              Hub Sosial & Kolaborasi Keuangan
+              Sosial
             </h2>
             {selectedGroup && (
               <span className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--brand)]">
                 <Users className="size-3" aria-hidden />
-                Grup Aktif: {selectedGroup.name}
+                {selectedGroup.name}
               </span>
             )}
           </div>
           <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
-            Kelola kas & pinjaman grup terpisah, obrolan cepat antar kolega, feed global, dan berita finansial.
+            Kolega, obrolan cepat, feed, dan berita pasar.
           </p>
         </div>
 
@@ -561,8 +555,8 @@ export function SocialTab({
                   type="text"
                   value={fastChatText}
                   onChange={(e) => setFastChatText(e.target.value)}
-                  placeholder="Ketik pesan cepat ke kolega tanpa pindah halaman..."
-                  aria-label="Ketik pesan cepat ke kolega"
+                  placeholder="Tulis pesan cepat..."
+                  aria-label="Tulis pesan cepat ke kolega"
                   className="h-9 min-w-0 flex-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
                 />
 
@@ -574,7 +568,7 @@ export function SocialTab({
                     disabled={!fastChatText.trim()}
                     icon={<Send className="size-3.5" />}
                   >
-                    Kirim Cepat
+                    Kirim
                   </Button>
                   <Button
                     type="button"
@@ -586,7 +580,7 @@ export function SocialTab({
                       else onSubChange('chat');
                     }}
                   >
-                    Buka Ruang Chat
+                    Buka Chat
                   </Button>
                 </div>
               </>
@@ -604,11 +598,11 @@ export function SocialTab({
           <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
             <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
               <div className="space-y-1.5">
-                <Label>Pilih Ruang Grup Kolega (Terpisah dari Kas & Utang Pribadi)</Label>
+                <Label>Grup Kolega</Label>
                 <div className="flex flex-wrap items-center gap-2">
                   {kolega.groups.length === 0 ? (
                     <span className="text-[12px] text-[var(--text-muted)]">
-                      Belum ada grup keuangan. Buat grup di sebelah kanan untuk mulai memisahkan kas keluarga / perusahaan.
+                      Belum ada grup. Buat grup baru di kanan.
                     </span>
                   ) : (
                     kolega.groups.map((g) => {
@@ -682,7 +676,7 @@ export function SocialTab({
                         <Amount value={formatRp(groupMetrics.balance)} size="xl" />
                       </div>
                       <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-                        Saldo bersih khusus ruang grup <strong>{selectedGroup.name}</strong> (tidak tercampur dengan saldo pribadi atau grup lain).
+                        Saldo bersih ruang <strong>{selectedGroup.name}</strong>
                       </p>
                     </div>
 
@@ -1118,10 +1112,10 @@ export function SocialTab({
             <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <h3 className="text-[15px] font-semibold text-[var(--text)]">
-                  Find My Colleague · Direktori Pengguna Global
+                  Find My Colleague
                 </h3>
                 <p className="text-[12px] text-[var(--text-muted)]">
-                  Cari rekan kerja, anggota keluarga, atau partner bisnis berdasarkan nama, username, atau email.
+                  Cari berdasarkan nama, @username, atau email.
                 </p>
               </div>
               <div className="relative sm:w-80">
@@ -1376,16 +1370,6 @@ export function SocialTab({
                   <p className="text-[12px] leading-relaxed text-[var(--text-muted)]">
                     {item.summary}
                   </p>
-
-                  <div className="rounded-lg border border-[var(--brand)]/25 bg-[var(--brand-soft)]/50 p-2.5">
-                    <p className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--brand)]">
-                      <Sparkles className="size-3.5 shrink-0" aria-hidden />
-                      Dampak & Rekomendasi Keuangan:
-                    </p>
-                    <p className="mt-0.5 text-[11px] leading-relaxed text-[var(--text)]">
-                      {item.impact}
-                    </p>
-                  </div>
                 </div>
 
                 <div className="flex items-center justify-between gap-2 border-t border-[var(--line)] pt-2.5 text-[11px] text-[var(--text-faint)]">
@@ -1396,14 +1380,14 @@ export function SocialTab({
                     type="button"
                     onClick={() => {
                       setFeedPrefill(
-                        `[Diskusi Berita: ${item.title}]\n${item.impact}\n\nBagaimana menurut kalian?`
+                        `[${item.title}]\n${item.impact}\n\nPendapat kalian?`
                       );
                       setFeedAutoFocus(true);
                       onSubChange('feed');
                     }}
                     className="font-semibold text-[var(--brand)] hover:underline"
                   >
-                    Diskusikan di Feed →
+                    Diskusikan →
                   </button>
                 </div>
               </article>

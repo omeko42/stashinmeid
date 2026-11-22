@@ -10,13 +10,11 @@ import {
   ArrowUpRight,
   Bitcoin,
   Building2,
-  Check,
   KeyRound,
   Loader2,
   Lock,
   MessageSquare,
   Plug,
-  Wallet,
   X,
 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
@@ -31,58 +29,76 @@ interface LandingPageProps {
 }
 
 const MARKET_STRIP = [
-  { sym: 'BTC', price: 'Rp 1.542,8 Jt', delta: '+3,4%', up: true },
-  { sym: 'ETH', price: 'Rp 49,3 Jt', delta: '+2,1%', up: true },
-  { sym: 'SOL', price: 'Rp 3,42 Jt', delta: '+5,8%', up: true },
-  { sym: 'USDT', price: 'Rp 15.870', delta: '+0,1%', up: true },
-  { sym: 'USD', price: 'Rp 15.865', delta: '-0,1%', up: false },
-  { sym: 'IHSG', price: '7.284,5', delta: '+0,6%', up: true },
+  { sym: 'BTC', price: '1,54 M', delta: '+3,4%', up: true },
+  { sym: 'ETH', price: '49,3 Jt', delta: '+2,1%', up: true },
+  { sym: 'SOL', price: '3,42 Jt', delta: '+5,8%', up: true },
+  { sym: 'USDT', price: '15.870', delta: '+0,1%', up: true },
+  { sym: 'USD', price: '15.865', delta: '-0,1%', up: false },
+  { sym: 'IHSG', price: '7.284', delta: '+0,6%', up: true },
 ];
 
 const DEMO_SCOPES = {
   personal: {
     label: 'Pribadi',
-    tag: 'Kas & Bank Utama',
     balance: 'Rp 48.500.000',
-    inflow: '+Rp 18.200.000',
-    outflow: '-Rp 6.450.000',
-    debtLabel: 'Cicilan KPR · Jatuh tempo tgl 25',
-    debtAmount: 'Rp 3.200.000/bln',
-    bars: [38, 52, 44, 68, 61, 82, 94],
+    inflow: '+18,2 Jt',
+    outflow: '-6,4 Jt',
+    debtLabel: 'KPR · Tgl 25',
+    debtAmount: 'Rp 3,2 Jt/bln',
+    bars: [
+      { m: 'Mei', h: 36, val: 'Rp 24,1 Jt' },
+      { m: 'Jun', h: 48, val: 'Rp 29,4 Jt' },
+      { m: 'Jul', h: 42, val: 'Rp 27,8 Jt' },
+      { m: 'Agu', h: 64, val: 'Rp 35,2 Jt' },
+      { m: 'Sep', h: 58, val: 'Rp 33,9 Jt' },
+      { m: 'Okt', h: 78, val: 'Rp 42,6 Jt' },
+      { m: 'Nov', h: 94, val: 'Rp 48,5 Jt' },
+    ],
   },
   company: {
     label: 'PT Nusantara',
-    tag: 'Grup Operasional Tim',
     balance: 'Rp 325.400.000',
-    inflow: '+Rp 142.000.000',
-    outflow: '-Rp 54.800.000',
-    debtLabel: 'Invoice Vendor Server · Tempo tgl 15',
-    debtAmount: 'Rp 18.500.000/bln',
-    bars: [55, 64, 78, 70, 88, 92, 100],
+    inflow: '+142,0 Jt',
+    outflow: '-54,8 Jt',
+    debtLabel: 'Vendor Server · Tgl 15',
+    debtAmount: 'Rp 18,5 Jt/bln',
+    bars: [
+      { m: 'Mei', h: 50, val: 'Rp 190 Jt' },
+      { m: 'Jun', h: 62, val: 'Rp 218 Jt' },
+      { m: 'Jul', h: 74, val: 'Rp 245 Jt' },
+      { m: 'Agu', h: 68, val: 'Rp 232 Jt' },
+      { m: 'Sep', h: 84, val: 'Rp 280 Jt' },
+      { m: 'Okt', h: 90, val: 'Rp 304 Jt' },
+      { m: 'Nov', h: 100, val: 'Rp 325 Jt' },
+    ],
   },
   family: {
     label: 'Keluarga',
-    tag: 'Kas Rumah Tangga',
     balance: 'Rp 22.750.000',
-    inflow: '+Rp 12.000.000',
-    outflow: '-Rp 4.150.000',
-    debtLabel: 'Semua pinjaman lunas',
+    inflow: '+12,0 Jt',
+    outflow: '-4,1 Jt',
+    debtLabel: 'Tanpa pinjaman aktif',
     debtAmount: 'Rp 0',
-    bars: [42, 48, 50, 62, 58, 72, 79],
+    bars: [
+      { m: 'Mei', h: 40, val: 'Rp 12,4 Jt' },
+      { m: 'Jun', h: 46, val: 'Rp 14,1 Jt' },
+      { m: 'Jul', h: 50, val: 'Rp 15,8 Jt' },
+      { m: 'Agu', h: 62, val: 'Rp 17,9 Jt' },
+      { m: 'Sep', h: 58, val: 'Rp 17,2 Jt' },
+      { m: 'Okt', h: 72, val: 'Rp 20,4 Jt' },
+      { m: 'Nov', h: 82, val: 'Rp 22,7 Jt' },
+    ],
   },
 } as const;
 
 type DemoScopeKey = keyof typeof DEMO_SCOPES;
 
-const CRYPTO_HOLDINGS = [
-  { code: 'BTC', name: 'Bitcoin', amount: '0,085 BTC', idr: 'Rp 131.142.000', pct: 58 },
-  { code: 'USDT', name: 'Tether USD', amount: '3.200 USDT', idr: 'Rp 50.784.000', pct: 24 },
-  { code: 'USD', name: 'US Dollar Cash', amount: '$2.450', idr: 'Rp 38.869.000', pct: 18 },
+const ASSETS_SAMPLE = [
+  { code: 'BTC', amount: '0,085 BTC', idr: 'Rp 131,1 Jt', pct: 58 },
+  { code: 'USDT', amount: '3.200 USDT', idr: 'Rp 50,7 Jt', pct: 24 },
+  { code: 'USD', amount: '$2.450', idr: 'Rp 38,8 Jt', pct: 18 },
 ];
 
-/**
- * Kartu Bento dengan efek pantulan cahaya kursor (spotlight) yang halus.
- */
 function SpotlightCard({
   children,
   className = '',
@@ -99,14 +115,14 @@ function SpotlightCard({
   return (
     <div
       onMouseMove={handleMouseMove}
-      className={`group relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0e1318]/90 transition-colors duration-300 hover:border-emerald-500/35 ${className}`}
+      className={`group relative overflow-hidden rounded-3xl border border-white/[0.08] bg-[#0f1419]/90 transition-colors duration-300 hover:border-emerald-500/35 ${className}`}
     >
       <div
         aria-hidden
         className="pointer-events-none absolute -inset-px opacity-0 transition-opacity duration-300 group-hover:opacity-100"
         style={{
           background:
-            'radial-gradient(480px circle at var(--mx, 50%) var(--my, 50%), rgba(34, 197, 139, 0.09), transparent 40%)',
+            'radial-gradient(420px circle at var(--mx, 50%) var(--my, 50%), rgba(34, 197, 139, 0.085), transparent 45%)',
         }}
       />
       <div className="relative z-10 h-full">{children}</div>
@@ -123,7 +139,8 @@ export function LandingPage({
 
   const [authModalOpen, setAuthModalOpen] = useState(defaultModalOpen);
   const [demoScope, setDemoScope] = useState<DemoScopeKey>('personal');
-  const [activeApiToggle, setActiveApiToggle] = useState<Record<string, boolean>>({
+  const [hoveredBarIdx, setHoveredBarIdx] = useState<number | null>(null);
+  const [apiSwitches, setApiSwitches] = useState<Record<string, boolean>>({
     payment: true,
     kyc: true,
     news: true,
@@ -182,10 +199,7 @@ export function LandingPage({
       !/[A-Za-z]/.test(password) ||
       !/[0-9]/.test(password)
     ) {
-      setMessage({
-        type: 'error',
-        text: t('auth.passwordWeak'),
-      });
+      setMessage({ type: 'error', text: t('auth.passwordWeak') });
       return;
     }
 
@@ -235,7 +249,7 @@ export function LandingPage({
     if (!supabase) {
       setMessage({
         type: 'error',
-        text: 'Supabase belum dikonfigurasi di environment ini.',
+        text: 'Supabase belum dikonfigurasi.',
       });
       setLoading(false);
       return;
@@ -264,7 +278,7 @@ export function LandingPage({
       } else {
         setMessage({
           type: 'success',
-          text: 'Akun berhasil dibuat! Cek email untuk verifikasi atau langsung masuk.',
+          text: 'Akun dibuat. Cek email untuk verifikasi atau langsung masuk.',
         });
         setIsSignUp(false);
         setSignUpStep(1);
@@ -297,15 +311,12 @@ export function LandingPage({
     if (!email || !email.includes('@')) {
       setMessage({
         type: 'error',
-        text: 'Masukkan alamat email akunmu dulu, lalu klik Lupa Password.',
+        text: 'Isi email dulu, lalu klik Lupa Password.',
       });
       return;
     }
     const supabase = createClient();
-    if (!supabase) {
-      setMessage({ type: 'error', text: 'Supabase belum dikonfigurasi.' });
-      return;
-    }
+    if (!supabase) return;
     setLoading(true);
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${window.location.origin}/reset-password`,
@@ -315,7 +326,7 @@ export function LandingPage({
     } else {
       setMessage({
         type: 'success',
-        text: `Link reset password telah dikirim ke ${email}.`,
+        text: `Link reset dikirim ke ${email}.`,
       });
     }
     setLoading(false);
@@ -327,10 +338,7 @@ export function LandingPage({
       return;
     }
     const supabase = createClient();
-    if (!supabase) {
-      setMessage({ type: 'error', text: 'Supabase belum dikonfigurasi.' });
-      return;
-    }
+    if (!supabase) return;
 
     setLoading(true);
     setMessage(null);
@@ -360,44 +368,29 @@ export function LandingPage({
   const currentDemo = DEMO_SCOPES[demoScope];
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden bg-[#0a0e12] text-[#e8eef1] selection:bg-emerald-500/25 selection:text-emerald-200">
-      {/* Subtle Top Radial Light (Bukan hitam murni / bukan neon berlebihan) */}
+    <div className="relative min-h-screen overflow-x-hidden bg-[#0b0f13] text-[#e8eef1] selection:bg-emerald-500/25 selection:text-emerald-200">
+      {/* Subtle Top Light */}
       <div
         aria-hidden
-        className="pointer-events-none fixed inset-x-0 top-0 h-[460px] bg-[radial-gradient(ellipse_70%_50%_at_50%_-10%,rgba(34,197,139,0.12),transparent)]"
+        className="pointer-events-none fixed inset-x-0 top-0 h-[420px] bg-[radial-gradient(ellipse_65%_45%_at_50%_-15%,rgba(34,197,139,0.13),transparent)]"
       />
 
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-30 border-b border-white/[0.07] bg-[#0a0e12]/80 backdrop-blur-xl">
+      {/* Minimal Header */}
+      <header className="sticky top-0 z-30 border-b border-white/[0.06] bg-[#0b0f13]/80 backdrop-blur-xl">
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-3.5 sm:px-6">
-          <div className="flex items-center gap-3">
-            <BrandLogo size={34} />
+          <div className="flex items-center gap-2.5">
+            <BrandLogo size={32} />
             <span className="text-[16px] font-bold tracking-tight text-white">
               stashinmeid
             </span>
-            <span className="hidden rounded-md border border-white/10 bg-white/[0.04] px-2 py-0.5 font-mono text-[10px] text-zinc-400 sm:inline-block">
-              v3.0
-            </span>
           </div>
-
-          <nav className="hidden items-center gap-7 text-[13px] font-medium text-zinc-400 md:flex">
-            <a href="#preview" className="transition-colors hover:text-white">
-              Preview
-            </a>
-            <a href="#ekosistem" className="transition-colors hover:text-white">
-              Ekosistem
-            </a>
-            <a href="#roadmap" className="transition-colors hover:text-white">
-              Rilis
-            </a>
-          </nav>
 
           <div className="flex items-center gap-2">
             <motion.button
               whileTap={{ scale: 0.97 }}
               type="button"
               onClick={() => openAuthModal('signin')}
-              className="rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-2 text-[12px] font-semibold text-zinc-200 transition hover:border-white/25 hover:bg-white/[0.07]"
+              className="rounded-xl px-3.5 py-2 text-[13px] font-medium text-zinc-300 transition hover:bg-white/[0.05] hover:text-white"
             >
               Masuk
             </motion.button>
@@ -405,7 +398,7 @@ export function LandingPage({
               whileTap={{ scale: 0.97 }}
               type="button"
               onClick={() => openAuthModal('signup')}
-              className="inline-flex items-center gap-1.5 rounded-xl bg-[#22c58b] px-4 py-2 text-[12px] font-semibold text-[#06120d] transition hover:bg-[#35d69c]"
+              className="inline-flex items-center gap-1 rounded-xl bg-[#22c58b] px-4 py-2 text-[13px] font-semibold text-[#06120d] transition hover:bg-[#35d69c]"
             >
               Daftar
               <ArrowUpRight className="size-3.5" />
@@ -413,128 +406,102 @@ export function LandingPage({
           </div>
         </div>
 
-        {/* Compact Market Bar */}
-        <div className="border-t border-white/[0.05] bg-[#080b0e]/90 px-4 py-1.5">
-          <div className="mx-auto flex max-w-6xl items-center justify-between gap-5 overflow-x-auto text-[11px] whitespace-nowrap">
-            <div className="flex items-center gap-5">
-              <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold tracking-wider text-emerald-400">
-                <span className="size-1.5 rounded-full bg-emerald-400" />
-                PASAR LIVE
-              </span>
-              {MARKET_STRIP.map((m) => (
-                <span key={m.sym} className="inline-flex items-center gap-1.5">
-                  <span className="font-semibold text-zinc-200">{m.sym}</span>
-                  <span className="tnum text-zinc-400">{m.price}</span>
-                  <span
-                    className={`tnum font-medium ${
-                      m.up ? 'text-emerald-400' : 'text-rose-400'
-                    }`}
-                  >
-                    {m.delta}
-                  </span>
-                </span>
-              ))}
-            </div>
-            <span className="hidden font-mono text-[10px] text-zinc-500 lg:inline">
-              FX &amp; Crypto Oracle
+        {/* Clean Market Strip */}
+        <div className="border-t border-white/[0.04] bg-[#090d11]/85 px-4 py-1.5">
+          <div className="mx-auto flex max-w-6xl items-center gap-6 overflow-x-auto text-[11px] whitespace-nowrap">
+            <span className="inline-flex items-center gap-1.5 font-mono text-[10px] font-semibold text-emerald-400">
+              <span className="size-1.5 rounded-full bg-emerald-400" />
+              PASAR
             </span>
+            {MARKET_STRIP.map((m) => (
+              <span key={m.sym} className="inline-flex items-center gap-1.5">
+                <span className="font-semibold text-zinc-200">{m.sym}</span>
+                <span className="tnum text-zinc-400">{m.price}</span>
+                <span
+                  className={`tnum font-medium ${
+                    m.up ? 'text-emerald-400' : 'text-rose-400'
+                  }`}
+                >
+                  {m.delta}
+                </span>
+              </span>
+            ))}
           </div>
         </div>
       </header>
 
-      {/* Hero + Interactive Workspace Preview */}
-      <section
-        id="preview"
-        className="relative mx-auto max-w-6xl px-4 pb-16 pt-12 sm:px-6 lg:pt-16"
-      >
-        <div className="grid grid-cols-1 items-center gap-10 lg:grid-cols-12">
-          {/* Left Copy: Ringkas, lugas, tanpa basa-basi AI */}
+      {/* Hero Stage */}
+      <main className="mx-auto max-w-6xl px-4 pb-20 pt-14 sm:px-6 lg:pt-20">
+        <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-12">
+          {/* Left: Clean Headline & 2 Buttons */}
           <motion.div
             initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, ease: 'easeOut' }}
-            className="space-y-6 lg:col-span-6"
+            className="space-y-6 lg:col-span-5"
           >
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] font-medium text-zinc-300">
-              <span className="size-1.5 rounded-full bg-[#22c58b]" />
-              Manajemen Kas, Kolega &amp; Portofolio Digital
-            </div>
-
-            <h1 className="text-3xl font-bold leading-[1.15] tracking-tight text-white sm:text-[44px]">
-              Satu buku kas untuk pribadi, grup, dan aset digital.
+            <h1 className="text-4xl font-bold leading-[1.1] tracking-tight text-white sm:text-[48px]">
+              Kas, grup, dan aset digital.
             </h1>
 
-            <p className="max-w-lg text-[15px] leading-relaxed text-zinc-400">
-              Catat arus kas harian, pisahkan utang bisnis dari kas keluarga,
-              dan pantau saldo valas maupun crypto dalam satu dashboard.
+            <p className="max-w-md text-[15px] leading-relaxed text-zinc-400">
+              Pisahkan keuangan pribadi, keluarga, dan bisnis. Pantau saldo
+              fisik, bank, valas, sampai crypto dari satu layar.
             </p>
 
             <div className="flex flex-wrap items-center gap-3 pt-1">
               <motion.button
                 whileHover={{ y: -1 }}
-                whileTap={{ scale: 0.98 }}
+                whileTap={{ scale: 0.97 }}
                 type="button"
                 onClick={() => openAuthModal('signup')}
                 className="inline-flex items-center gap-2 rounded-2xl bg-[#22c58b] px-6 py-3 text-[13px] font-semibold text-[#06120d] shadow-lg shadow-emerald-500/15 transition hover:bg-[#35d69c]"
               >
-                Buat Akun Baru
+                Mulai Gratis
                 <ArrowRight className="size-4" />
               </motion.button>
               <motion.button
                 whileHover={{ y: -1 }}
-                whileTap={{ scale: 0.98 }}
+                whileTap={{ scale: 0.97 }}
                 type="button"
                 onClick={() => openAuthModal('signin')}
-                className="inline-flex items-center gap-2 rounded-2xl border border-white/12 bg-white/[0.03] px-6 py-3 text-[13px] font-semibold text-white transition hover:border-white/25 hover:bg-white/[0.07]"
+                className="rounded-2xl border border-white/12 bg-white/[0.03] px-6 py-3 text-[13px] font-semibold text-white transition hover:border-white/25 hover:bg-white/[0.07]"
               >
-                Masuk ke Workspace
+                Masuk
               </motion.button>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-6 border-t border-white/[0.08] pt-5 text-[12px] text-zinc-400">
-              <span className="inline-flex items-center gap-1.5">
-                <Check className="size-3.5 text-[#22c58b]" />
-                Isolasi kas per grup
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Check className="size-3.5 text-[#22c58b]" />
-                Multi-currency &amp; Crypto
-              </span>
-              <span className="inline-flex items-center gap-1.5">
-                <Check className="size-3.5 text-[#22c58b]" />
-                Koneksi API modular
-              </span>
             </div>
           </motion.div>
 
-          {/* Right Interactive Live Sandbox */}
+          {/* Right: Interactive Live Workspace Preview */}
           <motion.div
             initial={{ opacity: 0, y: 16 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.45, delay: 0.08, ease: 'easeOut' }}
-            className="lg:col-span-6"
+            className="lg:col-span-7"
           >
             <SpotlightCard className="p-5 shadow-2xl sm:p-6">
-              {/* Top Bar with Interactive Scope Switcher */}
+              {/* Interactive Scope Switcher */}
               <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/[0.07] pb-4">
-                <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-400">
-                  Ruang Keuangan
-                </span>
-                <div className="flex rounded-xl border border-white/10 bg-[#090c10] p-1">
+                <div className="flex rounded-xl border border-white/[0.08] bg-[#0a0d11] p-1">
                   {(Object.keys(DEMO_SCOPES) as DemoScopeKey[]).map((key) => {
                     const active = demoScope === key;
                     return (
                       <button
                         key={key}
                         type="button"
-                        onClick={() => setDemoScope(key)}
-                        className={`relative rounded-lg px-3 py-1 text-[11px] font-semibold transition-colors ${
-                          active ? 'text-[#06120d]' : 'text-zinc-400 hover:text-white'
+                        onClick={() => {
+                          setDemoScope(key);
+                          setHoveredBarIdx(null);
+                        }}
+                        className={`relative rounded-lg px-3.5 py-1.5 text-[12px] font-semibold transition-colors ${
+                          active
+                            ? 'text-[#06120d]'
+                            : 'text-zinc-400 hover:text-white'
                         }`}
                       >
                         {active && (
                           <motion.span
-                            layoutId="landing-scope-pill"
+                            layoutId="hero-scope-pill"
                             transition={{
                               type: 'spring',
                               stiffness: 420,
@@ -550,9 +517,11 @@ export function LandingPage({
                     );
                   })}
                 </div>
+                <span className="font-mono text-[11px] text-zinc-500">
+                  Interaktif · Klik ruang
+                </span>
               </div>
 
-              {/* Animated Balance & Cashflow Bars */}
               <AnimatePresence mode="wait">
                 <motion.div
                   key={demoScope}
@@ -562,24 +531,28 @@ export function LandingPage({
                   transition={{ duration: 0.2 }}
                   className="mt-5 space-y-5"
                 >
-                  <div className="flex flex-wrap items-baseline justify-between gap-3">
+                  <div className="flex flex-wrap items-end justify-between gap-3">
                     <div>
-                      <p className="text-[11px] text-zinc-400">
-                        Total Saldo · {currentDemo.tag}
+                      <p className="text-[11px] uppercase tracking-wider text-zinc-500">
+                        Total Saldo
                       </p>
-                      <p className="tnum mt-1 text-2xl font-bold text-white sm:text-3xl">
+                      <p className="tnum mt-1 text-3xl font-bold tracking-tight text-white">
                         {currentDemo.balance}
                       </p>
                     </div>
-                    <div className="flex gap-4 text-right text-[11px]">
+                    <div className="flex gap-5 text-right text-[12px]">
                       <div>
-                        <p className="text-zinc-500">Masuk</p>
+                        <p className="text-[10px] uppercase text-zinc-500">
+                          Masuk
+                        </p>
                         <p className="tnum font-semibold text-emerald-400">
                           {currentDemo.inflow}
                         </p>
                       </div>
                       <div>
-                        <p className="text-zinc-500">Keluar</p>
+                        <p className="text-[10px] uppercase text-zinc-500">
+                          Keluar
+                        </p>
                         <p className="tnum font-semibold text-rose-400">
                           {currentDemo.outflow}
                         </p>
@@ -587,39 +560,68 @@ export function LandingPage({
                     </div>
                   </div>
 
-                  {/* Mini Bar Chart */}
-                  <div className="flex h-24 items-end gap-2 rounded-2xl border border-white/[0.06] bg-[#090c10]/90 px-4 pb-3 pt-5">
-                    {currentDemo.bars.map((h, i) => (
-                      <div
-                        key={i}
-                        className="flex flex-1 flex-col items-center gap-1.5"
-                      >
+                  {/* Interactive Hover-Scrub Bar Chart */}
+                  <div className="relative rounded-2xl border border-white/[0.06] bg-[#0a0d11]/90 px-4 pb-3 pt-8">
+                    <AnimatePresence>
+                      {hoveredBarIdx !== null && (
                         <motion.div
-                          initial={{ height: 0 }}
-                          animate={{ height: `${Math.round(h * 0.55)}px` }}
-                          transition={{
-                            type: 'spring',
-                            stiffness: 300,
-                            damping: 26,
-                            delay: i * 0.03,
-                          }}
-                          className={`w-full rounded-md ${
-                            i === currentDemo.bars.length - 1
-                              ? 'bg-[#22c58b]'
-                              : 'bg-emerald-500/25'
-                          }`}
-                        />
-                      </div>
-                    ))}
+                          initial={{ opacity: 0, y: 4 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: 4 }}
+                          className="tnum pointer-events-none absolute right-4 top-2.5 rounded-lg bg-emerald-500/15 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-300"
+                        >
+                          {currentDemo.bars[hoveredBarIdx].m} ·{' '}
+                          {currentDemo.bars[hoveredBarIdx].val}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+
+                    <div className="flex h-24 items-end gap-2">
+                      {currentDemo.bars.map((bar, idx) => {
+                        const active =
+                          hoveredBarIdx === idx ||
+                          (hoveredBarIdx === null &&
+                            idx === currentDemo.bars.length - 1);
+                        return (
+                          <button
+                            key={bar.m}
+                            type="button"
+                            onMouseEnter={() => setHoveredBarIdx(idx)}
+                            onMouseLeave={() => setHoveredBarIdx(null)}
+                            onFocus={() => setHoveredBarIdx(idx)}
+                            onBlur={() => setHoveredBarIdx(null)}
+                            aria-label={`${bar.m} ${bar.val}`}
+                            className="flex flex-1 flex-col items-center gap-1.5 focus:outline-none"
+                          >
+                            <motion.div
+                              initial={{ height: 0 }}
+                              animate={{ height: `${Math.round(bar.h * 0.62)}px` }}
+                              transition={{
+                                type: 'spring',
+                                stiffness: 320,
+                                damping: 26,
+                                delay: idx * 0.025,
+                              }}
+                              className={`w-full rounded-lg transition-colors ${
+                                active
+                                  ? 'bg-[#22c58b]'
+                                  : 'bg-emerald-500/20 hover:bg-emerald-500/40'
+                              }`}
+                            />
+                            <span className="font-mono text-[10px] text-zinc-500">
+                              {bar.m}
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
-                  {/* Isolated Debt Status Row */}
-                  <div className="flex items-center justify-between rounded-2xl border border-white/[0.07] bg-white/[0.02] px-4 py-3 text-[12px]">
-                    <div className="flex items-center gap-2.5">
+                  {/* Debt Row */}
+                  <div className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-white/[0.02] px-4 py-3 text-[12px]">
+                    <div className="flex items-center gap-2 text-zinc-300">
                       <Building2 className="size-4 text-emerald-400" />
-                      <span className="text-zinc-300">
-                        {currentDemo.debtLabel}
-                      </span>
+                      <span>{currentDemo.debtLabel}</span>
                     </div>
                     <span className="tnum font-semibold text-white">
                       {currentDemo.debtAmount}
@@ -630,334 +632,194 @@ export function LandingPage({
             </SpotlightCard>
           </motion.div>
         </div>
-      </section>
 
-      {/* Asymmetric Bento Grid: Ekosistem & Showcase */}
-      <section
-        id="ekosistem"
-        className="mx-auto max-w-6xl px-4 py-12 sm:px-6"
-      >
-        <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 className="text-xl font-bold text-white sm:text-2xl">
-              Dirancang untuk kecepatan dan privasi data.
-            </h2>
-            <p className="mt-1 text-[13px] text-zinc-400">
-              Klik komponen di bawah untuk melihat cara kerja workspace.
-            </p>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 gap-4 lg:grid-cols-12">
-          {/* Bento 1: Crypto & Multi-Currency Portfolio (7 cols) */}
-          <SpotlightCard className="p-6 lg:col-span-7">
+        {/* 3 Compact Interactive Bento Tiles */}
+        <motion.section
+          initial={{ opacity: 0, y: 18 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.2 }}
+          transition={{ duration: 0.4 }}
+          className="mt-14 grid grid-cols-1 gap-4 lg:grid-cols-12"
+        >
+          {/* Tile 1: Valas & Crypto */}
+          <SpotlightCard className="p-5 lg:col-span-5">
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2.5">
-                <div className="flex size-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400">
-                  <Bitcoin className="size-4" />
-                </div>
-                <div>
-                  <h3 className="text-[15px] font-semibold text-white">
-                    Portofolio Crypto &amp; Valas
-                  </h3>
-                  <p className="text-[12px] text-zinc-400">
-                    Konversi otomatis kurs CoinGecko &amp; ECB ke Rupiah.
-                  </p>
-                </div>
+              <div className="flex items-center gap-2">
+                <Bitcoin className="size-4 text-amber-400" />
+                <h2 className="text-[14px] font-semibold text-white">
+                  Valas &amp; Crypto
+                </h2>
               </div>
-              <span className="rounded-lg border border-white/10 bg-white/[0.03] px-2.5 py-1 font-mono text-[11px] text-emerald-400">
-                Auto-FX
+              <span className="font-mono text-[10px] text-emerald-400">
+                Kurs Live
               </span>
             </div>
 
-            <div className="mt-5 space-y-2.5">
-              {CRYPTO_HOLDINGS.map((asset) => (
+            <div className="mt-4 space-y-2">
+              {ASSETS_SAMPLE.map((a) => (
                 <div
-                  key={asset.code}
-                  className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-[#090c10]/80 px-4 py-3"
+                  key={a.code}
+                  className="flex items-center justify-between rounded-2xl border border-white/[0.06] bg-[#0a0d11]/85 px-3.5 py-2.5"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="flex size-8 items-center justify-center rounded-lg bg-white/[0.05] font-mono text-[11px] font-bold text-white">
-                      {asset.code}
+                  <div className="flex items-center gap-2.5">
+                    <span className="w-10 font-mono text-[11px] font-bold text-zinc-200">
+                      {a.code}
                     </span>
-                    <div>
-                      <p className="text-[13px] font-semibold text-white">
-                        {asset.name}
-                      </p>
-                      <p className="tnum text-[11px] text-zinc-400">
-                        {asset.amount}
-                      </p>
-                    </div>
+                    <span className="tnum text-[11px] text-zinc-400">
+                      {a.amount}
+                    </span>
                   </div>
-                  <div className="text-right">
-                    <p className="tnum text-[13px] font-semibold text-white">
-                      {asset.idr}
-                    </p>
-                    <div className="mt-1 h-1.5 w-20 overflow-hidden rounded-full bg-white/10">
+                  <div className="flex items-center gap-3">
+                    <div className="hidden h-1.5 w-14 overflow-hidden rounded-full bg-white/10 sm:block">
                       <div
                         className="h-full rounded-full bg-[#22c58b]"
-                        style={{ width: `${asset.pct}%` }}
+                        style={{ width: `${a.pct}%` }}
                       />
                     </div>
+                    <span className="tnum text-[12px] font-semibold text-white">
+                      {a.idr}
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
           </SpotlightCard>
 
-          {/* Bento 2: Modular 3rd-Party API Hub (5 cols) */}
-          <SpotlightCard className="p-6 lg:col-span-5">
-            <div className="flex items-center gap-2.5">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400">
-                <Plug className="size-4" />
+          {/* Tile 2: Koneksi API Modular */}
+          <SpotlightCard className="p-5 lg:col-span-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Plug className="size-4 text-emerald-400" />
+                <h2 className="text-[14px] font-semibold text-white">
+                  Koneksi API
+                </h2>
               </div>
-              <div>
-                <h3 className="text-[15px] font-semibold text-white">
-                  Koneksi API Pihak Ketiga
-                </h3>
-                <p className="text-[12px] text-zinc-400">
-                  Offload pembayaran, e-KYC, dan berita agar DB tetap ringan.
-                </p>
-              </div>
+              <span className="font-mono text-[10px] text-zinc-400">
+                Hemat DB
+              </span>
             </div>
 
-            <div className="mt-5 space-y-2.5">
+            <div className="mt-4 space-y-2">
               {[
-                {
-                  id: 'payment',
-                  name: 'Payment Gateway',
-                  sub: 'Midtrans · Xendit · QRIS',
-                },
-                {
-                  id: 'kyc',
-                  name: 'e-KYC Pihak Ketiga',
-                  sub: 'Verihubs · PrivyID (Simpan token saja)',
-                },
-                {
-                  id: 'news',
-                  name: 'Stream Berita & Kurs',
-                  sub: '0 KB beban database internal',
-                },
+                { id: 'payment', name: 'Payment Gateway', sub: 'Midtrans · Xendit' },
+                { id: 'kyc', name: 'e-KYC Eksternal', sub: 'Verihubs · PrivyID' },
+                { id: 'news', name: 'Stream Berita', sub: '0 KB storage' },
               ].map((api) => {
-                const on = activeApiToggle[api.id];
+                const on = apiSwitches[api.id];
                 return (
                   <button
                     key={api.id}
                     type="button"
                     onClick={() =>
-                      setActiveApiToggle((prev) => ({
+                      setApiSwitches((prev) => ({
                         ...prev,
                         [api.id]: !prev[api.id],
                       }))
                     }
-                    className="flex w-full items-center justify-between rounded-2xl border border-white/[0.06] bg-[#090c10]/80 px-4 py-3 text-left transition hover:border-white/15"
+                    className="flex w-full items-center justify-between rounded-2xl border border-white/[0.06] bg-[#0a0d11]/85 px-3.5 py-2.5 text-left transition hover:border-white/15"
                   >
                     <div>
-                      <p className="text-[13px] font-semibold text-white">
+                      <p className="text-[12px] font-semibold text-white">
                         {api.name}
                       </p>
-                      <p className="text-[11px] text-zinc-400">{api.sub}</p>
+                      <p className="text-[10px] text-zinc-500">{api.sub}</p>
                     </div>
                     <span
-                      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-semibold transition ${
+                      className={`size-2 rounded-full transition ${
                         on
-                          ? 'bg-emerald-500/15 text-emerald-400'
-                          : 'bg-white/5 text-zinc-500'
+                          ? 'bg-emerald-400 shadow-[0_0_8px_rgba(52,211,153,0.7)]'
+                          : 'bg-zinc-600'
                       }`}
-                    >
-                      <span
-                        className={`size-1.5 rounded-full ${
-                          on ? 'bg-emerald-400' : 'bg-zinc-500'
-                        }`}
-                      />
-                      {on ? 'Connected' : 'Standby'}
-                    </span>
+                    />
                   </button>
                 );
               })}
             </div>
           </SpotlightCard>
 
-          {/* Bento 3: Social Hub & Fast Chat (6 cols) */}
-          <SpotlightCard className="p-6 lg:col-span-6">
-            <div className="flex items-center gap-2.5">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400">
-                <MessageSquare className="size-4" />
+          {/* Tile 3: Sosial & Kolega */}
+          <SpotlightCard className="flex flex-col justify-between p-5 lg:col-span-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <MessageSquare className="size-4 text-cyan-400" />
+                <h2 className="text-[14px] font-semibold text-white">
+                  Sosial &amp; Kolega
+                </h2>
               </div>
-              <div>
-                <h3 className="text-[15px] font-semibold text-white">
-                  Sosial, Kolega &amp; Obrolan Cepat
-                </h3>
-                <p className="text-[12px] text-zinc-400">
-                  Ringkasan kas grup yang dipilih, kontak kolega, feed, dan
-                  berita pasar.
-                </p>
-              </div>
+              <p className="mt-2 text-[12px] leading-relaxed text-zinc-400">
+                Ringkasan grup, obrolan cepat, feed, pencarian kolega, dan
+                berita pasar.
+              </p>
             </div>
 
-            <div className="mt-4 flex flex-wrap gap-2">
-              {[
-                'Ringkasan Grup',
-                'Obrolan & Kontak',
-                '+ Post Feed',
-                'Find Colleague',
-                'Berita Finansial',
-              ].map((pill) => (
+            <div className="mt-5 flex flex-wrap gap-1.5">
+              {['Grup', 'Fast Chat', 'Feed', 'Find', 'Berita'].map((tag) => (
                 <span
-                  key={pill}
-                  className="rounded-xl border border-white/[0.08] bg-[#090c10] px-3 py-1.5 text-[11px] font-medium text-zinc-300"
+                  key={tag}
+                  className="rounded-xl border border-white/[0.08] bg-[#0a0d11] px-2.5 py-1 text-[11px] font-medium text-zinc-300"
                 >
-                  {pill}
+                  {tag}
                 </span>
               ))}
             </div>
           </SpotlightCard>
+        </motion.section>
 
-          {/* Bento 4: AI Receipt Scanner & Loan Simulator (6 cols) */}
-          <SpotlightCard className="p-6 lg:col-span-6">
-            <div className="flex items-center gap-2.5">
-              <div className="flex size-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400">
-                <Wallet className="size-4" />
-              </div>
-              <div>
-                <h3 className="text-[15px] font-semibold text-white">
-                  Pindai Struk AI &amp; Simulasi Pelunasan
-                </h3>
-                <p className="text-[12px] text-zinc-400">
-                  Catat transaksi otomatis dari foto struk dan hitung penghematan
-                  pelunasan pinjaman.
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-4 grid grid-cols-2 gap-2.5 text-[12px]">
-              <div className="rounded-2xl border border-white/[0.06] bg-[#090c10] px-3.5 py-2.5">
-                <p className="text-[11px] text-zinc-400">Saldo Fisik &amp; Bank</p>
-                <p className="mt-0.5 font-semibold text-white">
-                  Tersinkronisasi Otomatis
-                </p>
-              </div>
-              <div className="rounded-2xl border border-white/[0.06] bg-[#090c10] px-3.5 py-2.5">
-                <p className="text-[11px] text-zinc-400">Keamanan Akses</p>
-                <p className="mt-0.5 font-semibold text-white">
-                  Passkey · 2FA · PIN
-                </p>
-              </div>
-            </div>
-          </SpotlightCard>
-        </div>
-      </section>
-
-      {/* Roadmap / Status Rilis: Phase selanjutnya TBA */}
-      <section
-        id="roadmap"
-        className="mx-auto max-w-6xl px-4 py-12 sm:px-6"
-      >
-        <div className="rounded-3xl border border-white/[0.08] bg-[#0e1318]/90 p-6 sm:p-8">
-          <div className="flex flex-wrap items-center justify-between gap-4">
+        {/* Minimalist Release Rail: v3.0 Live + Next TBA */}
+        <motion.section
+          initial={{ opacity: 0, y: 14 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true, amount: 0.3 }}
+          transition={{ duration: 0.35 }}
+          className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-2"
+        >
+          <div className="flex items-center justify-between gap-4 rounded-3xl border border-emerald-500/25 bg-emerald-500/[0.04] px-6 py-4">
             <div>
-              <span className="font-mono text-[11px] font-semibold uppercase tracking-wider text-emerald-400">
-                STATUS PENGEMBANGAN
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-emerald-400">
+                v3.0 · LIVE
               </span>
-              <h2 className="mt-1 text-lg font-bold text-white sm:text-xl">
-                Rilis &amp; Peta Jalan
-              </h2>
-            </div>
-            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 text-[11px] text-zinc-400">
-              <Lock className="size-3 text-emerald-400" />
-              Core Roadmap Private
-            </span>
-          </div>
-
-          <div className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-3">
-            {/* Phase 01: Live */}
-            <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/[0.05] p-5">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[11px] font-bold text-emerald-400">
-                  PHASE 01 · v3.0
-                </span>
-                <span className="rounded-full bg-emerald-500/20 px-2 py-0.5 text-[10px] font-semibold text-emerald-300">
-                  LIVE
-                </span>
-              </div>
-              <h3 className="mt-2.5 text-[14px] font-semibold text-white">
-                Multi-Scope Finance, Crypto &amp; Modular API
-              </h3>
-              <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-400">
-                Isolasi saldo pribadi vs grup kolega, pelacak aset valas &amp;
-                crypto, obrolan cepat, serta manajemen koneksi API pihak ketiga.
+              <p className="mt-0.5 text-[13px] font-medium text-zinc-200">
+                Multi-ruang kas · Valas &amp; crypto · OCR struk · Koneksi API
               </p>
             </div>
+            <span className="size-2 shrink-0 rounded-full bg-emerald-400" />
+          </div>
 
-            {/* Phase 02: TBA */}
-            <div className="rounded-2xl border border-white/[0.07] bg-[#090c10]/70 p-5">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[11px] font-bold text-zinc-400">
-                  PHASE 02
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2.5 py-0.5 font-mono text-[10px] font-semibold text-zinc-300">
-                  <Lock className="size-2.5" />
-                  TBA
-                </span>
-              </div>
-              <h3 className="mt-2.5 text-[14px] font-semibold text-zinc-200">
-                To Be Announced
-              </h3>
-              <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-500">
-                Spesifikasi modul dan integrasi tahap kedua disimpan secara
-                internal hingga jadwal peluncuran resmi.
+          <div className="flex items-center justify-between gap-4 rounded-3xl border border-white/[0.07] bg-[#0f1419]/80 px-6 py-4">
+            <div>
+              <span className="font-mono text-[10px] font-bold uppercase tracking-wider text-zinc-500">
+                NEXT PHASE
+              </span>
+              <p className="mt-0.5 font-mono text-[13px] font-semibold text-zinc-300">
+                TBA
               </p>
             </div>
-
-            {/* Phase 03: TBA */}
-            <div className="rounded-2xl border border-white/[0.07] bg-[#090c10]/70 p-5">
-              <div className="flex items-center justify-between">
-                <span className="font-mono text-[11px] font-bold text-zinc-400">
-                  PHASE 03
-                </span>
-                <span className="inline-flex items-center gap-1 rounded-full bg-white/[0.06] px-2.5 py-0.5 font-mono text-[10px] font-semibold text-zinc-300">
-                  <Lock className="size-2.5" />
-                  TBA
-                </span>
-              </div>
-              <h3 className="mt-2.5 text-[14px] font-semibold text-zinc-200">
-                To Be Announced
-              </h3>
-              <p className="mt-1.5 text-[12px] leading-relaxed text-zinc-500">
-                Ekspansi ekosistem berikutnya dikunci pada repositori privat
-                pengembang utama.
-              </p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Clean Footer */}
-      <footer className="border-t border-white/[0.07] bg-[#080b0e]">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 px-4 py-8 sm:flex-row sm:px-6">
-          <div className="flex items-center gap-2.5">
-            <BrandLogo size={28} />
-            <span className="text-[13px] font-semibold text-white">
-              stashinmeid
-            </span>
-            <span className="text-[12px] text-zinc-500">
-              · Manajemen Keuangan &amp; Aset
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-white/10 bg-white/[0.03] px-3 py-1 font-mono text-[10px] text-zinc-400">
+              <Lock className="size-3" />
+              PRIVATE
             </span>
           </div>
-          <div className="flex items-center gap-2.5">
+        </motion.section>
+      </main>
+
+      {/* Minimal Footer */}
+      <footer className="border-t border-white/[0.06]">
+        <div className="mx-auto flex max-w-6xl items-center justify-between px-4 py-6 text-[12px] text-zinc-500 sm:px-6">
+          <span>stashinmeid</span>
+          <div className="flex items-center gap-4">
             <button
               type="button"
               onClick={() => openAuthModal('signin')}
-              className="rounded-xl border border-white/10 bg-white/[0.03] px-3.5 py-1.5 text-[12px] font-semibold text-zinc-200 transition hover:bg-white/[0.08]"
+              className="transition hover:text-white"
             >
               Masuk
             </button>
             <button
               type="button"
               onClick={() => openAuthModal('signup')}
-              className="rounded-xl bg-[#22c58b] px-3.5 py-1.5 text-[12px] font-semibold text-[#06120d] transition hover:bg-[#35d69c]"
+              className="font-medium text-emerald-400 transition hover:text-emerald-300"
             >
-              Daftar Akun
+              Daftar
             </button>
           </div>
         </div>
@@ -979,35 +841,30 @@ export function LandingPage({
               initial={{ opacity: 0, y: 14, scale: 0.97 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.97 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+              transition={{ type: 'spring', stiffness: 420, damping: 32 }}
               className="relative w-full max-w-md rounded-3xl border border-white/12 bg-[#10161c] p-7 shadow-2xl"
             >
               <button
                 type="button"
                 onClick={() => setAuthModalOpen(false)}
-                aria-label="Tutup modal autentikasi"
+                aria-label="Tutup modal"
                 className="absolute right-5 top-5 rounded-xl border border-white/10 bg-white/[0.04] p-2 text-zinc-400 transition hover:text-white"
               >
                 <X className="size-4" />
               </button>
 
               <div className="mb-5 flex items-center gap-3">
-                <BrandLogo size={38} />
-                <div>
-                  <p className="text-base font-bold tracking-tight text-white">
-                    stashinmeid
-                  </p>
-                  <p className="text-[11px] text-zinc-400">
-                    Workspace keuangan pribadi &amp; kolega
-                  </p>
-                </div>
+                <BrandLogo size={36} />
+                <span className="text-base font-bold tracking-tight text-white">
+                  stashinmeid
+                </span>
               </div>
 
-              {/* Sliding Pill Auth Switcher */}
+              {/* Sliding Tab Switcher */}
               <div className="mb-5 grid grid-cols-2 rounded-xl border border-white/10 bg-[#090c10] p-1">
                 {[
                   { id: 'signin' as const, label: 'Masuk', signup: false },
-                  { id: 'signup' as const, label: 'Daftar Baru', signup: true },
+                  { id: 'signup' as const, label: 'Daftar', signup: true },
                 ].map((tab) => {
                   const active = isSignUp === tab.signup;
                   return (
@@ -1020,7 +877,9 @@ export function LandingPage({
                         setMessage(null);
                       }}
                       className={`relative rounded-lg py-2 text-xs font-semibold transition-colors ${
-                        active ? 'text-[#06120d]' : 'text-zinc-400 hover:text-white'
+                        active
+                          ? 'text-[#06120d]'
+                          : 'text-zinc-400 hover:text-white'
                       }`}
                     >
                       {active && (
@@ -1079,7 +938,7 @@ export function LandingPage({
                       htmlFor="signup-password"
                       className="mb-1.5 block text-xs font-medium text-zinc-400"
                     >
-                      Password (min. 8 karakter, huruf &amp; angka)
+                      Password
                     </label>
                     <PasswordInput
                       id="signup-password"
@@ -1090,7 +949,7 @@ export function LandingPage({
                       minLength={8}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      placeholder="••••••••"
+                      placeholder="Min. 8 karakter, huruf & angka"
                       className="w-full rounded-xl border border-white/10 bg-[#090c10] px-3.5 py-2.5 text-sm text-white focus:border-[#22c58b] focus:outline-none"
                     />
                   </div>
@@ -1185,7 +1044,7 @@ export function LandingPage({
                           htmlFor="signup-bio"
                           className="mb-1.5 block text-xs font-medium text-zinc-400"
                         >
-                          Bio Singkat (Opsional)
+                          Bio (Opsional)
                         </label>
                         <input
                           id="signup-bio"
@@ -1193,7 +1052,7 @@ export function LandingPage({
                           type="text"
                           value={bio}
                           onChange={(e) => setBio(e.target.value)}
-                          placeholder="Mis. Wiraswasta / Engineer"
+                          placeholder="Pekerjaan atau catatan singkat"
                           className="w-full rounded-xl border border-white/10 bg-[#090c10] px-3.5 py-2.5 text-sm text-white focus:border-[#22c58b] focus:outline-none"
                         />
                       </div>
@@ -1327,7 +1186,7 @@ export function LandingPage({
                     ) : (
                       <KeyRound className="size-4 text-[#22c58b]" />
                     )}
-                    Login dengan Passkey
+                    Passkey
                   </button>
                 </div>
               )}

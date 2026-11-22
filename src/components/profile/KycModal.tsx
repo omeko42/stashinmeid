@@ -5,7 +5,6 @@ import { useTranslations } from 'next-intl';
 import {
   BadgeCheck,
   Briefcase,
-  CheckCircle2,
   Clock,
   FileBadge,
   MapPin,
@@ -343,7 +342,7 @@ export function KycModal({
       open={open}
       onClose={onClose}
       title={t('title')}
-      description="Verifikasi identitas resmi (KYC) & profil kepatuhan finansial (CDD) untuk keamanan workspace, grup kolega, dan pelaporan."
+      description="Lengkapi data identitas untuk verifikasi akun."
       size="lg"
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-2">
@@ -399,10 +398,6 @@ export function KycModal({
               style={{ width: `${completeness}%` }}
             />
           </div>
-          <p className="mt-2 text-[11px] text-[var(--text-muted)]">
-            Data KYC dienkripsi dan hanya dapat diakses oleh pemilik akun untuk
-            keamanan transaksi grup kolega serta pemulihan akun.
-          </p>
         </div>
 
         {/* Tab Langkah KYC */}
@@ -410,17 +405,17 @@ export function KycModal({
           {[
             {
               id: 'identity' as const,
-              label: '1. Identitas Resmi',
+              label: '1. Identitas',
               icon: <FileBadge className="size-3.5" />,
             },
             {
               id: 'domicile' as const,
-              label: '2. Kontak & Domisili',
+              label: '2. Domisili',
               icon: <MapPin className="size-3.5" />,
             },
             {
               id: 'financial' as const,
-              label: '3. Profil Finansial',
+              label: '3. Finansial',
               icon: <Briefcase className="size-3.5" />,
             },
           ].map((tab) => {
@@ -673,17 +668,6 @@ export function KycModal({
                 Investasi & Perencanaan Dana Darurat
               </option>
             </Select>
-
-            <div className="rounded-lg border border-[var(--in)]/20 bg-[var(--in-soft)]/50 p-3 text-[11px] text-[var(--text-muted)]">
-              <div className="flex items-center gap-1.5 font-semibold text-[var(--in)]">
-                <CheckCircle2 className="size-3.5" />
-                Siap Diverifikasi
-              </div>
-              <p className="mt-0.5">
-                Klik tombol <strong>Ajukan &amp; Verifikasi KYC</strong> di
-                bawah untuk menyelesaikan verifikasi profil Anda.
-              </p>
-            </div>
           </div>
         )}
       </div>
