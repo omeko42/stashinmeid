@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import Image from 'next/image';
 import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing, type Locale } from '@/i18n/routing';
-import { ArrowLeft, ShieldCheck, Mail, Globe } from 'lucide-react';
+import {
+  LegalDocumentLayout,
+  type LegalSection,
+} from '@/components/legal/LegalDocumentLayout';
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -20,12 +21,12 @@ export async function generateMetadata({
   return {
     title: isEn ? 'Privacy Policy — StashinMe' : 'Kebijakan Privasi — StashinMe',
     description: isEn
-      ? 'Official Privacy Policy for StashinMe (https://stashinme.biz.id), detailing how we collect, use, protect, and manage your personal and Google account data.'
-      : 'Kebijakan Privasi resmi StashinMe (https://stashinme.biz.id) mengenai pengumpulan, penggunaan, perlindungan, dan pengelolaan data pribadi serta akun Google Anda.',
+      ? 'How StashinMe collects, uses, and protects your account and financial records at https://stashinme.biz.id.'
+      : 'Penjelasan mengenai cara StashinMe mengumpulkan, menggunakan, dan menjaga data akun serta catatan keuangan Anda di https://stashinme.biz.id.',
     alternates: {
-      canonical: `https://stashinme.biz.id/${locale}/privacy`,
+      canonical: `https://stashinme.biz.id/${locale === 'id' ? '' : `${locale}/`}privacy`,
       languages: {
-        id: 'https://stashinme.biz.id/id/privacy',
+        id: 'https://stashinme.biz.id/privacy',
         en: 'https://stashinme.biz.id/en/privacy',
       },
     },
@@ -42,227 +43,123 @@ export default async function PrivacyPolicyPage({
   const locale = rawLocale as Locale;
   setRequestLocale(locale);
   const isEn = locale === 'en';
-  const otherLocale = isEn ? 'id' : 'en';
 
-  const sections = isEn
+  const sections: LegalSection[] = isEn
     ? [
         {
-          title: '1. Introduction & Scope',
+          title: '1. Information You Share With Us',
           body: [
-            'StashinMe ("StashinMe", "stashinmeid", "we", "our") operates the web application accessible at https://stashinme.biz.id. This Privacy Policy explains how we collect, use, store, and safeguard your information when you create an account, sign in with Google or email/password, and manage personal or collaborative financial workspaces on our platform.',
-            'By accessing or using StashinMe, you agree to the collection and use of information in accordance with this policy.',
+            'When you create an account using your email or Google account, we receive basic profile details — your email address, display name, and profile photo — so we can identify your account and personalize your workspace.',
+            'We also store the financial records you choose to enter, such as transactions, wallets, budgets, savings goals, shared group notes, and receipt photos you upload.',
           ],
         },
         {
-          title: '2. Information We Collect',
+          title: '2. Sign In With Google',
           body: [
-            'Account & Authentication Data: When you register or sign in using Email/Password or Google OAuth (Sign in with Google), we receive your email address, display name, and profile photo URL (avatar) solely to authenticate your identity and personalize your workspace.',
-            'Financial & Workspace Data: Transactions, wallets, budgets, savings goals, debt/receivable records, colleague group spaces, and optional receipt images you upload for AI-assisted receipt extraction.',
-            'Security & Audit Logs: Essential technical metadata such as session timestamps, passkey/MFA registration status, and workspace audit trail entries to protect your account against unauthorized access.',
+            'If you choose to continue with Google, StashinMe only requests access to your email address and basic profile name/photo. We never ask for access to your emails, Google Drive files, contacts, or calendar.',
+            'Information received from Google is used strictly to sign you in and manage your StashinMe account in accordance with the Google API Services User Data Policy, including Limited Use requirements. We never sell your Google data or use it for advertising.',
           ],
         },
         {
-          title: '3. Google User Data & Limited Use Policy',
+          title: '3. How We Use Your Data',
           body: [
-            'When you choose "Continue with Google", StashinMe only requests standard, non-sensitive OpenID Connect scopes (email and basic profile information). We never request access to your Gmail messages, Google Drive files, Google Contacts, or Google Calendar.',
-            'StashinMe\'s use and transfer of information received from Google APIs adheres strictly to the Google API Services User Data Policy, including the Limited Use requirements. We do not sell, rent, or use your Google account data for advertising, profiling, or training third-party AI models.',
+            'We use your information only to run your personal and shared financial workspaces, display currency conversions, and send important account emails (such as verification codes or password resets) from noreply@stashinme.biz.id.',
+            'We also keep basic activity records inside your account settings so you can review changes and keep your workspace secure.',
           ],
         },
         {
-          title: '4. How We Use Your Information',
+          title: '4. Keeping Your Records Private',
           body: [
-            'To provide, operate, and maintain your personal and group financial dashboards, multi-currency conversion, and collaborative invitations.',
-            'To send essential transactional emails (account verification, OTP, password reset, and security notices) from noreply@stashinme.biz.id.',
-            'To protect platform integrity using bot protection (Cloudflare Turnstile), rate limiting, and encrypted session management.',
-            'To respond to customer support and enterprise inquiries sent to support@stashinme.biz.id.',
+            'Your financial notes belong strictly to you. Personal records are private to your account, and group records are only visible to colleagues you explicitly invite and approve.',
+            'We protect your data during transfer and storage using industry-standard security practices and never sell or rent your personal information to third parties.',
           ],
         },
         {
-          title: '5. Infrastructure, Storage & Security',
+          title: '5. Preferences & Cookies',
           body: [
-            'All data in transit is encrypted via HTTPS/TLS. Database records are stored in PostgreSQL hosted on Supabase with Row-Level Security (RLS) policies ensuring strict data isolation per user and authorized group members.',
-            'We partner with trusted infrastructure providers including Vercel (application hosting), Supabase (authentication & database), Cloudflare (DNS, email routing, Turnstile security), and Resend (transactional email delivery). Each provider processes data solely to deliver its core infrastructure service.',
+            'We use essential browser storage to keep you signed in and remember your chosen language, display theme, and primary currency. We do not use third-party advertising trackers.',
           ],
         },
         {
-          title: '6. Data Retention, Export & Account Deletion',
+          title: '6. Export & Deleting Your Account',
           body: [
-            'You retain full ownership of your financial records. At any time inside Settings, you can export your account data or permanently delete your account and associated workspace records.',
-            'You may also request manual data export or complete account erasure by emailing support@stashinme.biz.id from your registered email address. Verified requests are processed within 7 business days.',
+            'You can export your records or permanently delete your account at any time from the Settings menu inside StashinMe.',
+            'If you prefer manual assistance, send a request from your registered email to support@stashinme.biz.id and we will complete it within 7 business days.',
           ],
         },
         {
-          title: '7. Cookies & Local Storage',
+          title: '7. Updates to This Policy',
           body: [
-            'StashinMe uses strictly necessary cookies and browser storage to maintain your authenticated session, remember your preferred language (ID/EN), theme preference, and primary display currency. We do not use invasive cross-site advertising trackers.',
-          ],
-        },
-        {
-          title: '8. Policy Updates & Contact Information',
-          body: [
-            'We may update this Privacy Policy periodically to reflect product or regulatory improvements. Material changes will be reflected by updating the effective date at the top of this page.',
-            'If you have any questions about this Privacy Policy or how your data is handled, please contact our team at support@stashinme.biz.id.',
+            'We may update this Privacy Policy from time to time as StashinMe evolves. When we do, we will update the date at the top of this page.',
           ],
         },
       ]
     : [
         {
-          title: '1. Pendahuluan & Ruang Lingkup',
+          title: '1. Informasi yang Anda Berikan',
           body: [
-            'StashinMe ("StashinMe", "stashinmeid", "kami") mengoperasikan aplikasi web yang dapat diakses melalui https://stashinme.biz.id. Kebijakan Privasi ini menjelaskan bagaimana kami mengumpulkan, menggunakan, menyimpan, dan melindungi informasi Anda saat mendaftar, masuk menggunakan Google atau email/kata sandi, serta mengelola ruang keuangan pribadi maupun grup kolega di platform kami.',
-            'Dengan mengakses atau menggunakan StashinMe, Anda menyetujui pengumpulan dan penggunaan informasi sesuai dengan kebijakan ini.',
+            'Saat Anda mendaftar menggunakan email atau akun Google, kami menerima informasi dasar berupa alamat email, nama, dan foto profil agar kami dapat mengenali akun serta menyesuaikan tampilan ruang kerja Anda.',
+            'Kami juga menyimpan catatan keuangan yang Anda masukkan sendiri, seperti transaksi, daftar dompet, anggaran, target tabungan, catatan grup bersama, serta foto struk yang Anda unggah.',
           ],
         },
         {
-          title: '2. Informasi yang Kami Kumpulkan',
+          title: '2. Masuk Menggunakan Akun Google',
           body: [
-            'Data Akun & Autentikasi: Saat Anda mendaftar atau masuk menggunakan Email/Kata Sandi atau Google OAuth (Masuk dengan Google), kami hanya menerima alamat email, nama tampilan, dan URL foto profil (avatar) untuk mengautentikasi identitas dan mempersonalisasi akun Anda.',
-            'Data Keuangan & Ruang Kerja: Catatan transaksi, dompet/rekening, pagu anggaran, target tabungan, catatan utang/piutang, ruang grup bersama kolega, serta foto struk opsional yang Anda unggah untuk pemindaian struk berbasis AI.',
-            'Log Keamanan & Audit: Metadata teknis esensial seperti waktu sesi, status pendaftaran Passkey/MFA, dan riwayat log aktivitas untuk melindungi akun Anda dari akses tidak sah.',
+            'Jika Anda memilih masuk dengan Google, StashinMe hanya meminta alamat email serta nama dan foto profil dasar Anda. Kami tidak pernah meminta akses ke isi Gmail, file Google Drive, kontak, maupun kalender Anda.',
+            'Data yang diterima dari Google hanya digunakan untuk proses masuk dan pengelolaan akun StashinMe sesuai dengan Google API Services User Data Policy, termasuk ketentuan Limited Use. Kami tidak pernah menjual data akun Google Anda atau menggunakannya untuk iklan.',
           ],
         },
         {
-          title: '3. Data Pengguna Google & Kebijakan Limited Use',
+          title: '3. Cara Kami Menggunakan Data Anda',
           body: [
-            'Saat Anda memilih "Lanjutkan dengan Google", StashinMe hanya meminta izin standar non-sensitif OpenID Connect (email dan profil dasar). Kami tidak pernah meminta akses ke isi Gmail, file Google Drive, Kontak Google, maupun Google Calendar Anda.',
-            'Penggunaan informasi yang diterima dari Google API oleh StashinMe sepenuhnya mematuhi Google API Services User Data Policy, termasuk ketentuan Limited Use. Kami tidak pernah menjual, menyewakan, atau menggunakan data akun Google Anda untuk iklan, profiling pihak ketiga, maupun pelatihan model AI.',
+            'Data Anda digunakan semata-mata untuk menjalankan pencatatan keuangan pribadi dan grup, menampilkan konversi mata uang, serta mengirimkan email penting terkait akun (seperti verifikasi atau atur ulang kata sandi) dari noreply@stashinme.biz.id.',
+            'Kami juga menyimpan riwayat aktivitas penting agar Anda dapat memantau perubahan dan menjaga keamanan akun.',
           ],
         },
         {
-          title: '4. Cara Kami Menggunakan Informasi Anda',
+          title: '4. Menjaga Kerahasiaan Catatan Anda',
           body: [
-            'Menyediakan, mengoperasikan, dan memelihara dasbor keuangan pribadi maupun grup, konversi multi-mata uang, serta fitur undangan kolaborasi.',
-            'Mengirimkan email transaksional penting (verifikasi akun, kode OTP, atur ulang kata sandi, dan notifikasi keamanan) dari alamat resmi noreply@stashinme.biz.id.',
-            'Menjaga keamanan platform menggunakan proteksi anti-bot (Cloudflare Turnstile), pembatasan laju permintaan, dan pengelolaan sesi terenkripsi.',
-            'Menanggapi pertanyaan dukungan pelanggan maupun permintaan layanan Enterprise yang dikirim ke support@stashinme.biz.id.',
+            'Seluruh catatan keuangan Anda sepenuhnya milik Anda. Catatan pribadi hanya dapat dilihat oleh Anda sendiri, sedangkan catatan grup hanya dapat diakses oleh kolega yang Anda undang dan setujui.',
+            'Kami melindungi data Anda dengan standar keamanan yang baik selama pengiriman maupun penyimpanan, dan tidak pernah menjual atau menyewakan data pribadi Anda kepada pihak lain.',
           ],
         },
         {
-          title: '5. Infrastruktur, Penyimpanan & Keamanan',
+          title: '5. Preferensi & Cookie',
           body: [
-            'Seluruh transmisi data dienkripsi menggunakan protokol HTTPS/TLS. Data tersimpan di basis data PostgreSQL pada Supabase dengan kebijakan Row-Level Security (RLS) yang menjamin isolasi data secara ketat untuk setiap pengguna dan anggota grup yang berwenang.',
-            'Kami menggunakan mitra infrastruktur tepercaya termasuk Vercel (hosting aplikasi), Supabase (autentikasi & basis data), Cloudflare (DNS, routing email, keamanan Turnstile), dan Resend (pengiriman email transaksional).',
+            'Kami hanya menyimpan informasi penting di browser agar Anda tetap masuk ke akun serta mengingat pilihan bahasa, tema tampilan, dan mata uang utama Anda. Kami tidak memasang pelacak iklan pihak ketiga.',
           ],
         },
         {
-          title: '6. Retensi Data, Ekspor & Penghapusan Akun',
+          title: '6. Ekspor Data & Penghapusan Akun',
           body: [
-            'Anda memegang kepemilikan penuh atas seluruh data keuangan Anda. Kapan saja melalui menu Pengaturan, Anda dapat mengekspor data akun atau menghapus akun beserta seluruh catatan ruang kerja Anda secara permanen.',
-            'Anda juga dapat mengajukan permintaan ekspor atau penghapusan data secara manual melalui email ke support@stashinme.biz.id dari alamat email terdaftar Anda. Permintaan yang terverifikasi akan diproses maksimal dalam 7 hari kerja.',
+            'Anda dapat mengekspor seluruh catatan atau menghapus akun secara permanen kapan saja langsung dari menu Pengaturan di dalam StashinMe.',
+            'Jika membutuhkan bantuan manual, kirimkan permintaan dari alamat email terdaftar Anda ke support@stashinme.biz.id dan kami akan memprosesnya maksimal dalam 7 hari kerja.',
           ],
         },
         {
-          title: '7. Cookie & Penyimpanan Lokal',
+          title: '7. Perubahan Kebijakan',
           body: [
-            'StashinMe hanya menggunakan cookie dan penyimpanan browser yang esensial untuk menjaga sesi login Anda, mengingat pilihan bahasa (ID/EN), preferensi tema, serta mata uang utama tampilan. Kami tidak memasang pelacak iklan lintas situs.',
-          ],
-        },
-        {
-          title: '8. Pembaruan Kebijakan & Kontak',
-          body: [
-            'Kami dapat memperbarui Kebijakan Privasi ini sewaktu-waktu seiring pengembangan fitur atau penyesuaian regulasi. Setiap perubahan penting akan ditandai dengan pembaruan tanggal berlaku di bagian atas halaman ini.',
-            'Jika Anda memiliki pertanyaan terkait Kebijakan Privasi ini atau pengelolaan data Anda, silakan hubungi tim kami di support@stashinme.biz.id.',
+            'Kebijakan Privasi ini dapat diperbarui sewaktu-waktu seiring perkembangan layanan StashinMe. Setiap pembaruan akan ditandai dengan perubahan tanggal di bagian atas halaman ini.',
           ],
         },
       ];
 
   return (
-    <div className="min-h-screen bg-[#0a0f14] text-zinc-100">
-      <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#0a0f14]/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-4">
-          <Link href={`/${locale}`} className="flex items-center gap-2.5">
-            <Image
-              src="/logo-icon.png"
-              alt="StashinMe"
-              width={28}
-              height={28}
-              className="rounded-lg"
-            />
-            <span className="text-[15px] font-bold tracking-tight text-white">
-              StashinMe
-            </span>
-          </Link>
-
-          <div className="flex items-center gap-2.5">
-            <Link
-              href={`/${otherLocale}/privacy`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[12px] font-medium text-zinc-300 transition hover:border-white/20 hover:text-white"
-            >
-              <Globe className="size-3.5" />
-              {isEn ? 'Bahasa Indonesia' : 'English'}
-            </Link>
-            <Link
-              href={`/${locale}`}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-[12px] font-semibold text-emerald-300 transition hover:bg-emerald-500/25"
-            >
-              <ArrowLeft className="size-3.5" />
-              {isEn ? 'Back to Home' : 'Kembali ke Beranda'}
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-4xl px-5 py-12 sm:py-16">
-        <div className="mb-10 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.05] p-6 sm:p-8">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
-            <ShieldCheck className="size-3.5" />
-            {isEn ? 'Official Legal Document' : 'Dokumen Legal Resmi'}
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            {isEn ? 'Privacy Policy' : 'Kebijakan Privasi'}
-          </h1>
-          <p className="mt-2 text-[13px] text-zinc-400">
-            {isEn
-              ? 'Effective Date: November 22, 2026 · Applies to https://stashinme.biz.id'
-              : 'Tanggal Berlaku: 22 November 2026 · Berlaku untuk https://stashinme.biz.id'}
-          </p>
-        </div>
-
-        <div className="space-y-8">
-          {sections.map((section) => (
-            <section
-              key={section.title}
-              className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6"
-            >
-              <h2 className="text-[16px] font-semibold text-white">
-                {section.title}
-              </h2>
-              <div className="mt-3 space-y-3 text-[14px] leading-relaxed text-zinc-300">
-                {section.body.map((paragraph, idx) => (
-                  <p key={idx}>{paragraph}</p>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-
-        <footer className="mt-12 flex flex-col items-start justify-between gap-4 border-t border-white/[0.08] pt-8 text-[13px] text-zinc-400 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-2">
-            <Mail className="size-4 text-emerald-400" />
-            <span>{isEn ? 'Privacy & Data Contact:' : 'Kontak Privasi & Data:'}</span>
-            <a
-              href="mailto:support@stashinme.biz.id"
-              className="font-medium text-emerald-300 hover:underline"
-            >
-              support@stashinme.biz.id
-            </a>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href={`/${locale}/terms`}
-              className="text-zinc-300 transition hover:text-white"
-            >
-              {isEn ? 'Terms of Service' : 'Syarat & Ketentuan'}
-            </Link>
-            <Link
-              href={`/${locale}`}
-              className="text-zinc-300 transition hover:text-white"
-            >
-              {isEn ? 'Home' : 'Beranda'}
-            </Link>
-          </div>
-        </footer>
-      </main>
-    </div>
+    <LegalDocumentLayout
+      isEn={isEn}
+      activePage="privacy"
+      title={isEn ? 'Privacy Policy' : 'Kebijakan Privasi'}
+      updatedLabel={
+        isEn
+          ? 'Last updated: November 22, 2026 · stashinme.biz.id'
+          : 'Terakhir diperbarui: 22 November 2026 · stashinme.biz.id'
+      }
+      intro={
+        isEn
+          ? 'Your financial records are personal. This page explains in plain language what information StashinMe collects, how we use it, and how you stay in control of your data.'
+          : 'Catatan keuangan bersifat pribadi. Halaman ini menjelaskan secara sederhana data apa saja yang dikumpulkan StashinMe, bagaimana kami menggunakannya, serta kendali penuh yang Anda miliki atas data Anda.'
+      }
+      sections={sections}
+    />
   );
 }

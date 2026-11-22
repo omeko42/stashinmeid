@@ -1,10 +1,11 @@
 import type { Metadata } from 'next';
-import Link from 'next/link';
-import Image from 'next/image';
 import { setRequestLocale } from 'next-intl/server';
 import { notFound } from 'next/navigation';
 import { routing, type Locale } from '@/i18n/routing';
-import { ArrowLeft, FileText, Mail, Globe } from 'lucide-react';
+import {
+  LegalDocumentLayout,
+  type LegalSection,
+} from '@/components/legal/LegalDocumentLayout';
 
 export function generateStaticParams() {
   return routing.locales.map((locale) => ({ locale }));
@@ -20,12 +21,12 @@ export async function generateMetadata({
   return {
     title: isEn ? 'Terms of Service — StashinMe' : 'Syarat & Ketentuan — StashinMe',
     description: isEn
-      ? 'Official Terms of Service for StashinMe (https://stashinme.biz.id), governing account usage, collaborative financial workspaces, memberships, and acceptable use.'
-      : 'Syarat & Ketentuan resmi penggunaan aplikasi StashinMe (https://stashinme.biz.id) untuk akun pribadi, ruang keuangan grup, langganan, dan aturan penggunaan.',
+      ? 'Terms of Service for using StashinMe at https://stashinme.biz.id.'
+      : 'Syarat & Ketentuan penggunaan layanan StashinMe di https://stashinme.biz.id.',
     alternates: {
-      canonical: `https://stashinme.biz.id/${locale}/terms`,
+      canonical: `https://stashinme.biz.id/${locale === 'id' ? '' : `${locale}/`}terms`,
       languages: {
-        id: 'https://stashinme.biz.id/id/terms',
+        id: 'https://stashinme.biz.id/terms',
         en: 'https://stashinme.biz.id/en/terms',
       },
     },
@@ -42,219 +43,131 @@ export default async function TermsOfServicePage({
   const locale = rawLocale as Locale;
   setRequestLocale(locale);
   const isEn = locale === 'en';
-  const otherLocale = isEn ? 'id' : 'en';
 
-  const sections = isEn
+  const sections: LegalSection[] = isEn
     ? [
         {
-          title: '1. Acceptance of Terms',
+          title: '1. Using StashinMe',
           body: [
-            'Welcome to StashinMe (https://stashinme.biz.id). By accessing, registering, or using our web application, you agree to be bound by these Terms of Service and our Privacy Policy. If you do not agree with any part of these terms, please discontinue use of the service.',
+            'By creating an account or using StashinMe (https://stashinme.biz.id), you agree to these Terms of Service and our Privacy Policy. If you do not agree, please stop using the service.',
           ],
         },
         {
-          title: '2. Description of Service',
+          title: '2. What StashinMe Provides',
           body: [
-            'StashinMe provides digital tools for personal and collaborative financial tracking, multi-currency wallet management, budgeting, AI-assisted receipt scanning, and colleague group workspaces.',
-            'StashinMe is a financial record-keeping and productivity platform — we do not provide banking, investment brokerage, tax advisory, or regulated financial custodian services.',
+            'StashinMe helps you track personal and shared finances, manage wallets across currencies, set budgets, scan receipts, and collaborate with colleagues in group workspaces.',
+            'StashinMe is a record-keeping and budgeting tool. We are not a bank, investment advisor, tax consultant, or financial custodian.',
           ],
         },
         {
-          title: '3. Account Registration & Security',
+          title: '3. Your Account & Security',
           body: [
-            'You are responsible for maintaining the confidentiality of your account credentials (email/password, Google OAuth, Passkeys, or MFA) and for all activities occurring under your account.',
-            'You agree to provide accurate registration information and notify us immediately at support@stashinme.biz.id if you suspect unauthorized access to your account.',
+            'Please keep your sign-in details secure and let us know immediately at support@stashinme.biz.id if you believe someone accessed your account without permission.',
+            'You are responsible for the accuracy of the records you enter and for managing who you invite into your shared groups.',
           ],
         },
         {
-          title: '4. Collaborative Spaces & Acceptable Use',
+          title: '4. Fair & Responsible Use',
           body: [
-            'When inviting colleagues to shared financial groups, you are responsible for managing member permissions and ensuring you have the right to share records within that workspace.',
-            'You agree not to misuse StashinMe for unlawful activities, automated abuse, credential stuffing, attempting to bypass rate limits or security controls, or uploading malicious content.',
+            'Please use StashinMe lawfully and respectfully. Do not attempt to disrupt the service, abuse automated access, or upload harmful content.',
           ],
         },
         {
-          title: '5. Membership Plans & Billing',
+          title: '5. Membership Plans',
           body: [
-            'StashinMe offers Free, Standard, Pro, Business, and Enterprise Custom tiers with clearly published workspace quotas and pricing.',
-            'Paid plan durations and renewal dates are displayed transparently inside your account settings. Upon expiration of a paid plan without renewal, your account automatically reverts to the Free tier without deleting your existing records.',
+            'StashinMe offers a Free plan alongside paid plans (Standard, Pro, Business, and Enterprise Custom) with transparent pricing and group limits.',
+            'If a paid plan expires and is not renewed, your account simply returns to the Free plan — your existing financial records remain safe and are never deleted automatically.',
           ],
         },
         {
-          title: '6. Intellectual Property & User Content',
+          title: '6. Ownership of Your Data',
           body: [
-            'You retain full ownership of all financial data, notes, and receipts you enter into StashinMe. You grant us a limited license solely to host, process, and display your content back to you and your authorized group members.',
-            'The StashinMe brand, logo, interface design, and platform software remain the property of StashinMe and its contributors.',
+            'Everything you record in StashinMe remains yours. You only give us permission to store and display your records back to you and the group members you approve.',
           ],
         },
         {
-          title: '7. Availability & Limitation of Liability',
+          title: '7. Service Availability',
           body: [
-            'We strive to maintain high availability and data reliability, but the service is provided on an "as-is" and "as-available" basis. To the maximum extent permitted by applicable law, StashinMe shall not be liable for indirect or consequential financial losses arising from user input errors or third-party service interruptions.',
+            'We work hard to keep StashinMe reliable and available, though occasional maintenance or third-party outages may happen. StashinMe is provided as-is, and we are not responsible for financial decisions made based on manual input errors.',
           ],
         },
         {
-          title: '8. Termination & Contact',
+          title: '8. Closing Your Account',
           body: [
-            'You may terminate your account at any time from Settings. We reserve the right to suspend accounts that violate these Terms or threaten platform security.',
-            'Questions regarding these Terms of Service can be directed to support@stashinme.biz.id.',
+            'You are free to close and delete your account whenever you wish from Settings. We may also suspend accounts that violate these terms or harm other users.',
           ],
         },
       ]
     : [
         {
-          title: '1. Penerimaan Syarat & Ketentuan',
+          title: '1. Menggunakan StashinMe',
           body: [
-            'Selamat datang di StashinMe (https://stashinme.biz.id). Dengan mengakses, mendaftar, atau menggunakan aplikasi web kami, Anda menyetujui untuk terikat oleh Syarat & Ketentuan ini serta Kebijakan Privasi kami. Jika Anda tidak menyetujui bagian mana pun dari ketentuan ini, mohon hentikan penggunaan layanan.',
+            'Dengan membuat akun atau menggunakan StashinMe (https://stashinme.biz.id), Anda menyetujui Syarat & Ketentuan ini serta Kebijakan Privasi kami. Jika Anda tidak setuju, silakan hentikan penggunaan layanan.',
           ],
         },
         {
-          title: '2. Deskripsi Layanan',
+          title: '2. Layanan yang Kami Sediakan',
           body: [
-            'StashinMe menyediakan perangkat lunak pencatatan keuangan pribadi maupun kolaboratif, pengelolaan dompet multi-mata uang, perencanaan anggaran, pemindaian struk berbasis AI, serta ruang grup bersama kolega.',
-            'StashinMe adalah platform pencatatan dan produktivitas keuangan — kami bukan bank, pialang investasi, konsultan pajak, maupun lembaga penyimpanan dana berizin.',
+            'StashinMe membantu Anda mencatat keuangan pribadi maupun bersama, mengelola dompet lintas mata uang, mengatur anggaran, memindai struk belanja, serta berkolaborasi dalam grup bersama kolega.',
+            'StashinMe adalah alat bantu pencatatan dan perencanaan keuangan. Kami bukan bank, penasihat investasi, konsultan pajak, maupun lembaga penyimpan dana.',
           ],
         },
         {
-          title: '3. Pendaftaran & Keamanan Akun',
+          title: '3. Akun & Keamanan Anda',
           body: [
-            'Anda bertanggung jawab penuh menjaga kerahasiaan kredensial akun Anda (email/kata sandi, Google OAuth, Passkey, atau MFA) beserta seluruh aktivitas yang terjadi di dalam akun Anda.',
-            'Anda setuju memberikan informasi pendaftaran yang akurat dan segera menghubungi kami di support@stashinme.biz.id apabila mencurigai adanya akses tidak sah pada akun Anda.',
+            'Mohon jaga kerahasiaan akses masuk akun Anda dan segera hubungi kami di support@stashinme.biz.id jika merasa ada aktivitas yang tidak Anda kenali.',
+            'Anda bertanggung jawab atas ketepatan data yang Anda catat serta siapa saja yang Anda undang ke dalam grup bersama.',
           ],
         },
         {
-          title: '4. Ruang Kolaborasi & Aturan Penggunaan',
+          title: '4. Penggunaan yang Wajar',
           body: [
-            'Saat mengundang kolega ke ruang grup keuangan bersama, Anda bertanggung jawab mengatur izin anggota serta memastikan data yang dibagikan di dalam grup tersebut telah sesuai.',
-            'Anda dilarang menyalahgunakan StashinMe untuk aktivitas melanggar hukum, penyalahgunaan otomatis/bot, upaya membobol keamanan sistem, atau mengunggah konten berbahaya.',
+            'Gunakan StashinMe secara wajar dan sesuai hukum yang berlaku. Dilarang mengganggu operasional layanan, menyalahgunakan akses otomatis, atau mengunggah konten yang membahayakan.',
           ],
         },
         {
-          title: '5. Paket Keanggotaan & Penagihan',
+          title: '5. Paket Keanggotaan',
           body: [
-            'StashinMe menyediakan paket Free, Standard, Pro, Business, serta Enterprise Custom dengan kuota grup dan harga yang ditampilkan secara transparan.',
-            'Durasi dan masa berlaku paket berbayar ditampilkan langsung di menu pengaturan akun Anda. Apabila masa berlaku paket berbayar berakhir tanpa perpanjangan, akun otomatis kembali ke paket Free tanpa menghapus catatan keuangan Anda yang sudah ada.',
+            'StashinMe menyediakan paket Gratis (Free) serta paket berbayar (Standard, Pro, Business, dan Enterprise Custom) dengan harga dan kuota grup yang transparan.',
+            'Jika masa berlaku paket berbayar berakhir tanpa perpanjangan, akun Anda otomatis kembali ke paket Gratis — seluruh catatan keuangan yang sudah tersimpan tetap aman dan tidak dihapus.',
           ],
         },
         {
-          title: '6. Hak Kekayaan Intelektual & Data Pengguna',
+          title: '6. Kepemilikan Data Anda',
           body: [
-            'Anda tetap menjadi pemilik penuh atas seluruh catatan transaksi, data, dan struk yang Anda masukkan ke StashinMe. Anda memberikan izin terbatas kepada kami hanya untuk menyimpan, memproses, dan menampilkan data tersebut kepada Anda serta anggota grup yang Anda izinkan.',
-            'Merek StashinMe, logo, desain antarmuka, dan perangkat lunak platform merupakan milik StashinMe beserta para kontributornya.',
+            'Seluruh catatan yang Anda buat di StashinMe tetap sepenuhnya milik Anda. Anda hanya memberi kami izin untuk menyimpan dan menampilkan catatan tersebut kepada Anda serta anggota grup yang Anda setujui.',
           ],
         },
         {
-          title: '7. Ketersediaan Layanan & Batasan Tanggung Jawab',
+          title: '7. Ketersediaan Layanan',
           body: [
-            'Kami berupaya menjaga ketersediaan dan keandalan sistem sebaik mungkin, namun layanan disediakan sebagaimana adanya ("as-is"). Sejauh diizinkan oleh hukum yang berlaku, StashinMe tidak bertanggung jawab atas kerugian tidak langsung akibat kesalahan pencatatan pengguna maupun gangguan layanan pihak ketiga.',
+            'Kami berupaya menjaga StashinMe tetap stabil dan mudah diakses setiap saat, meski pemeliharaan berkala atau gangguan pihak ketiga dapat saja terjadi. Layanan disediakan sebagaimana adanya dan kami tidak bertanggung jawab atas keputusan keuangan dari kesalahan pencatatan manual.',
           ],
         },
         {
-          title: '8. Penghentian Akun & Kontak',
+          title: '8. Penutupan Akun',
           body: [
-            'Anda dapat menghentikan dan menghapus akun Anda kapan saja melalui menu Pengaturan. Kami berhak menangguhkan akun yang melanggar ketentuan ini atau membahayakan keamanan platform.',
-            'Pertanyaan terkait Syarat & Ketentuan ini dapat dikirimkan ke support@stashinme.biz.id.',
+            'Anda bebas menutup dan menghapus akun kapan saja melalui menu Pengaturan. Kami juga berhak menangguhkan akun yang melanggar ketentuan ini atau merugikan pengguna lain.',
           ],
         },
       ];
 
   return (
-    <div className="min-h-screen bg-[#0a0f14] text-zinc-100">
-      <header className="sticky top-0 z-30 border-b border-white/[0.08] bg-[#0a0f14]/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-5 py-4">
-          <Link href={`/${locale}`} className="flex items-center gap-2.5">
-            <Image
-              src="/logo-icon.png"
-              alt="StashinMe"
-              width={28}
-              height={28}
-              className="rounded-lg"
-            />
-            <span className="text-[15px] font-bold tracking-tight text-white">
-              StashinMe
-            </span>
-          </Link>
-
-          <div className="flex items-center gap-2.5">
-            <Link
-              href={`/${otherLocale}/terms`}
-              className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/[0.04] px-3 py-1.5 text-[12px] font-medium text-zinc-300 transition hover:border-white/20 hover:text-white"
-            >
-              <Globe className="size-3.5" />
-              {isEn ? 'Bahasa Indonesia' : 'English'}
-            </Link>
-            <Link
-              href={`/${locale}`}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-500/15 px-3 py-1.5 text-[12px] font-semibold text-emerald-300 transition hover:bg-emerald-500/25"
-            >
-              <ArrowLeft className="size-3.5" />
-              {isEn ? 'Back to Home' : 'Kembali ke Beranda'}
-            </Link>
-          </div>
-        </div>
-      </header>
-
-      <main className="mx-auto max-w-4xl px-5 py-12 sm:py-16">
-        <div className="mb-10 rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.05] p-6 sm:p-8">
-          <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-emerald-500/30 bg-emerald-500/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-300">
-            <FileText className="size-3.5" />
-            {isEn ? 'Official Legal Document' : 'Dokumen Legal Resmi'}
-          </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white sm:text-3xl">
-            {isEn ? 'Terms of Service' : 'Syarat & Ketentuan'}
-          </h1>
-          <p className="mt-2 text-[13px] text-zinc-400">
-            {isEn
-              ? 'Effective Date: November 22, 2026 · Applies to https://stashinme.biz.id'
-              : 'Tanggal Berlaku: 22 November 2026 · Berlaku untuk https://stashinme.biz.id'}
-          </p>
-        </div>
-
-        <div className="space-y-8">
-          {sections.map((section) => (
-            <section
-              key={section.title}
-              className="rounded-2xl border border-white/[0.07] bg-white/[0.02] p-6"
-            >
-              <h2 className="text-[16px] font-semibold text-white">
-                {section.title}
-              </h2>
-              <div className="mt-3 space-y-3 text-[14px] leading-relaxed text-zinc-300">
-                {section.body.map((paragraph, idx) => (
-                  <p key={idx}>{paragraph}</p>
-                ))}
-              </div>
-            </section>
-          ))}
-        </div>
-
-        <footer className="mt-12 flex flex-col items-start justify-between gap-4 border-t border-white/[0.08] pt-8 text-[13px] text-zinc-400 sm:flex-row sm:items-center">
-          <div className="flex items-center gap-2">
-            <Mail className="size-4 text-emerald-400" />
-            <span>{isEn ? 'Legal & Support Contact:' : 'Kontak Legal & Dukungan:'}</span>
-            <a
-              href="mailto:support@stashinme.biz.id"
-              className="font-medium text-emerald-300 hover:underline"
-            >
-              support@stashinme.biz.id
-            </a>
-          </div>
-          <div className="flex items-center gap-4">
-            <Link
-              href={`/${locale}/privacy`}
-              className="text-zinc-300 transition hover:text-white"
-            >
-              {isEn ? 'Privacy Policy' : 'Kebijakan Privasi'}
-            </Link>
-            <Link
-              href={`/${locale}`}
-              className="text-zinc-300 transition hover:text-white"
-            >
-              {isEn ? 'Home' : 'Beranda'}
-            </Link>
-          </div>
-        </footer>
-      </main>
-    </div>
+    <LegalDocumentLayout
+      isEn={isEn}
+      activePage="terms"
+      title={isEn ? 'Terms of Service' : 'Syarat & Ketentuan'}
+      updatedLabel={
+        isEn
+          ? 'Last updated: November 22, 2026 · stashinme.biz.id'
+          : 'Terakhir diperbarui: 22 November 2026 · stashinme.biz.id'
+      }
+      intro={
+        isEn
+          ? 'These terms outline the ground rules for using StashinMe in clear, straightforward language.'
+          : 'Ketentuan ini menjelaskan aturan dasar penggunaan StashinMe dengan bahasa yang ringkas dan mudah dipahami.'
+      }
+      sections={sections}
+    />
   );
 }
