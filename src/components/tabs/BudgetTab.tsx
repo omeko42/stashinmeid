@@ -1,17 +1,22 @@
 'use client';
 
 import { useState } from 'react';
-import { useTranslations } from 'next-intl';
-import { Trash2, Wallet } from 'lucide-react';
-import type { Budget, BudgetPeriod } from '@/types/finance';
-import { formatRp } from '@/lib/format';
+import { useLocale, useTranslations } from 'next-intl';
+import { Calendar, Trash2, Wallet } from 'lucide-react';
+import type { Budget, BudgetPeriod, Transaction } from '@/types/finance';
+import { formatDate, formatRp, todayIso } from '@/lib/format';
 import { getCategory } from '@/lib/categories';
-import { budgetStatuses } from '@/lib/budget';
-import type { Transaction } from '@/types/finance';
+import {
+  budgetStatuses,
+  encodeCustomBudgetCategory,
+  parseBudgetCategory,
+} from '@/lib/budget';
 import { Amount, Label, Progress, SectionTitle } from '@/components/ui/Surface';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Segmented } from '@/components/ui/Segmented';
+
+type BudgetTabFilter = BudgetPeriod | 'custom';
 
 interface BudgetTabProps {
   budgets: Budget[];
@@ -21,11 +26,19 @@ interface BudgetTabProps {
   onRemove: (id: string) => Promise<void>;
 }
 
+function addDaysIso(baseIso: string, deltaDays: number): string {
+  const [y, m, d] = baseIso.split('-').map(Number);
+  const dt = new Date(y, (m || 1) - 1, (d || 1) + deltaDays);
+  const yy = dt.getFullYear();
+  const mm = String(dt.getMonth() + 1).padStart(2, '0');
+  const dd = String(dt.getDate()).padStart(2, '0');
+  return `${yy}-${mm}-${dd}`;
+}
+
 /**
  * Anggaran per kategori.
- *
- * Pagu ditampilkan sebagai baris ledger: kategori, pagu, dan realisasi.
- * Form untuk mengatur pagu ada di dalam baris, jadi tidak perlu pindah layar.
+ * Mendukung periode Mingguan, Bulanan, Tahunan, serta Custom rentang tanggal
+ * bebas (1 hari, 2 hari, beberapa bulan, hingga lebih dari 1 tahun).
  */
 export function BudgetTab({
   budgets,
@@ -34,16 +47,25 @@ export function BudgetTab({
   onSave,
   onRemove,
 }: BudgetTabProps) {
+  const locale = useLocale();
+  const isEn = locale === 'en';
   const t = useTranslations();
   const tBudget = useTranslations('budget');
 
-  const [period, setPeriod] = useState<BudgetPeriod>('monthly');
+  const today = todayIso();
+  const [period, setPeriod] = useState<BudgetTabFilter>('monthly');
   const [category, setCategory] = useState('');
   const [amount, setAmount] = useState('');
+  const [startDate, setStartDate] = useState(today);
+  const [endDate, setEndDate] = useState(addDaysIso(today, 1));
   const [saving, setSaving] = useState(false);
 
   const statuses = budgetStatuses(budgets, transactions);
-  const visible = statuses.filter((s) => s.budget.period === period);
+  const visible = statuses.filter((s) => {
+    const parsed = parseBudgetCategory(s.budget.category);
+    if (period === 'custom') return parsed.isCustom;
+    return !parsed.isCustom && s.budget.period === period;
+  });
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -51,15 +73,42 @@ export function BudgetTab({
     if (!category.trim() || !value || value <= 0) return;
 
     setSaving(true);
-    await onSave(category.trim(), value, period);
-    setAmount('');
-    setSaving(false);
+    try {
+      if (period === 'custom') {
+        const from = startDate || today;
+        const to = endDate || from;
+        const encoded = encodeCustomBudgetCategory(category.trim(), from, to);
+        await onSave(encoded, value, 'yearly');
+      } else {
+        await onSave(category.trim(), value, period);
+      }
+      setAmount('');
+      setCategory('');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const applyQuickDuration = (days: number) => {
+    const base = startDate || today;
+    setStartDate(base);
+    setEndDate(addDaysIso(base, Math.max(0, days - 1)));
+  };
+
+  const customDays = (() => {
+    if (!startDate || !endDate) return 1;
+    const [sy, sm, sd] = startDate.split('-').map(Number);
+    const [ey, em, ed] = endDate.split('-').map(Number);
+    const s = new Date(sy, (sm || 1) - 1, sd || 1).getTime();
+    const e = new Date(ey, (em || 1) - 1, ed || 1).getTime();
+    return Math.max(1, Math.round(Math.abs(e - s) / 86_400_000) + 1);
+  })();
 
   const periodOptions = [
     { value: 'weekly' as const, label: t('overview.period.week') },
     { value: 'monthly' as const, label: t('overview.period.month') },
     { value: 'yearly' as const, label: t('overview.period.year') },
+    { value: 'custom' as const, label: 'Custom' },
   ];
 
   return (
@@ -85,48 +134,116 @@ export function BudgetTab({
       {canEdit && (
         <form
           onSubmit={handleSave}
-          className="flex flex-col gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4 sm:flex-row sm:items-end"
+          className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4"
         >
-          <div className="flex-1">
-            <label
-              htmlFor="budget-category"
-              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-            >
-              {t('common.category')}
-            </label>
-            <input
-              id="budget-category"
-              name="category"
-              type="text"
-              required
-              value={category}
-              onChange={(e) => setCategory(e.target.value)}
-              placeholder="Makan & Minum"
-              className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-            />
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div className="flex-1">
+              <label
+                htmlFor="budget-category"
+                className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+              >
+                {t('common.category')}
+              </label>
+              <input
+                id="budget-category"
+                name="category"
+                type="text"
+                required
+                value={category}
+                onChange={(e) => setCategory(e.target.value)}
+                placeholder={
+                  period === 'custom'
+                    ? isEn
+                      ? 'e.g. Weekend Trip, Renovation, Daily Meals'
+                      : 'Mis. Liburan 2 Hari, Makan Harian, Renovasi'
+                    : 'Makan & Minum'
+                }
+                className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+              />
+            </div>
+            <div className="flex-1">
+              <label
+                htmlFor="budget-amount"
+                className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+              >
+                {tBudget('placeholder')}
+              </label>
+              <input
+                id="budget-amount"
+                name="amount"
+                type="number"
+                required
+                min="1"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                placeholder="1000000"
+                className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+              />
+            </div>
+            <Button type="submit" size="sm" loading={saving} className="whitespace-nowrap">
+              {tBudget('set')}
+            </Button>
           </div>
-          <div className="flex-1">
-            <label
-              htmlFor="budget-amount"
-              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-            >
-              {tBudget('placeholder')}
-            </label>
-            <input
-              id="budget-amount"
-              name="amount"
-              type="number"
-              required
-              min="1"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              placeholder="1000000"
-              className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-            />
-          </div>
-          <Button type="submit" size="sm" loading={saving}>
-            {tBudget('set')}
-          </Button>
+
+          {period === 'custom' && (
+            <div className="flex flex-col gap-2.5 border-t border-[var(--line)] pt-3 sm:flex-row sm:items-end sm:justify-between">
+              <div className="grid flex-1 grid-cols-2 gap-2">
+                <div>
+                  <label
+                    htmlFor="budget-start-date"
+                    className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+                  >
+                    {isEn ? 'Start Date' : 'Dari Tanggal'}
+                  </label>
+                  <input
+                    id="budget-start-date"
+                    name="startDate"
+                    type="date"
+                    value={startDate}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="budget-end-date"
+                    className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+                  >
+                    {isEn ? 'End Date' : 'Sampai Tanggal'}
+                  </label>
+                  <input
+                    id="budget-end-date"
+                    name="endDate"
+                    type="date"
+                    value={endDate}
+                    onChange={(e) => setEndDate(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { label: isEn ? '1d' : '1 Hari', days: 1 },
+                  { label: isEn ? '2d' : '2 Hari', days: 2 },
+                  { label: isEn ? '30d' : '30 Hari', days: 30 },
+                  { label: isEn ? '2y' : '2 Tahun', days: 730 },
+                ].map((preset) => (
+                  <button
+                    key={preset.days}
+                    type="button"
+                    onClick={() => applyQuickDuration(preset.days)}
+                    className="rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] whitespace-nowrap transition hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                  >
+                    {preset.label}
+                  </button>
+                ))}
+                <span className="rounded-md bg-[var(--brand-soft)] px-2 py-1 text-[11px] font-semibold text-[var(--brand)] whitespace-nowrap">
+                  {customDays} {isEn ? 'days' : 'hari'}
+                </span>
+              </div>
+            </div>
+          )}
         </form>
       )}
 
@@ -138,7 +255,13 @@ export function BudgetTab({
             description={tBudget('empty.description')}
             action={
               canEdit ? (
-                <Button size="sm" onClick={() => setPeriod('monthly')}>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    const input = document.getElementById('budget-category');
+                    input?.focus();
+                  }}
+                >
                   {tBudget('empty.action')}
                 </Button>
               ) : undefined
@@ -152,7 +275,8 @@ export function BudgetTab({
           </div>
 
           {visible.map((status) => {
-            const meta = getCategory(status.budget.category);
+            const parsed = parseBudgetCategory(status.budget.category);
+            const meta = getCategory(parsed.label);
             const Icon = meta.icon;
             return (
               <div
@@ -166,9 +290,18 @@ export function BudgetTab({
                       aria-hidden
                     />
                     <div className="min-w-0">
-                      <p className="truncate text-[13px] font-medium text-[var(--text)]">
-                        {status.budget.category}
-                      </p>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <p className="truncate text-[13px] font-medium text-[var(--text)]">
+                          {parsed.label}
+                        </p>
+                        {parsed.isCustom && parsed.startIso && parsed.endIso && (
+                          <span className="inline-flex items-center gap-1 rounded-md bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand)] whitespace-nowrap">
+                            <Calendar className="size-2.5" aria-hidden />
+                            {formatDate(parsed.startIso)} – {formatDate(parsed.endIso)}
+                            {parsed.days ? ` (${parsed.days} ${isEn ? 'd' : 'hr'})` : ''}
+                          </span>
+                        )}
+                      </div>
                       <p className="tnum mt-0.5 text-[11px] text-[var(--text-muted)]">
                         {tBudget('of', { total: formatRp(status.budget.amount) })}
                       </p>

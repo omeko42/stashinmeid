@@ -212,7 +212,7 @@
   },
   "budget": {
     "title": "Anggaran",
-    "subtitle": "Pagu bulanan per kategori",
+    "subtitle": "Batas pengeluaran mingguan, bulanan, tahunan, atau rentang tanggal bebas",
     "set": "Atur pagu",
     "unset": "Hapus pagu",
     "spent": "terpakai",

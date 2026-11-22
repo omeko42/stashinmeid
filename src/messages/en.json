@@ -212,7 +212,7 @@
   },
   "budget": {
     "title": "Budget",
-    "subtitle": "Monthly cap per category",
+    "subtitle": "Spending caps by week, month, year, or any custom date range",
     "set": "Set cap",
     "unset": "Remove cap",
     "spent": "spent",
