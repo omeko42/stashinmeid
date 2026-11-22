@@ -84,7 +84,11 @@ function resolveConfig(args) {
     url: pick('NEXT_PUBLIC_SUPABASE_URL') || (projectRef ? `https://${projectRef}.supabase.co` : ''),
     superadminUser: pick('SUPERADMIN_USERNAME'),
     superadminPass: pick('SUPERADMIN_PASSWORD'),
+    superadminPassHash: pick('SUPERADMIN_PASSWORD_HASH'),
     jwtSecret: pick('JWT_SECRET'),
+    turnstileSiteKey: pick('NEXT_PUBLIC_TURNSTILE_SITE_KEY'),
+    turnstileSecretKey: pick('TURNSTILE_SECRET_KEY'),
+    siteUrl: pick('NEXT_PUBLIC_SITE_URL'),
     project: args.project,
     env: args.env,
     yes: args.yes,
@@ -161,11 +165,44 @@ async function main() {
   if (cfg.superadminUser) {
     variables.push({ key: 'SUPERADMIN_USERNAME', value: cfg.superadminUser, type: 'secret' });
   }
-  if (cfg.superadminPass) {
-    variables.push({ key: 'SUPERADMIN_PASSWORD', value: cfg.superadminPass, type: 'secret' });
+  // Hash lebih aman daripada password polos. Kalau hash ada, kirim itu
+  // dan JANGAN kirim password polos - kalau keduanya ada di Vercel,
+  // server pakai hash, dan password polos jadi hanya jejak yang tidak
+  // perlu ada.
+  if (cfg.superadminPassHash) {
+    variables.push({
+      key: 'SUPERADMIN_PASSWORD_HASH',
+      value: cfg.superadminPassHash,
+      type: 'secret',
+    });
+  } else if (cfg.superadminPass) {
+    variables.push({
+      key: 'SUPERADMIN_PASSWORD',
+      value: cfg.superadminPass,
+      type: 'secret',
+    });
   }
   if (cfg.jwtSecret) {
     variables.push({ key: 'JWT_SECRET', value: cfg.jwtSecret, type: 'secret' });
+  }
+  // Captcha. Site key wajib di-inline saat build, jadi kalau nilainya
+  // berubah di sini, project Vercel harus di-redeploy.
+  if (cfg.turnstileSiteKey) {
+    variables.push({
+      key: 'NEXT_PUBLIC_TURNSTILE_SITE_KEY',
+      value: cfg.turnstileSiteKey,
+      type: 'plain',
+    });
+  }
+  if (cfg.turnstileSecretKey) {
+    variables.push({
+      key: 'TURNSTILE_SECRET_KEY',
+      value: cfg.turnstileSecretKey,
+      type: 'secret',
+    });
+  }
+  if (cfg.siteUrl) {
+    variables.push({ key: 'NEXT_PUBLIC_SITE_URL', value: cfg.siteUrl, type: 'plain' });
   }
 
   console.log('Variable yang akan ditulis:');

@@ -9,6 +9,7 @@
     "lint": "eslint src",
     "typecheck": "tsc --noEmit",
     "check:i18n": "node scripts/check-i18n.mjs",
+    "test:sync-env": "node scripts/sync-vercel-env.test.mjs",
     "hash-password": "node scripts/hash-password.mjs",
     "sync:vercel-env": "node scripts/sync-vercel-env.mjs",
     "push": "node scripts/push.mjs"

@@ -145,16 +145,33 @@ Cek daftar lengkap di `.env.vercel.example`. Yang wajib:
 | `JWT_SECRET` | Minimal 32 karakter, untuk token superadmin |
 | `NEXT_PUBLIC_TURNSTILE_SITE_KEY` | Dari Cloudflare (lihat di atas) |
 | `TURNSTILE_SECRET_KEY` | Dari Cloudflare (lihat di atas) |
+| `SUPERADMIN_USERNAME` | Username untuk login superadmin |
+| `SUPERADMIN_PASSWORD_HASH` | Hash password superadmin (lihat catatan di bawah) |
 
 Opsional:
 
 | Nama | Keterangan |
 |------|------------|
-| `SUPERADMIN_USERNAME` | Username untuk login superadmin |
-| `SUPERADMIN_PASSWORD` | Password-nya (atau pakai `SUPERADMIN_PASSWORD_HASH`) |
+| `SUPERADMIN_PASSWORD` | Password polos - **hanya kalau** hash tidak dipakai |
 | `SUPERADMIN_EMAIL` | Email superadmin, default dari username |
 | `GEMINI_API_KEY` | Fitur pindai struk AI |
 | `NEXT_PUBLIC_SITE_URL` | Default `https://stashinmeid.vercel.app` |
+
+### Cara paling cepat: pakai `npm run push`
+
+Kalau `VERCEL_TOKEN` ada di `.env.local`, satu perintah ini commit,
+push, **dan** menyalin semua env di atas ke Vercel sekaligus:
+
+```powershell
+npm run push
+```
+
+Token dibuat di **Vercel > Settings > Account > Tokens**. Tanpa token,
+script hanya commit dan push - env Vercel harus diset manual.
+
+> **Penting:** `NEXT_PUBLIC_*` di-inline saat build. Jadi kalau env
+> berubah, project Vercel harus di-**redeploy** (Deployments > Redeploy)
+> supaya nilainya terpakai. `npm run push` tidak otomatis redeploy.
 
 > `SUPERADMIN_PASSWORD_HASH` lebih aman daripada password polos.
 > Generate dengan `npm run hash-password -- "passwordmu"`.

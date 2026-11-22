@@ -158,7 +158,8 @@ if (!token) {
     console.log('   Sync env gagal. Set manual di Vercel > Settings > Environment Variables:');
     console.log('     NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY,');
     console.log('     SUPABASE_SERVICE_ROLE_KEY, SUPERADMIN_USERNAME,');
-    console.log('     SUPERADMIN_PASSWORD, JWT_SECRET');
+    console.log('     SUPERADMIN_PASSWORD_HASH (atau SUPERADMIN_PASSWORD), JWT_SECRET,');
+    console.log('     NEXT_PUBLIC_TURNSTILE_SITE_KEY, TURNSTILE_SECRET_KEY');
   }
 }
 
