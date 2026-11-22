@@ -23,7 +23,20 @@ export interface FxRate {
 }
 
 export const CURRENCY_OPTIONS = [
-  'IDR', 'USD', 'EUR', 'SGD', 'JPY', 'AUD', 'GBP', 'CNY', 'MYR', 'USDT',
+  'IDR',
+  'USD',
+  'EUR',
+  'SGD',
+  'JPY',
+  'AUD',
+  'GBP',
+  'CNY',
+  'MYR',
+  'USDT',
+  'BTC',
+  'ETH',
+  'SOL',
+  'XAU',
 ];
 
 /**
@@ -319,17 +332,17 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
   );
 
   /**
-   * Update kurs OTOMATIS: fiat dari Frankfurter (ECB), crypto dari CoinGecko.
-   * Hanya menyegarkan mata uang yang dipakai di dompet / sudah ada di kurs,
-   * lalu hasilnya di-upsert ke fx_rates.
+   * Update kurs OTOMATIS: valas dari Frankfurter FX, crypto & emas (XAU) dari CoinGecko.
+   * Tidak perlu input kurs manual lagi.
    */
-  const syncRates = useCallback(async () => {
+  const syncRates = useCallback(async (extraCurrencies: string[] = []) => {
     setSyncing(true);
     try {
       const base = primaryCurrency;
       const codes = new Set<string>();
       for (const a of accounts) if (a.currency !== base) codes.add(a.currency);
       for (const r of rates) if (r.currency !== base) codes.add(r.currency);
+      for (const c of extraCurrencies) if (c && c !== base) codes.add(c);
       const wanted = [...codes];
       if (wanted.length === 0) return 0;
 
@@ -341,6 +354,7 @@ export function useAssets(opts: { isDemoMode: boolean; isSuperadmin: boolean }) 
         SOL: 'solana',
         XRP: 'ripple',
         DOGE: 'dogecoin',
+        XAU: 'pax-gold',
       };
       const fiat = wanted.filter((c) => !COINGECKO_IDS[c]);
       const cryptoIds = wanted

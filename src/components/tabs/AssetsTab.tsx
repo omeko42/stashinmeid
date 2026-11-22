@@ -51,15 +51,10 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
   const tCommon = useTranslations('common');
   const [form, setForm] = useState(EMPTY_FORM);
   const [adding, setAdding] = useState(false);
-  const [rateDraft, setRateDraft] = useState<{ currency: string; rate: string }>({
-    currency: 'USD',
-    rate: '',
-  });
 
   /**
-   * Kurs otomatis: setiap tab Aset dibuka, segarkan kurs yang sudah
-   * lebih tua dari 24 jam (atau mata uang dompet yang belum punya kurs)
-   * - tanpa toast, diam-diam di belakang. Isi manual tetap bisa.
+   * Kurs otomatis: setiap tab Aset dibuka, segarkan kurs valas/crypto/emas
+   * secara otomatis di latar belakang tanpa input manual.
    */
   useEffect(() => {
     if (assets.loading) return;
@@ -85,32 +80,25 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
   const handleAdd = async () => {
     const bal = Number(form.balance);
     if (!form.name.trim() || !Number.isFinite(bal)) return;
+    const addedCurrency = form.currency;
     setAdding(true);
     try {
       await assets.saveAccount({
         name: form.name.trim(),
         kind: form.kind,
         institution: form.institution.trim() || null,
-        currency: form.currency,
+        currency: addedCurrency,
         balance: bal,
       });
       setForm(EMPTY_FORM);
       toast.success(tCommon('saved'));
+      if (addedCurrency !== assets.primaryCurrency) {
+        void assets.syncRates([addedCurrency]).catch(() => {});
+      }
     } catch (e) {
       toast.error(e instanceof Error ? e.message : tCommon('failed'));
     } finally {
       setAdding(false);
-    }
-  };
-
-  const handleRate = async () => {
-    const r = Number(rateDraft.rate);
-    if (!rateDraft.currency || !Number.isFinite(r) || r <= 0) return;
-    try {
-      await assets.saveRate(rateDraft.currency, r);
-      setRateDraft({ ...rateDraft, rate: '' });
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : tCommon('failed'));
     }
   };
 
@@ -342,14 +330,24 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
         </div>
       </section>
 
-      {/* Kurs manual */}
+      {/* Kurs Pasar Otomatis (Read-only, tanpa input manual) */}
       <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-5">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="text-[14px] font-semibold text-[var(--text)]">{t('ratesTitle')}</h3>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <h3 className="text-[14px] font-semibold text-[var(--text)]">
+              {isEn ? 'Automatic Market Rates' : 'Kurs Pasar Otomatis'}
+            </h3>
+            <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
+              {isEn
+                ? `Foreign currencies, crypto, and gold (XAU) convert automatically into ${primary}.`
+                : `Valuta asing, crypto, dan emas (XAU) otomatis dikonversi ke ${primary} mengikuti harga pasar.`}
+            </p>
+          </div>
           <Button
             size="sm"
-            variant="ghost"
+            variant="secondary"
             loading={assets.syncing}
+            className="whitespace-nowrap"
             onClick={async () => {
               try {
                 const n = await assets.syncRates();
@@ -364,72 +362,24 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
             {t('ratesSync')}
           </Button>
         </div>
-        <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-muted)]">
-          {t('ratesHint', { currency: primary })}
-        </p>
-
-        <div className="mt-3 flex flex-wrap gap-2">
-          <select
-            id="fx-rate-currency"
-            name="rateCurrency"
-            value={rateDraft.currency}
-            onChange={(e) => setRateDraft({ ...rateDraft, currency: e.target.value })}
-            aria-label={t('form.currency')}
-            className="h-9 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
-          >
-            {CURRENCY_OPTIONS.filter((c) => c !== primary).map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <input
-            id="fx-rate-value"
-            name="rateValue"
-            value={rateDraft.rate}
-            onChange={(e) => setRateDraft({ ...rateDraft, rate: e.target.value })}
-            placeholder={t('ratePlaceholder', { currency: primary })}
-            aria-label={t('ratesTitle')}
-            type="number"
-            inputMode="decimal"
-            step="any"
-            className="h-9 w-36 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-          />
-          <Button size="sm" onClick={handleRate}>
-            {tCommon('save')}
-          </Button>
-        </div>
 
         {assets.rates.length > 0 && (
-          <div className="mt-3 overflow-hidden rounded-lg border border-[var(--line)]">
-            {assets.rates.map((r, idx) => (
-              <div
-                key={r.currency}
-                className={cn(
-                  'flex items-center justify-between px-3 py-2 text-[12px]',
-                  idx > 0 && 'border-t border-[var(--line)]'
-                )}
-              >
-                <span className="font-semibold text-[var(--text)]">{r.currency}</span>
-                <span className="tnum text-[var(--text-muted)]">
-                  1 {r.currency} = {Number(r.rate).toLocaleString('id-ID')} {primary}
-                </span>
-                <button
-                  type="button"
-                  onClick={async () => {
-                    try {
-                      await assets.removeRate(r.currency);
-                    } catch (e) {
-                      toast.error(e instanceof Error ? e.message : tCommon('failed'));
-                    }
-                  }}
-                  aria-label={tCommon('delete')}
-                  className="text-[var(--text-faint)] transition hover:text-[var(--out)]"
+          <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {assets.rates
+              .filter((r) => r.currency !== primary)
+              .map((r) => (
+                <div
+                  key={r.currency}
+                  className="flex items-center justify-between rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2 text-[12px]"
                 >
-                  <Trash2 className="size-3.5" aria-hidden />
-                </button>
-              </div>
-            ))}
+                  <span className="font-semibold text-[var(--text)]">
+                    {r.currency === 'XAU' ? 'XAU (Emas/oz)' : r.currency}
+                  </span>
+                  <span className="tnum text-[var(--text-muted)]">
+                    1 = {formatMoney(Number(r.rate), primary, locale)}
+                  </span>
+                </div>
+              ))}
           </div>
         )}
       </section>
