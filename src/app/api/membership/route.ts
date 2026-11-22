@@ -7,15 +7,18 @@ import { getOrCreateSuperadminUserId } from '@/lib/superadminUser';
 import { notifyMany } from '@/lib/notifications';
 import {
   MEMBERSHIP_PLANS,
+  MEMBERSHIP_TIER_ORDER,
   addMonthsIso,
   getMaxGroupsForTier,
   getPlanPrice,
+  mergePlansWithOverrides,
   normalizeTier,
   resolveMembershipStatus,
   type BillingCycle,
   type EnterpriseInquiry,
   type MembershipOrder,
   type MembershipTier,
+  type PlanOverridesMap,
 } from '@/lib/membership';
 import { mergeIntegrations } from '@/lib/integrations';
 
@@ -159,13 +162,36 @@ async function createThirdPartyCheckoutUrl(opts: {
   return null;
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
+  const isPublicQuery = req.nextUrl.searchParams.get('public') === '1';
+  const admin = createAdminClient();
+  const primaryAdminId = admin ? await getPrimaryAdminId(admin) : null;
+
+  let planOverrides: PlanOverridesMap = {};
+  let adminMeta: Record<string, unknown> = {};
+  if (admin && primaryAdminId) {
+    const adminUser = await admin.auth.admin.getUserById(primaryAdminId);
+    adminMeta = (adminUser.data?.user?.user_metadata ?? {}) as Record<
+      string,
+      unknown
+    >;
+    if (adminMeta.plan_overrides && typeof adminMeta.plan_overrides === 'object') {
+      planOverrides = adminMeta.plan_overrides as PlanOverridesMap;
+    }
+  }
+
+  if (isPublicQuery) {
+    return NextResponse.json({
+      planOverrides,
+      plans: mergePlansWithOverrides(planOverrides),
+    });
+  }
+
   const userId = await getCallerUserId();
   if (!userId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const admin = createAdminClient();
   if (!admin) {
     return NextResponse.json({
       tier: 'free',
@@ -175,17 +201,17 @@ export async function GET() {
       pendingOrder: null,
       orders: [],
       paymentProvider: 'midtrans',
+      planOverrides: {},
     });
   }
 
-  const [isAdmin, userRes, groupCountRes, primaryAdminId] = await Promise.all([
+  const [isAdmin, userRes, groupCountRes] = await Promise.all([
     checkIsAdmin(admin, userId),
     admin.auth.admin.getUserById(userId),
     admin
       .from('finance_groups')
       .select('id', { count: 'exact', head: true })
       .eq('owner_id', userId),
-    getPrimaryAdminId(admin),
   ]);
 
   const userMeta = (userRes.data?.user?.user_metadata ?? {}) as Record<
@@ -194,17 +220,13 @@ export async function GET() {
   >;
   const membershipStatus = resolveMembershipStatus(userMeta, isAdmin);
   const tier: MembershipTier = membershipStatus.effectiveTier;
+  const effectivePlans = mergePlansWithOverrides(planOverrides);
 
   let orders: MembershipOrder[] = [];
   let inquiries: EnterpriseInquiry[] = [];
   let paymentProvider = 'midtrans';
 
   if (primaryAdminId) {
-    const adminUser = await admin.auth.admin.getUserById(primaryAdminId);
-    const adminMeta = (adminUser.data?.user?.user_metadata ?? {}) as Record<
-      string,
-      unknown
-    >;
     const integrations = mergeIntegrations(adminMeta.api_integrations);
     paymentProvider = integrations.payment.provider || 'midtrans';
     if (Array.isArray(adminMeta.membership_orders)) {
@@ -226,7 +248,7 @@ export async function GET() {
     note: membershipStatus.note,
     isExpired: membershipStatus.isExpired,
     daysLeft: membershipStatus.daysLeft,
-    maxGroups: getMaxGroupsForTier(tier),
+    maxGroups: effectivePlans[tier]?.maxGroups ?? getMaxGroupsForTier(tier),
     ownedGroups: groupCountRes.count ?? 0,
     isAdmin,
     pendingOrder,
@@ -234,6 +256,8 @@ export async function GET() {
     orders: isAdmin ? orders : [],
     inquiries: isAdmin ? inquiries : [],
     paymentProvider,
+    planOverrides,
+    plans: effectivePlans,
   });
 }
 
@@ -354,7 +378,10 @@ export async function POST(req: NextRequest) {
     >;
     const integrations = mergeIntegrations(adminMeta.api_integrations);
     const paymentCfg = integrations.payment;
-    const plan = MEMBERSHIP_PLANS[requestedTier];
+    const effectivePlans = mergePlansWithOverrides(
+      (adminMeta.plan_overrides as PlanOverridesMap) ?? null
+    );
+    const plan = effectivePlans[requestedTier] ?? MEMBERSHIP_PLANS[requestedTier];
     const pricing = getPlanPrice(plan, billingCycle);
 
     const invoiceNo = `INV-${Date.now().toString(36).toUpperCase()}`;
@@ -519,6 +546,50 @@ export async function POST(req: NextRequest) {
       },
     });
     return NextResponse.json({ ok: true, tier });
+  }
+
+  if (action === 'save_plan_overrides') {
+    const rawOverrides = (body.planOverrides ?? {}) as PlanOverridesMap;
+    const cleaned: PlanOverridesMap = {};
+    for (const tier of MEMBERSHIP_TIER_ORDER) {
+      const ov = rawOverrides[tier];
+      if (!ov) continue;
+      cleaned[tier] = {
+        maxGroups:
+          typeof ov.maxGroups === 'number' && ov.maxGroups >= 1
+            ? Math.min(999, Math.round(ov.maxGroups))
+            : MEMBERSHIP_PLANS[tier].maxGroups,
+        priceIdrMonthly:
+          tier === 'free'
+            ? 0
+            : typeof ov.priceIdrMonthly === 'number' && ov.priceIdrMonthly >= 0
+              ? Math.round(ov.priceIdrMonthly)
+              : MEMBERSHIP_PLANS[tier].priceIdrMonthly,
+        priceUsdMonthly:
+          tier === 'free'
+            ? 0
+            : typeof ov.priceUsdMonthly === 'number' && ov.priceUsdMonthly >= 0
+              ? Math.round(ov.priceUsdMonthly)
+              : MEMBERSHIP_PLANS[tier].priceUsdMonthly,
+      };
+    }
+
+    const { data: adminAuth } = await admin.auth.admin.getUserById(primaryAdminId);
+    const adminMeta = (adminAuth?.user?.user_metadata ?? {}) as Record<
+      string,
+      unknown
+    >;
+    await admin.auth.admin.updateUserById(primaryAdminId, {
+      user_metadata: {
+        ...adminMeta,
+        plan_overrides: cleaned,
+      },
+    });
+    return NextResponse.json({
+      ok: true,
+      planOverrides: cleaned,
+      plans: mergePlansWithOverrides(cleaned),
+    });
   }
 
   if (action === 'update_inquiry_status') {

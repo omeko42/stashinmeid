@@ -8,7 +8,6 @@ import {
   Bitcoin,
   Building2,
   Landmark,
-  Loader2,
   Plus,
   RefreshCw,
   Trash2,
@@ -17,6 +16,7 @@ import {
 import { Amount } from '@/components/ui/Surface';
 import { BalanceVisibilityToggle } from '@/components/ui/BalanceVisibilityToggle';
 import { Button } from '@/components/ui/Button';
+import { BrandLoader } from '@/components/ui/BrandLoader';
 import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { CURRENCY_OPTIONS, useAssets, type AccountKind } from '@/hooks/useAssets';
 import { formatMoney } from '@/lib/format';
@@ -187,9 +187,7 @@ export function AssetsTab({ assets }: { assets: ReturnType<typeof useAssets> }) 
       {/* Daftar dompet */}
       <section className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)]">
         {assets.loading ? (
-          <div className="flex justify-center py-10">
-            <Loader2 className="size-6 animate-spin text-[var(--brand)]" />
-          </div>
+          <BrandLoader size="sm" showSkeleton skeletonRows={3} />
         ) : assets.accounts.length === 0 ? (
           <div className="px-5 py-10 text-center">
             <p className="text-[13px] font-medium text-[var(--text)]">{t('empty.title')}</p>

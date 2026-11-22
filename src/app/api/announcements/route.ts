@@ -1,33 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
+import { getCallerUserId } from '@/lib/currentUser';
 import { verifySuperadminToken } from '@/lib/jwt';
 import { getOrCreateSuperadminUserId } from '@/lib/superadminUser';
 
-/**
- * Pita pengumuman.
- *
- * GET    : pengumuman aktif (semua user login).
- * POST   : buat / ubah pengumuman (superadmin saja).
- * PATCH  : aktifkan / nonaktifkan (superadmin saja).
- * DELETE : hapus pengumuman (superadmin saja).
- *
- * Teksnya disimpan di database, jadi superadmin bisa mengubahnya tanpa
- * deploy ulang - itu sebabnya banner ini tidak lagi hardcoded di file
- * terjemahan.
- */
+const LEGACY_DUMMY_PATTERNS = [
+  'stashinmeid v3 sekarang live',
+  'stashinmeid v3 is now live',
+];
 
-async function requireSuperadmin() {
+function isLegacyDummyText(text: string): boolean {
+  const lower = text.toLowerCase();
+  return LEGACY_DUMMY_PATTERNS.some((p) => lower.includes(p));
+}
+
+async function requireAdminOrSuperadmin() {
   const cookieStore = await cookies();
   const token = cookieStore.get('stashinme_session')?.value;
-  return verifySuperadminToken(token);
+  if (await verifySuperadminToken(token)) return true;
+
+  const userId = await getCallerUserId();
+  if (!userId) return false;
+
+  const admin = createAdminClient();
+  if (!admin) return false;
+  const { data } = await admin
+    .from('profiles')
+    .select('role')
+    .eq('id', userId)
+    .maybeSingle();
+  return data?.role === 'admin';
 }
 
 export async function GET() {
   try {
     const admin = createAdminClient();
     if (!admin) {
-      return NextResponse.json({ error: 'Server config' }, { status: 500 });
+      return NextResponse.json({ announcement: null }, { status: 200 });
     }
 
     const { data, error } = await admin
@@ -38,25 +48,25 @@ export async function GET() {
       .limit(1);
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      return NextResponse.json({ announcement: null }, { status: 200 });
     }
 
     const latest = data?.[0] ?? null;
+    if (!latest || !latest.text || isLegacyDummyText(latest.text)) {
+      return NextResponse.json({ announcement: null });
+    }
+
     return NextResponse.json({
-      announcement: latest
-        ? { id: latest.id, text: latest.text }
-        : null,
+      announcement: { id: latest.id, text: latest.text },
     });
-  } catch (err) {
-    console.error('[stashinmeid] announcements GET error:', err);
+  } catch {
     return NextResponse.json({ announcement: null }, { status: 200 });
   }
 }
 
-/** Buat pengumuman baru. Menggantikan yang aktif sebelumnya. */
 export async function POST(req: NextRequest) {
-  const session = await requireSuperadmin();
-  if (!session) {
+  const allowed = await requireAdminOrSuperadmin();
+  if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -69,7 +79,10 @@ export async function POST(req: NextRequest) {
   const text = typeof body?.text === 'string' ? body.text.trim() : '';
 
   if (!text) {
-    return NextResponse.json({ error: 'Teks pengumuman wajib diisi.' }, { status: 400 });
+    return NextResponse.json(
+      { error: 'Teks pengumuman wajib diisi.' },
+      { status: 400 }
+    );
   }
   if (text.length > 500) {
     return NextResponse.json(
@@ -78,17 +91,18 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // Hanya boleh ada satu pengumuman aktif. Nonaktifkan yang lama dulu.
   await admin
     .from('announcements')
     .update({ active: false, updated_at: new Date().toISOString() })
     .eq('active', true);
 
+  const callerId = (await getCallerUserId()) || (await getOrCreateSuperadminUserId());
+
   const { data, error } = await admin
     .from('announcements')
     .insert({
       text,
-      created_by: await getOrCreateSuperadminUserId(),
+      created_by: callerId,
       active: true,
     })
     .select('id, text, active, created_at')
@@ -101,10 +115,9 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ announcement: data });
 }
 
-/** Aktifkan / nonaktifkan pengumuman berdasarkan id. */
 export async function PATCH(req: NextRequest) {
-  const session = await requireSuperadmin();
-  if (!session) {
+  const allowed = await requireAdminOrSuperadmin();
+  if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 
@@ -134,8 +147,8 @@ export async function PATCH(req: NextRequest) {
 }
 
 export async function DELETE(req: NextRequest) {
-  const session = await requireSuperadmin();
-  if (!session) {
+  const allowed = await requireAdminOrSuperadmin();
+  if (!allowed) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
   }
 

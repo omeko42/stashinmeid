@@ -9,30 +9,39 @@ import {
   Clock,
   Crown,
   ExternalLink,
-  Loader2,
   RefreshCw,
+  Save,
   Send,
   ShieldCheck,
+  SlidersHorizontal,
   XCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { Modal } from '@/components/ui/Modal';
+import { PanelSkeleton } from '@/components/ui/BrandLoader';
 import { useConfirm } from '@/components/ui/ConfirmProvider';
 import {
   MEMBERSHIP_PLANS,
   MEMBERSHIP_TIER_ORDER,
   YEARLY_DISCOUNT_PCT,
   computePlanDisplayPricing,
+  mergePlansWithOverrides,
   type BillingCycle,
   type EnterpriseInquiry,
   type MembershipOrder,
+  type MembershipPlan,
   type MembershipTier,
+  type PlanOverridesMap,
 } from '@/lib/membership';
 import { APP_TIMEZONE, formatRp } from '@/lib/format';
 import { useCurrency } from '@/components/ui/CurrencyContext';
 
-export function MembershipPanel() {
+export function MembershipPanel({
+  mode = 'personal',
+}: {
+  mode?: 'personal' | 'admin';
+}) {
   const locale = useLocale();
   const isEn = locale === 'en';
   const { confirm } = useConfirm();
@@ -52,6 +61,36 @@ export function MembershipPanel() {
   const [pendingOrder, setPendingOrder] = useState<MembershipOrder | null>(null);
   const [orders, setOrders] = useState<MembershipOrder[]>([]);
   const [inquiries, setInquiries] = useState<EnterpriseInquiry[]>([]);
+  const [plans, setPlans] =
+    useState<Record<MembershipTier, MembershipPlan>>(MEMBERSHIP_PLANS);
+  const [draftOverrides, setDraftOverrides] = useState<
+    Record<
+      MembershipTier,
+      { maxGroups: number; priceIdrMonthly: number; priceUsdMonthly: number }
+    >
+  >({
+    free: {
+      maxGroups: MEMBERSHIP_PLANS.free.maxGroups,
+      priceIdrMonthly: 0,
+      priceUsdMonthly: 0,
+    },
+    standard: {
+      maxGroups: MEMBERSHIP_PLANS.standard.maxGroups,
+      priceIdrMonthly: MEMBERSHIP_PLANS.standard.priceIdrMonthly,
+      priceUsdMonthly: MEMBERSHIP_PLANS.standard.priceUsdMonthly,
+    },
+    pro: {
+      maxGroups: MEMBERSHIP_PLANS.pro.maxGroups,
+      priceIdrMonthly: MEMBERSHIP_PLANS.pro.priceIdrMonthly,
+      priceUsdMonthly: MEMBERSHIP_PLANS.pro.priceUsdMonthly,
+    },
+    business: {
+      maxGroups: MEMBERSHIP_PLANS.business.maxGroups,
+      priceIdrMonthly: MEMBERSHIP_PLANS.business.priceIdrMonthly,
+      priceUsdMonthly: MEMBERSHIP_PLANS.business.priceUsdMonthly,
+    },
+  });
+  const [savingOverrides, setSavingOverrides] = useState(false);
 
   // Slide Switch: Reguler (3-15 Grup) vs Enterprise Custom (> 15 Grup / Pesanan Fitur)
   const [enterpriseMode, setEnterpriseMode] = useState(false);
@@ -90,6 +129,32 @@ export function MembershipPanel() {
         setPendingOrder(json.pendingOrder ?? null);
         setOrders(Array.isArray(json.orders) ? json.orders : []);
         setInquiries(Array.isArray(json.inquiries) ? json.inquiries : []);
+        const merged = mergePlansWithOverrides(
+          (json.planOverrides as PlanOverridesMap) ?? null
+        );
+        setPlans(merged);
+        setDraftOverrides({
+          free: {
+            maxGroups: merged.free.maxGroups,
+            priceIdrMonthly: 0,
+            priceUsdMonthly: 0,
+          },
+          standard: {
+            maxGroups: merged.standard.maxGroups,
+            priceIdrMonthly: merged.standard.priceIdrMonthly,
+            priceUsdMonthly: merged.standard.priceUsdMonthly,
+          },
+          pro: {
+            maxGroups: merged.pro.maxGroups,
+            priceIdrMonthly: merged.pro.priceIdrMonthly,
+            priceUsdMonthly: merged.pro.priceUsdMonthly,
+          },
+          business: {
+            maxGroups: merged.business.maxGroups,
+            priceIdrMonthly: merged.business.priceIdrMonthly,
+            priceUsdMonthly: merged.business.priceUsdMonthly,
+          },
+        });
       }
     } finally {
       setLoading(false);
@@ -278,19 +343,70 @@ export function MembershipPanel() {
     }
   };
 
-  const activePlan = MEMBERSHIP_PLANS[tier];
+  const handleSavePlanOverrides = async () => {
+    const ok = await confirm({
+      title: isEn
+        ? 'Save membership pricing & group limits?'
+        : 'Simpan harga & kuota grup paket membership?',
+      description: isEn
+        ? 'Updated prices and group limits will immediately apply to all users and checkout.'
+        : 'Perubahan harga paket (IDR & USD) dan kuota maksimal grup akan langsung berlaku di seluruh aplikasi.',
+      audit: {
+        action: 'Ubah Harga & Kuota Paket Membership',
+        category: 'membership',
+        detail: `Standard: Rp ${draftOverrides.standard.priceIdrMonthly.toLocaleString('id-ID')} ($${draftOverrides.standard.priceUsdMonthly}) · Pro: Rp ${draftOverrides.pro.priceIdrMonthly.toLocaleString('id-ID')} ($${draftOverrides.pro.priceUsdMonthly}) · Business: Rp ${draftOverrides.business.priceIdrMonthly.toLocaleString('id-ID')} ($${draftOverrides.business.priceUsdMonthly})`,
+      },
+    });
+    if (!ok) return;
+
+    setSavingOverrides(true);
+    try {
+      const res = await fetch('/api/membership', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'save_plan_overrides',
+          planOverrides: draftOverrides,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(json.error || 'Gagal menyimpan konfigurasi harga paket.');
+        return;
+      }
+      if (json.plans) setPlans(json.plans);
+      toast.success(
+        isEn
+          ? 'Plan prices and group limits updated!'
+          : 'Harga & kuota paket berhasil diperbarui!'
+      );
+      await loadMembership();
+    } finally {
+      setSavingOverrides(false);
+    }
+  };
+
+  const activePlan = plans[tier] ?? MEMBERSHIP_PLANS[tier];
   const usagePct = Math.min(100, Math.round((ownedGroups / Math.max(1, maxGroups)) * 100));
 
   if (loading) {
     return (
-      <div className="flex justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-1)] py-12">
-        <Loader2 className="size-6 animate-spin text-[var(--brand)]" />
-      </div>
+      <PanelSkeleton
+        label={
+          isEn
+            ? 'Loading membership & billing...'
+            : 'Memuat data paket & tagihan...'
+        }
+        cards={mode === 'personal' ? 4 : 0}
+        rows={mode === 'admin' ? 4 : 1}
+      />
     );
   }
 
   return (
     <div className="space-y-4">
+      {mode === 'personal' && (
+        <>
       {/* Ringkasan Paket Aktif & Kuota Grup */}
       <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
@@ -491,7 +607,7 @@ export function MembershipPanel() {
       {!enterpriseMode ? (
       <div className="grid grid-cols-1 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
         {MEMBERSHIP_TIER_ORDER.map((planId) => {
-          const plan = MEMBERSHIP_PLANS[planId];
+          const plan = plans[planId] ?? MEMBERSHIP_PLANS[planId];
           const isCurrent = tier === planId;
           const features = isEn ? plan.featuresEn : plan.featuresId;
           const p = computePlanDisplayPricing({
@@ -766,9 +882,154 @@ export function MembershipPanel() {
           </div>
         </div>
       )}
+        </>
+      )}
+
+      {/* MODE ADMIN: Editor Harga Paket + Permintaan Enterprise + Aktivasi Pembayaran */}
+      {mode === 'admin' && isAdmin && (
+        <>
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--line)] pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="flex size-9 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
+                  <SlidersHorizontal className="size-4" />
+                </div>
+                <div>
+                  <h4 className="text-[14px] font-semibold text-[var(--text)]">
+                    {isEn
+                      ? 'Plan Pricing & Group Quota Configuration (Admin)'
+                      : 'Pengaturan Harga Paket & Kuota Grup (Admin)'}
+                  </h4>
+                  <p className="text-[12px] text-[var(--text-muted)]">
+                    {isEn
+                      ? 'Customize IDR (Indonesia), USD (Global) monthly prices, and max group limits.'
+                      : 'Ubah harga bulanan Indonesia (IDR), harga global (USD), dan batas maksimal grup tiap paket.'}
+                  </p>
+                </div>
+              </div>
+              <Button
+                size="sm"
+                icon={<Save className="size-3.5" />}
+                loading={savingOverrides}
+                onClick={handleSavePlanOverrides}
+              >
+                {isEn ? 'Save Plan Prices' : 'Simpan Harga Paket'}
+              </Button>
+            </div>
+
+            <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+              {MEMBERSHIP_TIER_ORDER.map((tid) => {
+                const base = plans[tid] ?? MEMBERSHIP_PLANS[tid];
+                const draft = draftOverrides[tid];
+                return (
+                  <div
+                    key={tid}
+                    className="space-y-2.5 rounded-xl border border-[var(--line)] bg-[var(--surface-2)]/60 p-3.5"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-[13px] font-bold text-[var(--text)]">
+                        {isEn ? base.labelEn : base.labelId}
+                      </span>
+                      <span className="rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                        Maks. {draft.maxGroups} Grup
+                      </span>
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor={`plan-groups-${tid}`}
+                        className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]"
+                      >
+                        {isEn ? 'Max Groups' : 'Kuota Maks. Grup'}
+                      </label>
+                      <input
+                        id={`plan-groups-${tid}`}
+                        name={`planGroups_${tid}`}
+                        type="number"
+                        min={1}
+                        max={999}
+                        value={draft.maxGroups}
+                        onChange={(e) =>
+                          setDraftOverrides((prev) => ({
+                            ...prev,
+                            [tid]: {
+                              ...prev[tid],
+                              maxGroups: Math.max(1, Number(e.target.value) || 1),
+                            },
+                          }))
+                        }
+                        className="mt-1 h-8 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-2.5 text-[12px] font-semibold text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor={`plan-idr-${tid}`}
+                        className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]"
+                      >
+                        {isEn ? 'Monthly Price (IDR)' : 'Harga Bulanan (IDR)'}
+                      </label>
+                      <input
+                        id={`plan-idr-${tid}`}
+                        name={`planIdr_${tid}`}
+                        type="number"
+                        min={0}
+                        step={1000}
+                        disabled={tid === 'free'}
+                        value={draft.priceIdrMonthly}
+                        onChange={(e) =>
+                          setDraftOverrides((prev) => ({
+                            ...prev,
+                            [tid]: {
+                              ...prev[tid],
+                              priceIdrMonthly: Math.max(
+                                0,
+                                Number(e.target.value) || 0
+                              ),
+                            },
+                          }))
+                        }
+                        className="mt-1 h-8 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-2.5 text-[12px] font-semibold text-[var(--text)] focus:border-[var(--brand)] focus:outline-none disabled:opacity-50"
+                      />
+                    </div>
+
+                    <div>
+                      <label
+                        htmlFor={`plan-usd-${tid}`}
+                        className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]"
+                      >
+                        {isEn ? 'Monthly Price (USD)' : 'Harga Global (USD)'}
+                      </label>
+                      <input
+                        id={`plan-usd-${tid}`}
+                        name={`planUsd_${tid}`}
+                        type="number"
+                        min={0}
+                        disabled={tid === 'free'}
+                        value={draft.priceUsdMonthly}
+                        onChange={(e) =>
+                          setDraftOverrides((prev) => ({
+                            ...prev,
+                            [tid]: {
+                              ...prev[tid],
+                              priceUsdMonthly: Math.max(
+                                0,
+                                Number(e.target.value) || 0
+                              ),
+                            },
+                          }))
+                        }
+                        className="mt-1 h-8 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-2.5 text-[12px] font-semibold text-[var(--text)] focus:border-[var(--brand)] focus:outline-none disabled:opacity-50"
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
       {/* Panel Admin: Permintaan Enterprise Custom Masuk */}
-      {isAdmin && inquiries.length > 0 && (
+      {inquiries.length > 0 && (
         <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
           <div className="flex items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
             <div className="flex items-center gap-2">
@@ -857,8 +1118,7 @@ export function MembershipPanel() {
       )}
 
       {/* Panel Admin: Daftar Pembayaran Masuk & Aktivasi Paket */}
-      {isAdmin && (
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+      <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-[var(--line)] pb-3">
             <div className="flex items-center gap-2">
               <ShieldCheck className="size-4 text-[var(--brand)]" />
@@ -940,6 +1200,7 @@ export function MembershipPanel() {
             </div>
           )}
         </div>
+        </>
       )}
 
       {/* Modal Checkout Pembayaran */}

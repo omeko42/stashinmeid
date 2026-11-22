@@ -1,10 +1,24 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { toast } from 'sonner';
-import { Camera, Images, Pencil, Shield, UserCircle } from 'lucide-react';
+import {
+  BadgeCheck,
+  Camera,
+  CheckCircle2,
+  Circle,
+  Crown,
+  FileBadge,
+  Images,
+  Lock,
+  Pencil,
+  Shield,
+  SlidersHorizontal,
+  UserCircle,
+} from 'lucide-react';
 import type { UserRole } from '@/types/finance';
+import type { KycVerificationStatus } from '@/components/profile/KycModal';
 import { Amount, Progress, Rule, Label } from '@/components/ui/Surface';
 import { Button } from '@/components/ui/Button';
 import { KolegaSection } from '@/components/profile/KolegaSection';
@@ -21,21 +35,29 @@ interface ProfileTabProps {
   profileCompleteness: number;
   profileAvatarUrl: string | null;
   profileBannerUrl: string | null;
+  appPinSet?: boolean;
+  kycStatus?: KycVerificationStatus;
   canEdit: boolean;
   onEditProfile: () => void;
+  onOpenSecurity?: () => void;
+  onOpenKyc?: () => void;
+  onOpenSettings?: () => void;
   onProfileMediaChange: (avatarUrl: string | null, bannerUrl: string | null) => void;
-  /** Data kolega dari DashboardClient supaya tidak fetch dobel. */
   kolega: KolegaApi;
-  /** Kolega sosial (pertemanan 2-arah). */
   connections: ConnectionsApi;
 }
 
 /**
- * Profil.
+ * Profil & Keamanan Terpadu.
  *
- * Identitas, banner, foto, bio, KYC, dan kolega. Keamanan pribadi (PIN, 2FA)
- * pindah ke modal yang dibuka dari menu profil di pojok kiri bawah sidebar.
- * Foto/banner diunggah ke Storage `avatars`/`banners` milik sendiri.
+ * Skor Kelengkapan Akun (100%) terhubung langsung dengan:
+ *   1. Identitas & Email (30%)
+ *   2. Bio & Foto Profil (20%)
+ *   3. Proteksi PIN / 2FA (20%)
+ *   4. Verifikasi e-KYC Pihak Ketiga (30%)
+ *
+ * Setiap item di bawah bar kelengkapan bisa langsung diklik untuk membuka
+ * pengaturan terkait sehingga Profil, Keamanan, KYC, dan Pengaturan saling menyatu.
  */
 export function ProfileTab({
   profileUsername,
@@ -46,12 +68,19 @@ export function ProfileTab({
   profileCompleteness,
   profileAvatarUrl,
   profileBannerUrl,
+  appPinSet = false,
+  kycStatus = 'unverified',
   canEdit,
   onEditProfile,
+  onOpenSecurity,
+  onOpenKyc,
+  onOpenSettings,
   onProfileMediaChange,
   kolega,
   connections,
 }: ProfileTabProps) {
+  const locale = useLocale();
+  const isEn = locale === 'en';
   const t = useTranslations();
   const tSettings = useTranslations('settings');
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -101,7 +130,6 @@ export function ProfileTab({
         .eq('id', user.id);
       if (dbErr) throw dbErr;
 
-      // Bersihkan file lama biar bucket nggak menumpuk (abaikan error).
       if (currentUrl) {
         try {
           const oldPath = new URL(currentUrl).pathname.split(`/${bucket}/`)[1];
@@ -125,15 +153,72 @@ export function ProfileTab({
     }
   };
 
+  const identityDone = Boolean(
+    profileClient && profileUsername && profileEmail && profileEmail.includes('@')
+  );
+  const bioMediaDone = Boolean(profileBio && profileBio.trim().length >= 5);
+  const kycDone = kycStatus === 'verified';
+
+  const milestones = [
+    {
+      id: 'identity' as const,
+      label: isEn ? 'Account & Email (+30%)' : 'Identitas & Email (+30%)',
+      done: identityDone,
+      partial: false,
+    },
+    {
+      id: 'bio' as const,
+      label: isEn ? 'Bio & Avatar (+20%)' : 'Bio & Foto Profil (+20%)',
+      done: bioMediaDone && Boolean(avatarUrl),
+      partial: bioMediaDone && !avatarUrl,
+    },
+    {
+      id: 'security' as const,
+      label: isEn ? 'PIN / 2FA Lock (+20%)' : 'Kunci PIN / 2FA (+20%)',
+      done: appPinSet,
+      partial: false,
+    },
+    {
+      id: 'kyc' as const,
+      label:
+        kycStatus === 'verified'
+          ? isEn
+            ? 'e-KYC Verified (+30%)'
+            : 'e-KYC Terverifikasi (+30%)'
+          : kycStatus === 'pending'
+            ? isEn
+              ? 'e-KYC Pending (+15%)'
+              : 'e-KYC Menunggu (+15%)'
+            : isEn
+              ? 'Verify e-KYC (+30%)'
+              : 'Verifikasi e-KYC (+30%)',
+      done: kycDone,
+      partial: kycStatus === 'pending',
+    },
+  ];
+
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="text-[18px] font-semibold text-[var(--text)]">
-          {tSettings('profile.cover')}
-        </h2>
-        <p className="text-[12px] text-[var(--text-muted)]">
-          {tSettings('title')} · {tSettings('subtitle')}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-[18px] font-semibold text-[var(--text)]">
+            {tSettings('profile.cover')}
+          </h2>
+          <p className="text-[12px] text-[var(--text-muted)]">
+            {tSettings('title')} · {tSettings('subtitle')}
+          </p>
+        </div>
+
+        {onOpenSettings && (
+          <Button
+            size="sm"
+            variant="secondary"
+            icon={<SlidersHorizontal className="size-3.5" />}
+            onClick={onOpenSettings}
+          >
+            {isEn ? 'All Settings' : 'Buka Pengaturan'}
+          </Button>
+        )}
       </div>
 
       <div className="overflow-hidden rounded-xl border border-[var(--line)]">
@@ -152,7 +237,7 @@ export function ProfileTab({
             >
               <Images className="size-5" aria-hidden />
               <span className="text-[12px] font-medium">
-                {uploading === 'banner' ? '…' : 'Ubah banner'}
+                {uploading === 'banner' ? '…' : isEn ? 'Change banner' : 'Ubah banner'}
               </span>
             </button>
           )}
@@ -173,9 +258,17 @@ export function ProfileTab({
                 )}
               </div>
               <div className="min-w-0">
-                <h3 className="truncate text-[16px] font-semibold text-[var(--text)]">
-                  {profileClient}
-                </h3>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="truncate text-[16px] font-semibold text-[var(--text)]">
+                    {profileClient}
+                  </h3>
+                  {kycDone && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-[var(--in-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--in)]">
+                      <BadgeCheck className="size-3" />
+                      KYC
+                    </span>
+                  )}
+                </div>
                 <p className="tnum mt-0.5 truncate text-[12px] text-[var(--text-muted)]">
                   @{profileUsername}
                 </p>
@@ -189,23 +282,54 @@ export function ProfileTab({
                     className="mt-1.5 inline-flex items-center gap-1.5 text-[11px] font-medium text-[var(--brand)] hover:underline"
                   >
                     <Camera className="size-3" aria-hidden />
-                    {uploading === 'avatar' ? '…' : 'Ganti foto profil'}
+                    {uploading === 'avatar'
+                      ? '…'
+                      : isEn
+                        ? 'Change avatar'
+                        : 'Ganti foto profil'}
                   </button>
                 )}
               </div>
             </div>
 
-            {canEdit && (
-              <Button
-                size="sm"
-                variant="secondary"
-                icon={<Pencil className="size-3.5" />}
-                onClick={onEditProfile}
-                className="shrink-0"
-              >
-                {tSettings('profile.edit')}
-              </Button>
-            )}
+            <div className="flex flex-wrap items-center gap-2">
+              {onOpenKyc && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<FileBadge className="size-3.5 text-[var(--brand)]" />}
+                  onClick={onOpenKyc}
+                >
+                  {kycDone
+                    ? isEn
+                      ? 'e-KYC Verified'
+                      : 'e-KYC Terverifikasi'
+                    : isEn
+                      ? 'Verify e-KYC'
+                      : 'Verifikasi e-KYC'}
+                </Button>
+              )}
+              {onOpenSecurity && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<Lock className="size-3.5" />}
+                  onClick={onOpenSecurity}
+                >
+                  {isEn ? 'Security' : 'Keamanan'}
+                </Button>
+              )}
+              {canEdit && (
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  icon={<Pencil className="size-3.5" />}
+                  onClick={onEditProfile}
+                >
+                  {tSettings('profile.edit')}
+                </Button>
+              )}
+            </div>
           </div>
         </section>
       </div>
@@ -242,7 +366,7 @@ export function ProfileTab({
       />
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        {/* Bio */}
+        {/* Bio & Skor Kelengkapan Terpadu (Profil + Keamanan + e-KYC) */}
         <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-5 lg:col-span-2">
           <Label>{tSettings('profile.bio')}</Label>
           <p className="mt-2 text-[13px] leading-relaxed text-[var(--text)]">
@@ -253,7 +377,11 @@ export function ProfileTab({
 
           <div>
             <div className="flex items-baseline justify-between gap-2">
-              <Label>{tSettings('profile.completeness')}</Label>
+              <Label>
+                {isEn
+                  ? 'Account, Security & KYC Completeness'
+                  : 'Kelengkapan Akun, Keamanan & e-KYC'}
+              </Label>
               <Amount
                 value={`${profileCompleteness}%`}
                 tone={profileCompleteness >= 80 ? 'brand' : 'due'}
@@ -265,10 +393,47 @@ export function ProfileTab({
               tone={profileCompleteness >= 80 ? 'brand' : 'due'}
               className="mt-1.5"
             />
+
+            {/* 4 Milestone Interaktif Terhubung */}
+            <div className="mt-3.5 grid grid-cols-1 gap-2 sm:grid-cols-2">
+              {milestones.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => {
+                    if (m.id === 'identity') onEditProfile();
+                    else if (m.id === 'bio') {
+                      if (!avatarUrl) avatarInputRef.current?.click();
+                      else onEditProfile();
+                    } else if (m.id === 'security') onOpenSecurity?.();
+                    else if (m.id === 'kyc') onOpenKyc?.();
+                  }}
+                  className={`flex items-center justify-between gap-2 rounded-lg border px-3 py-2 text-left text-[12px] transition ${
+                    m.done
+                      ? 'border-[var(--brand)]/35 bg-[var(--brand-soft)]/20 text-[var(--text)]'
+                      : m.partial
+                        ? 'border-[var(--due)]/35 bg-[var(--due-soft)]/40 text-[var(--text)]'
+                        : 'border-[var(--line)] bg-[var(--surface-2)]/70 text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text)]'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-2 font-medium">
+                    {m.done ? (
+                      <CheckCircle2 className="size-3.5 shrink-0 text-[var(--brand)]" />
+                    ) : (
+                      <Circle className="size-3.5 shrink-0 text-[var(--text-faint)]" />
+                    )}
+                    <span>{m.label}</span>
+                  </span>
+                  <span className="text-[10px] font-semibold text-[var(--brand)]">
+                    {m.done ? (isEn ? 'Done' : 'Selesai') : isEn ? 'Open →' : 'Lengkapi →'}
+                  </span>
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
-        {/* Info akun */}
+        {/* Info Akun & Pintasan Menu Terhubung */}
         <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-5">
           <h3 className="flex items-center gap-2 text-[14px] font-semibold text-[var(--text)]">
             <Shield className="size-4 text-[var(--brand)]" aria-hidden />
@@ -292,16 +457,85 @@ export function ProfileTab({
                 {profileEmail || tSettings('profile.emailNotSet')}
               </dd>
             </div>
-            <div>
+            <div className="flex items-center justify-between border-t border-[var(--line)] pt-2.5">
               <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
                 {tSettings('profile.role')}
               </dt>
-              <dd className="mt-1">
+              <dd>
                 <span className="inline-block rounded bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-semibold uppercase text-[var(--brand)]">
                   {userRole}
                 </span>
               </dd>
             </div>
+            <div className="flex items-center justify-between border-t border-[var(--line)] pt-2.5">
+              <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                e-KYC
+              </dt>
+              <dd>
+                <button
+                  type="button"
+                  onClick={onOpenKyc}
+                  className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold ${
+                    kycDone
+                      ? 'bg-[var(--in-soft)] text-[var(--in)]'
+                      : 'bg-[var(--surface-2)] text-[var(--brand)] hover:underline'
+                  }`}
+                >
+                  {kycDone
+                    ? isEn
+                      ? 'Verified'
+                      : 'Terverifikasi'
+                    : kycStatus === 'pending'
+                      ? isEn
+                        ? 'Pending →'
+                        : 'Menunggu →'
+                      : isEn
+                        ? 'Verify Now →'
+                        : 'Verifikasi →'}
+                </button>
+              </dd>
+            </div>
+            <div className="flex items-center justify-between border-t border-[var(--line)] pt-2.5">
+              <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                {isEn ? 'PIN Lock' : 'Kunci PIN'}
+              </dt>
+              <dd>
+                <button
+                  type="button"
+                  onClick={onOpenSecurity}
+                  className={`inline-flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-semibold ${
+                    appPinSet
+                      ? 'bg-[var(--in-soft)] text-[var(--in)]'
+                      : 'bg-[var(--surface-2)] text-[var(--brand)] hover:underline'
+                  }`}
+                >
+                  {appPinSet
+                    ? isEn
+                      ? 'Active'
+                      : 'Aktif'
+                    : isEn
+                      ? 'Set PIN →'
+                      : 'Atur PIN →'}
+                </button>
+              </dd>
+            </div>
+            {onOpenSettings && (
+              <div className="flex items-center justify-between border-t border-[var(--line)] pt-2.5">
+                <dt className="text-[11px] font-semibold uppercase tracking-[0.08em] text-[var(--text-muted)]">
+                  Membership
+                </dt>
+                <dd>
+                  <button
+                    type="button"
+                    onClick={onOpenSettings}
+                    className="inline-flex items-center gap-1 rounded bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)] hover:underline"
+                  >
+                    <Crown className="size-3" />
+                    {isEn ? 'Manage Plan →' : 'Kelola Paket →'}
+                  </button>
+                </dd>
+              </div>
+            )}
           </dl>
         </section>
       </div>

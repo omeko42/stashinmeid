@@ -38,13 +38,15 @@ export function getGlobalDisplayCurrency() {
 export function formatMoney(
   amount: number,
   currency = 'IDR',
-  locale: Locale = 'id'
+  _locale: Locale = 'id'
 ): string {
+  void _locale;
   const code = (currency || 'IDR').toUpperCase();
   const isZeroDec = code === 'IDR' || code === 'JPY';
-  // IDR selalu diformat dengan gaya 'id-ID' agar tampil rapi "Rp 146.000" (bukan "IDR 146,000")
-  const fmtLocale =
-    code === 'IDR' ? 'id-ID' : locale === 'en' ? 'en-US' : 'id-ID';
+  // IDR selalu diformat dengan 'id-ID' ("Rp 500.000"), sedangkan mata uang
+  // internasional (USD, EUR, SGD, GBP, AUD, JPY, MYR) selalu memakai 'en-US'
+  // ("$27.38", "€25.40") agar tidak muncul spasi/koma aneh seperti "US$27 , 38".
+  const fmtLocale = code === 'IDR' ? 'id-ID' : 'en-US';
   const isWhole = Math.abs(amount - Math.round(amount)) < 0.005;
   try {
     return new Intl.NumberFormat(fmtLocale, {

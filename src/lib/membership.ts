@@ -52,6 +52,47 @@ export interface EnterpriseInquiry {
   createdAt: string;
 }
 
+export interface PlanOverrideItem {
+  maxGroups?: number;
+  priceUsdMonthly?: number;
+  priceIdrMonthly?: number;
+}
+
+export type PlanOverridesMap = Partial<Record<MembershipTier, PlanOverrideItem>>;
+
+export function mergePlansWithOverrides(
+  overrides?: PlanOverridesMap | null
+): Record<MembershipTier, MembershipPlan> {
+  if (!overrides || typeof overrides !== 'object') return MEMBERSHIP_PLANS;
+  const result = { ...MEMBERSHIP_PLANS };
+  for (const tier of MEMBERSHIP_TIER_ORDER) {
+    const base = MEMBERSHIP_PLANS[tier];
+    const ov = overrides[tier];
+    if (!ov) continue;
+    const maxGroups =
+      typeof ov.maxGroups === 'number' && ov.maxGroups >= 1
+        ? Math.round(ov.maxGroups)
+        : base.maxGroups;
+    const priceUsdMonthly =
+      typeof ov.priceUsdMonthly === 'number' && ov.priceUsdMonthly >= 0
+        ? ov.priceUsdMonthly
+        : base.priceUsdMonthly;
+    const priceIdrMonthly =
+      typeof ov.priceIdrMonthly === 'number' && ov.priceIdrMonthly >= 0
+        ? ov.priceIdrMonthly
+        : base.priceIdrMonthly;
+    result[tier] = {
+      ...base,
+      maxGroups,
+      priceUsdMonthly,
+      priceIdrMonthly,
+      badgeId: `Maks. ${maxGroups} Grup`,
+      badgeEn: `Up to ${maxGroups} Groups`,
+    };
+  }
+  return result;
+}
+
 export const MEMBERSHIP_TIER_ORDER: MembershipTier[] = [
   'free',
   'standard',

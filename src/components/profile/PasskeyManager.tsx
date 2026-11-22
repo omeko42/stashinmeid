@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
-import { KeyRound, Loader2, Plus, Trash2 } from 'lucide-react';
+import { KeyRound, Plus, Trash2 } from 'lucide-react';
 import { createClient } from '@/lib/supabase/client';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { BrandLoader } from '@/components/ui/BrandLoader';
 import { useTranslations } from 'next-intl';
 
 interface PasskeyItem {
@@ -28,7 +29,11 @@ interface PasskeyItem {
  *   - Browser mendukung WebAuthn (semua browser modern sudah)
  *   - HTTPS (localhost Development juga boleh)
  */
-export function PasskeyManager() {
+export function PasskeyManager({
+  onCountChange,
+}: {
+  onCountChange?: (count: number) => void;
+}) {
   const t = useTranslations('settings.security.passkey');
   const [passkeys, setPasskeys] = useState<PasskeyItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,12 +47,14 @@ export function PasskeyManager() {
     const supabase = createClient();
     if (!supabase) {
       setLoading(false);
+      onCountChange?.(0);
       return;
     }
     try {
       const { data, error: err } = await supabase.auth.getUser();
       if (err || !data.user) {
         setPasskeys([]);
+        onCountChange?.(0);
         setLoading(false);
         return;
       }
@@ -63,13 +70,14 @@ export function PasskeyManager() {
         }));
 
       setPasskeys(items);
+      onCountChange?.(items.length);
       setError(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Gagal memuat passkey');
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, onCountChange]);
 
   useEffect(() => {
     refresh();
@@ -148,9 +156,7 @@ export function PasskeyManager() {
       {error && <p className="text-[12px] text-[var(--out)]">{error}</p>}
 
       {loading ? (
-        <div className="flex justify-center py-4">
-          <Loader2 className="size-4 animate-spin text-[var(--brand)]" />
-        </div>
+        <BrandLoader size="sm" />
       ) : passkeys.length === 0 ? (
         <EmptyState
           icon={<KeyRound className="size-5" />}

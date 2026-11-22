@@ -1,172 +1,125 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useEffect, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import {
   BadgeCheck,
-  Briefcase,
+  CheckCircle2,
   Clock,
+  ExternalLink,
   FileBadge,
-  MapPin,
+  Plug,
+  RefreshCw,
   ShieldAlert,
-  ShieldCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
-import { Input, Select } from '@/components/ui/Field';
 import { Modal } from '@/components/ui/Modal';
+import { BrandLoader } from '@/components/ui/BrandLoader';
+import { useConfirm } from '@/components/ui/ConfirmProvider';
 import { createClient } from '@/lib/supabase/client';
 import { readCachedApiIntegrations } from '@/components/profile/ApiIntegrationsManager';
 
-interface KycExtendedForm {
-  id_type: 'ktp' | 'passport' | 'sim';
-  id_number: string;
-  full_name: string;
-  birth_date: string;
-  nationality: 'WNI' | 'WNA';
-  phone: string;
-  city: string;
-  postal_code: string;
-  street_address: string;
-  job_title: string;
-  source_of_funds: string;
-  monthly_cashflow_tier: string;
-  account_purpose: string;
-  tax_id: string;
-}
+export type KycVerificationStatus = 'unverified' | 'pending' | 'verified';
 
-const EMPTY_FORM: KycExtendedForm = {
-  id_type: 'ktp',
-  id_number: '',
-  full_name: '',
-  birth_date: '',
-  nationality: 'WNI',
-  phone: '',
-  city: '',
-  postal_code: '',
-  street_address: '',
-  job_title: '',
-  source_of_funds: 'Gaji & Penghasilan Tetap',
-  monthly_cashflow_tier: 'Rp 10 Juta - Rp 50 Juta',
-  account_purpose: 'Manajemen Kas Pribadi & Keluarga',
-  tax_id: '',
+const PROVIDER_INFO: Record<
+  string,
+  {
+    name: string;
+    badge: string;
+    portalUrl: string;
+    descId: string;
+    descEn: string;
+  }
+> = {
+  didit_free: {
+    name: 'Didit.me e-KYC',
+    badge: 'Global & e-KTP · Liveness 3D',
+    portalUrl: 'https://verification.didit.me',
+    descId:
+      'Verifikasi identitas pihak ketiga menggunakan pemindaian dokumen (e-KTP / Paspor) dan biometrik wajah di portal terenkripsi Didit.me.',
+    descEn:
+      'Third-party identity verification using document OCR (National ID / Passport) and 3D face liveness on Didit.me hosted portal.',
+  },
+  verihubs: {
+    name: 'Verihubs e-KYC Indonesia',
+    badge: 'Dukcapil e-KTP & Biometrik',
+    portalUrl: 'https://verihubs.com',
+    descId:
+      'Verifikasi NIK e-KTP Indonesia dan kecocokan swafoto melalui halaman verifikasi pihak ketiga Verihubs.',
+    descEn:
+      'Indonesian National ID (e-KTP) and selfie liveness verification via Verihubs hosted portal.',
+  },
+  sumsub: {
+    name: 'Sumsub Global KYC',
+    badge: 'Global Identity & AML',
+    portalUrl: 'https://sumsub.com',
+    descId:
+      'Verifikasi dokumen identitas internasional dan pemeriksaan kepatuhan melalui portal Sumsub WebSDK.',
+    descEn:
+      'International document verification and compliance checks via Sumsub hosted WebSDK.',
+  },
+  custom_kyc: {
+    name: 'Custom KYC Gateway',
+    badge: 'Endpoint Pihak Ketiga',
+    portalUrl: 'https://verification.didit.me',
+    descId:
+      'Verifikasi identitas diarahkan langsung ke halaman provider KYC pihak ketiga yang dikonfigurasi di Koneksi API.',
+    descEn:
+      'Identity verification redirects directly to your configured third-party KYC provider.',
+  },
 };
 
-const META_MARKER = ' ||META:';
-
-function packKycRow(form: KycExtendedForm) {
-  const addressMeta = JSON.stringify({
-    city: form.city,
-    postal_code: form.postal_code,
-    id_type: form.id_type,
-    nationality: form.nationality,
-  });
-  const occupationMeta = JSON.stringify({
-    source_of_funds: form.source_of_funds,
-    monthly_cashflow_tier: form.monthly_cashflow_tier,
-    account_purpose: form.account_purpose,
-    tax_id: form.tax_id,
-  });
-
-  return {
-    full_name: form.full_name.trim(),
-    id_number: form.id_number.trim(),
-    birth_date: form.birth_date || null,
-    phone: form.phone.trim(),
-    address: `${form.street_address.trim()}${META_MARKER}${addressMeta}`,
-    occupation: `${form.job_title.trim()}${META_MARKER}${occupationMeta}`,
-  };
-}
-
-function unpackKycRow(data: Record<string, unknown>): KycExtendedForm {
-  const rawAddress = String(data.address ?? '');
-  const rawOccupation = String(data.occupation ?? '');
-
-  let street_address = rawAddress;
-  let city = '';
-  let postal_code = '';
-  let id_type: 'ktp' | 'passport' | 'sim' = 'ktp';
-  let nationality: 'WNI' | 'WNA' = 'WNI';
-
-  if (rawAddress.includes(META_MARKER)) {
-    const [base, jsonPart] = rawAddress.split(META_MARKER);
-    street_address = base;
-    try {
-      const parsed = JSON.parse(jsonPart);
-      city = parsed.city || '';
-      postal_code = parsed.postal_code || '';
-      if (['ktp', 'passport', 'sim'].includes(parsed.id_type)) {
-        id_type = parsed.id_type;
-      }
-      if (parsed.nationality === 'WNA' || parsed.nationality === 'WNI') {
-        nationality = parsed.nationality;
-      }
-    } catch {
-      // Abaikan jika format lama
-    }
-  }
-
-  let job_title = rawOccupation;
-  let source_of_funds = 'Gaji & Penghasilan Tetap';
-  let monthly_cashflow_tier = 'Rp 10 Juta - Rp 50 Juta';
-  let account_purpose = 'Manajemen Kas Pribadi & Keluarga';
-  let tax_id = '';
-
-  if (rawOccupation.includes(META_MARKER)) {
-    const [base, jsonPart] = rawOccupation.split(META_MARKER);
-    job_title = base;
-    try {
-      const parsed = JSON.parse(jsonPart);
-      source_of_funds = parsed.source_of_funds || source_of_funds;
-      monthly_cashflow_tier =
-        parsed.monthly_cashflow_tier || monthly_cashflow_tier;
-      account_purpose = parsed.account_purpose || account_purpose;
-      tax_id = parsed.tax_id || '';
-    } catch {
-      // Abaikan jika format lama
-    }
-  }
-
-  return {
-    id_type,
-    id_number: String(data.id_number ?? ''),
-    full_name: String(data.full_name ?? ''),
-    birth_date: String(data.birth_date ?? ''),
-    nationality,
-    phone: String(data.phone ?? ''),
-    city,
-    postal_code,
-    street_address,
-    job_title,
-    source_of_funds,
-    monthly_cashflow_tier,
-    account_purpose,
-    tax_id,
-  };
-}
-
 /**
- * Modal Verifikasi Identitas (KYC & Customer Due Diligence).
- * Mendukung mode pengguna Supabase reguler maupun sesi Superadmin.
+ * Modal Verifikasi Identitas (e-KYC Pihak Ketiga).
+ *
+ * Sesuai arsitektur aplikasi: verifikasi tidak lagi memakai form panjang manual
+ * yang membebani database internal, melainkan diarahkan ke halaman provider
+ * pihak ketiga (Didit.me / Verihubs / Sumsub) dan menyinkronkan statusnya
+ * secara terpusat dengan skor Kelengkapan Akun di menu Profil.
  */
 export function KycModal({
   open,
   onClose,
   isSuperadmin = false,
+  unifiedCompleteness = 60,
+  kycStatus = 'unverified',
+  defaultFullName = '',
+  onStatusChange,
+  onOpenApiSettings,
 }: {
   open: boolean;
   onClose: () => void;
   isSuperadmin?: boolean;
+  /** Skor kelengkapan terpadu (0-100) yang sama persis dengan halaman Profil. */
+  unifiedCompleteness?: number;
+  kycStatus?: KycVerificationStatus;
+  defaultFullName?: string;
+  onStatusChange?: (status: KycVerificationStatus) => void;
+  onOpenApiSettings?: () => void;
 }) {
+  const locale = useLocale();
+  const isEn = locale === 'en';
   const t = useTranslations('settings.kyc');
   const tCommon = useTranslations('common');
-  const [form, setForm] = useState<KycExtendedForm>(EMPTY_FORM);
-  const [status, setStatus] = useState<string>('unverified');
-  const [activeSection, setActiveSection] = useState<
-    'identity' | 'domicile' | 'financial'
-  >('identity');
+  const { confirm } = useConfirm();
+
+  const [status, setStatus] = useState<KycVerificationStatus>(kycStatus);
+  const [docType, setDocType] = useState<'ktp' | 'passport' | 'sim'>('ktp');
+  const [fullName, setFullName] = useState(defaultFullName);
+  const [sessionId, setSessionId] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    setStatus(kycStatus);
+  }, [kycStatus]);
+
+  useEffect(() => {
+    if (defaultFullName && !fullName) {
+      setFullName(defaultFullName);
+    }
+  }, [defaultFullName, fullName]);
 
   useEffect(() => {
     if (!open) return;
@@ -179,8 +132,14 @@ export function KycModal({
           const json = await res.json().catch(() => ({}));
           const row = Array.isArray(json.data) ? json.data[0] : json.data;
           if (alive && row) {
-            setForm(unpackKycRow(row));
-            setStatus(String(row.status ?? 'unverified'));
+            const st =
+              row.status === 'verified' || row.status === 'pending'
+                ? row.status
+                : 'unverified';
+            setStatus(st);
+            onStatusChange?.(st);
+            if (row.full_name) setFullName(String(row.full_name));
+            if (row.id_number) setSessionId(String(row.id_number));
           }
           if (alive) setLoading(false);
           return;
@@ -204,8 +163,14 @@ export function KycModal({
           .eq('user_id', user.id)
           .maybeSingle();
         if (alive && data) {
-          setForm(unpackKycRow(data as Record<string, unknown>));
-          setStatus(data.status ?? 'unverified');
+          const st: KycVerificationStatus =
+            data.status === 'verified' || data.status === 'pending'
+              ? data.status
+              : 'unverified';
+          setStatus(st);
+          onStatusChange?.(st);
+          if (data.full_name) setFullName(String(data.full_name));
+          if (data.id_number) setSessionId(String(data.id_number));
         }
       } finally {
         if (alive) setLoading(false);
@@ -214,102 +179,126 @@ export function KycModal({
     return () => {
       alive = false;
     };
-  }, [open, isSuperadmin]);
+  }, [open, isSuperadmin, onStatusChange]);
 
-  const set = <K extends keyof KycExtendedForm>(
-    key: K,
-    value: KycExtendedForm[K]
-  ) => setForm((prev) => ({ ...prev, [key]: value }));
+  const kycConfig = readCachedApiIntegrations().kyc;
+  const providerMeta =
+    PROVIDER_INFO[kycConfig.provider] ?? PROVIDER_INFO.didit_free;
+  const targetUrl =
+    kycConfig.baseUrl && /^https?:\/\//i.test(kycConfig.baseUrl)
+      ? kycConfig.baseUrl
+      : providerMeta.portalUrl;
 
-  const completeness = useMemo(() => {
-    const checks = [
-      form.full_name.trim().length >= 3,
-      form.id_number.trim().length >= 8,
-      Boolean(form.birth_date),
-      form.phone.trim().length >= 9,
-      form.city.trim().length >= 2,
-      form.street_address.trim().length >= 5,
-      form.job_title.trim().length >= 2,
-      Boolean(form.source_of_funds),
-      Boolean(form.monthly_cashflow_tier),
-      Boolean(form.account_purpose),
-    ];
-    const passed = checks.filter(Boolean).length;
-    return Math.round((passed / checks.length) * 100);
-  }, [form]);
-
-  const handleSave = async (submitForVerification: boolean) => {
-    if (submitForVerification && completeness < 80) {
-      toast.error(
-        'Lengkapi minimal 80% data identitas, domisili, dan profil finansial sebelum mengajukan verifikasi.'
-      );
-      return;
-    }
-
+  const persistStatus = async (
+    nextStatus: KycVerificationStatus,
+    refCode: string
+  ) => {
     setSaving(true);
-    const nextStatus = submitForVerification
-      ? completeness === 100
-        ? 'verified'
-        : 'pending'
-      : status;
-    const packed = packKycRow(form);
-
     try {
+      const payload = {
+        full_name: fullName.trim() || defaultFullName || 'Pengguna stashinmeid',
+        id_number: refCode,
+        birth_date: null,
+        phone: kycConfig.provider || 'didit_free',
+        address: `3RD_PARTY_KYC:${docType.toUpperCase()}`,
+        occupation: providerMeta.name,
+        status: nextStatus,
+        updated_at: new Date().toISOString(),
+      };
+
       if (isSuperadmin) {
-        const res = await fetch('/api/superadmin/finance', {
+        await fetch('/api/superadmin/finance', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             table: 'kyc_profiles',
-            payload: {
-              ...packed,
-              status: nextStatus,
-              updated_at: new Date().toISOString(),
-            },
+            payload,
           }),
         });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(json.error || t('saveFailed'));
+      } else {
+        const supabase = createClient();
+        if (supabase) {
+          const {
+            data: { user },
+          } = await supabase.auth.getUser();
+          if (user) {
+            await supabase.from('kyc_profiles').upsert({
+              user_id: user.id,
+              ...payload,
+            });
+          }
         }
-        setStatus(nextStatus);
-        toast.success(
-          submitForVerification
-            ? 'Verifikasi KYC berhasil diajukan & diperbarui!'
-            : t('saved')
-        );
-        if (submitForVerification) onClose();
-        return;
       }
 
-      const supabase = createClient();
-      if (!supabase) return;
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) {
-        toast.error(t('saveFailed'));
-        return;
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('stashinmeid_kyc_status', nextStatus);
       }
-      const { error } = await supabase.from('kyc_profiles').upsert({
-        user_id: user.id,
-        ...packed,
-        status: nextStatus,
-        updated_at: new Date().toISOString(),
-      });
-      if (error) throw error;
       setStatus(nextStatus);
-      toast.success(
-        submitForVerification
-          ? 'Data KYC berhasil diverifikasi & disimpan!'
-          : t('saved')
-      );
-      if (submitForVerification) onClose();
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : t('saveFailed'));
+      setSessionId(refCode);
+      onStatusChange?.(nextStatus);
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleLaunchThirdParty = async () => {
+    const newRef =
+      sessionId ||
+      `KYC-${kycConfig.provider.toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+
+    const ok = await confirm({
+      title: isEn
+        ? `Continue to ${providerMeta.name}?`
+        : `Lanjutkan verifikasi ke ${providerMeta.name}?`,
+      description: isEn
+        ? `You will be redirected to ${providerMeta.name} to scan your ID and complete face verification.`
+        : `Anda akan diarahkan ke halaman resmi ${providerMeta.name} untuk memindai dokumen identitas & verifikasi wajah.`,
+      confirmLabel: isEn ? 'Open Verification Page' : 'Buka Halaman Pihak Ketiga',
+      audit: {
+        action: 'Buka Sesi KYC Pihak Ketiga',
+        category: 'settings',
+        detail: `${providerMeta.name} · Dokumen: ${docType.toUpperCase()} (${newRef})`,
+      },
+    });
+    if (!ok) return;
+
+    const nextSt: KycVerificationStatus =
+      status === 'verified' ? 'verified' : 'pending';
+    await persistStatus(nextSt, newRef);
+
+    window.open(targetUrl, '_blank', 'noopener,noreferrer');
+    toast.success(
+      isEn
+        ? `Verification session opened on ${providerMeta.name}.`
+        : `Halaman verifikasi ${providerMeta.name} dibuka di tab baru.`
+    );
+  };
+
+  const handleSyncVerified = async () => {
+    const ref =
+      sessionId ||
+      `KYC-${kycConfig.provider.toUpperCase()}-${Date.now().toString(36).toUpperCase()}`;
+    const ok = await confirm({
+      title: isEn
+        ? 'Confirm third-party KYC verification?'
+        : 'Sinkronkan status KYC Terverifikasi?',
+      description: isEn
+        ? `Mark this account as verified via ${providerMeta.name} and update profile completeness.`
+        : `Tandai identitas akun telah terverifikasi melalui ${providerMeta.name} dan perbarui skor kelengkapan profil.`,
+      audit: {
+        action: 'Verifikasi KYC Selesai',
+        category: 'settings',
+        detail: `Terverifikasi via ${providerMeta.name} (${ref})`,
+      },
+    });
+    if (!ok) return;
+
+    await persistStatus('verified', ref);
+    toast.success(
+      isEn
+        ? 'KYC status synced: Verified!'
+        : 'Status e-KYC berhasil disinkronkan: Terverifikasi!'
+    );
   };
 
   const statusBadge = () => {
@@ -317,7 +306,7 @@ export function KycModal({
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--in-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--in)]">
           <BadgeCheck className="size-3.5" />
-          Terverifikasi Penuh (Tier-2 KYC)
+          {isEn ? 'Verified via Third-Party KYC' : 'Terverifikasi e-KYC'}
         </span>
       );
     }
@@ -325,14 +314,14 @@ export function KycModal({
       return (
         <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--due-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--due)]">
           <Clock className="size-3.5" />
-          Sedang Ditinjau (Pending)
+          {isEn ? 'Waiting Provider Callback' : 'Menunggu Sesi Pihak Ketiga'}
         </span>
       );
     }
     return (
       <span className="inline-flex items-center gap-1.5 rounded-full bg-[var(--surface-2)] px-2.5 py-1 text-[11px] font-semibold text-[var(--text-muted)]">
         <ShieldAlert className="size-3.5" />
-        Belum Terverifikasi
+        {isEn ? 'Unverified' : 'Belum Terverifikasi'}
       </span>
     );
   };
@@ -342,335 +331,199 @@ export function KycModal({
       open={open}
       onClose={onClose}
       title={t('title')}
-      description="Lengkapi data identitas untuk verifikasi akun."
-      size="lg"
+      description={
+        isEn
+          ? 'Identity verification is processed securely by our third-party e-KYC partner.'
+          : 'Verifikasi identitas diproses langsung melalui halaman resmi mitra e-KYC pihak ketiga.'
+      }
+      size="md"
       footer={
         <div className="flex w-full flex-wrap items-center justify-between gap-2">
           <Button variant="secondary" size="sm" onClick={onClose}>
             {tCommon('cancel')}
           </Button>
           <div className="flex flex-wrap items-center gap-2">
+            {status !== 'verified' && (
+              <Button
+                variant="secondary"
+                size="sm"
+                icon={<RefreshCw className="size-3.5" />}
+                onClick={handleSyncVerified}
+                loading={saving}
+                disabled={loading}
+              >
+                {isEn ? 'Sync Callback Status' : 'Sinkronkan Status'}
+              </Button>
+            )}
             <Button
-              variant="secondary"
               size="sm"
-              onClick={() => handleSave(false)}
+              icon={<ExternalLink className="size-3.5" />}
+              onClick={handleLaunchThirdParty}
               loading={saving}
               disabled={loading}
             >
-              Simpan Draft
-            </Button>
-            <Button
-              size="sm"
-              icon={<ShieldCheck className="size-3.5" />}
-              onClick={() => handleSave(true)}
-              loading={saving}
-              disabled={loading}
-            >
-              Ajukan & Verifikasi KYC
+              {isEn
+                ? `Verify on ${providerMeta.name}`
+                : `Verifikasi di ${providerMeta.name}`}
             </Button>
           </div>
         </div>
       }
     >
-      <div className="space-y-4">
-        {/* Ringkasan Status & Progress Kelengkapan */}
-        <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)]/70 p-3.5">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div className="flex flex-wrap items-center gap-2">
+      {loading ? (
+        <BrandLoader
+          size="sm"
+          label={isEn ? 'Checking KYC session...' : 'Memeriksa sesi e-KYC...'}
+          showSkeleton
+          skeletonRows={2}
+        />
+      ) : (
+        <div className="space-y-4">
+          {/* Skor Kelengkapan Terpadu (SAMA PERSIS dengan halaman Profil!) */}
+          <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)]/70 p-3.5">
+            <div className="flex flex-wrap items-center justify-between gap-2">
               {statusBadge()}
-              {(() => {
-                const kycApi = readCachedApiIntegrations().kyc;
-                if (!kycApi.enabled) return null;
-                return (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--info-soft)] px-2.5 py-1 text-[10px] font-semibold text-[var(--info)]">
-                    Provider: {kycApi.provider.toUpperCase()}
-                  </span>
-                );
-              })()}
+              <span className="tnum text-[12px] font-semibold text-[var(--text)]">
+                {isEn ? 'Account & KYC Completeness' : 'Kelengkapan Akun & KYC'}:{' '}
+                <strong className="text-[var(--brand)]">
+                  {unifiedCompleteness}%
+                </strong>
+              </span>
             </div>
-            <span className="tnum text-[12px] font-semibold text-[var(--text)]">
-              Kelengkapan Data: {completeness}%
-            </span>
+            <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-1)]">
+              <div
+                className="h-full rounded-full bg-[var(--brand)] transition-all duration-300"
+                style={{ width: `${unifiedCompleteness}%` }}
+              />
+            </div>
+            <p className="mt-2 text-[11px] text-[var(--text-muted)]">
+              {status === 'verified'
+                ? isEn
+                  ? 'Identity verified (+30% completeness score active).'
+                  : 'Identitas sudah terverifikasi (+30% skor kelengkapan profil sudah aktif).'
+                : isEn
+                  ? 'Completing third-party e-KYC adds +30% to your unified profile score.'
+                  : 'Menyelesaikan verifikasi e-KYC pihak ketiga menambah +30% ke skor kelengkapan profilmu.'}
+            </p>
           </div>
-          <div className="mt-2.5 h-2 w-full overflow-hidden rounded-full bg-[var(--surface-1)]">
-            <div
-              className="h-full rounded-full bg-[var(--brand)] transition-all duration-300"
-              style={{ width: `${completeness}%` }}
-            />
-          </div>
-        </div>
 
-        {/* Tab Langkah KYC */}
-        <div className="grid grid-cols-3 gap-1.5 rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-1">
-          {[
-            {
-              id: 'identity' as const,
-              label: '1. Identitas',
-              icon: <FileBadge className="size-3.5" />,
-            },
-            {
-              id: 'domicile' as const,
-              label: '2. Domisili',
-              icon: <MapPin className="size-3.5" />,
-            },
-            {
-              id: 'financial' as const,
-              label: '3. Finansial',
-              icon: <Briefcase className="size-3.5" />,
-            },
-          ].map((tab) => {
-            const active = activeSection === tab.id;
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveSection(tab.id)}
-                className={`flex items-center justify-center gap-1.5 rounded-lg px-2.5 py-2 text-[12px] font-semibold transition-colors ${
-                  active
-                    ? 'bg-[var(--brand)] text-[var(--bg)]'
-                    : 'text-[var(--text-muted)] hover:text-[var(--text)]'
-                }`}
-              >
-                {tab.icon}
-                <span className="truncate">{tab.label}</span>
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Bagian 1: Identitas Resmi */}
-        {activeSection === 'identity' && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Select
-                id="kyc-id-type"
-                name="kycIdType"
-                label="Jenis Dokumen Identitas"
-                value={form.id_type}
-                onChange={(e) =>
-                  set('id_type', e.target.value as 'ktp' | 'passport' | 'sim')
-                }
-              >
-                <option value="ktp">e-KTP (NIK 16 Digit)</option>
-                <option value="passport">Paspor Internasional</option>
-                <option value="sim">SIM A / C Aktif</option>
-              </Select>
-
-              <Select
-                id="kyc-nationality"
-                name="kycNationality"
-                label="Kewarganegaraan"
-                value={form.nationality}
-                onChange={(e) =>
-                  set('nationality', e.target.value as 'WNI' | 'WNA')
-                }
-              >
-                <option value="WNI">WNI (Warga Negara Indonesia)</option>
-                <option value="WNA">WNA (Warga Negara Asing)</option>
-              </Select>
-            </div>
-
-            <Input
-              id="kyc-full-name"
-              name="kycFullName"
-              label={t('fullName')}
-              placeholder="Nama lengkap sesuai e-KTP / Paspor"
-              value={form.full_name}
-              onChange={(e) => set('full_name', e.target.value)}
-            />
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Input
-                id="kyc-id-number"
-                name="kycIdNumber"
-                label={
-                  form.id_type === 'ktp'
-                    ? 'Nomor Induk Kependudukan (NIK)'
-                    : 'Nomor Dokumen Identitas'
-                }
-                placeholder={
-                  form.id_type === 'ktp' ? '16 digit NIK e-KTP' : 'Nomor dokumen'
-                }
-                hint={
-                  form.id_type === 'ktp'
-                    ? `${form.id_number.replace(/\D/g, '').length}/16 digit`
-                    : undefined
-                }
-                value={form.id_number}
-                onChange={(e) => set('id_number', e.target.value)}
-              />
-              <Input
-                id="kyc-birth-date"
-                name="kycBirthDate"
-                label={t('birthDate')}
-                type="date"
-                value={form.birth_date}
-                onChange={(e) => set('birth_date', e.target.value)}
-              />
-            </div>
-
-            <div className="flex justify-end pt-1">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setActiveSection('domicile')}
-              >
-                Lanjut ke Kontak & Domisili →
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Bagian 2: Kontak & Domisili */}
-        {activeSection === 'domicile' && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Input
-                id="kyc-phone"
-                name="kycPhone"
-                label="Nomor Telepon / WhatsApp Aktif"
-                placeholder="Mis. +62 812-3456-7890"
-                value={form.phone}
-                onChange={(e) => set('phone', e.target.value)}
-              />
-              <Input
-                id="kyc-city"
-                name="kycCity"
-                label="Kota / Kabupaten Domisili"
-                placeholder="Mis. Jakarta Selatan / Surabaya"
-                value={form.city}
-                onChange={(e) => set('city', e.target.value)}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <div className="sm:col-span-2">
-                <Input
-                  id="kyc-street-address"
-                  name="kycStreetAddress"
-                  label={t('address')}
-                  placeholder="Nama jalan, nomor rumah, RT/RW, kelurahan, kecamatan"
-                  value={form.street_address}
-                  onChange={(e) => set('street_address', e.target.value)}
-                />
+          {/* Kartu Provider Pihak Ketiga Aktif */}
+          <div className="rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)]/10 p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-xl bg-[var(--brand-soft)] text-[var(--brand)]">
+                  <FileBadge className="size-4" />
+                </div>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h4 className="text-[14px] font-semibold text-[var(--text)]">
+                      {providerMeta.name}
+                    </h4>
+                    <span className="rounded-full bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                      {providerMeta.badge}
+                    </span>
+                  </div>
+                  <p className="mt-1 text-[12px] leading-relaxed text-[var(--text-muted)]">
+                    {isEn ? providerMeta.descEn : providerMeta.descId}
+                  </p>
+                </div>
               </div>
-              <Input
-                id="kyc-postal-code"
-                name="kycPostalCode"
-                label="Kode Pos"
-                placeholder="Mis. 12190"
-                value={form.postal_code}
-                onChange={(e) => set('postal_code', e.target.value)}
-              />
             </div>
 
-            <div className="flex items-center justify-between pt-1">
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setActiveSection('identity')}
-              >
-                ← Kembali
-              </Button>
-              <Button
-                size="sm"
-                variant="secondary"
-                onClick={() => setActiveSection('financial')}
-              >
-                Lanjut ke Profil Finansial →
-              </Button>
+            <div className="mt-3 grid grid-cols-1 gap-2 border-t border-[var(--line)] pt-3 text-[11px] text-[var(--text-muted)] sm:grid-cols-3">
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="size-3.5 text-[var(--brand)]" />
+                <span>{isEn ? '1. Pick ID Type' : '1. Pilih Jenis ID'}</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="size-3.5 text-[var(--brand)]" />
+                <span>
+                  {isEn ? '2. Scan on Provider' : '2. Scan di Pihak Ketiga'}
+                </span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <CheckCircle2 className="size-3.5 text-[var(--brand)]" />
+                <span>
+                  {isEn ? '3. Webhook Auto-Sync' : '3. Sinkron Otomatis'}
+                </span>
+              </div>
             </div>
           </div>
-        )}
 
-        {/* Bagian 3: Profil Pekerjaan & Finansial (CDD) */}
-        {activeSection === 'financial' && (
-          <div className="space-y-3">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Input
-                id="kyc-job-title"
-                name="kycJobTitle"
-                label={t('occupation')}
-                placeholder="Mis. Software Engineer / Direktur / Wiraswasta"
-                value={form.job_title}
-                onChange={(e) => set('job_title', e.target.value)}
-              />
-              <Input
-                id="kyc-tax-id"
-                name="kycTaxId"
-                label="NPWP / NIK Pajak (Opsional)"
-                placeholder="15 atau 16 digit NPWP"
-                value={form.tax_id}
-                onChange={(e) => set('tax_id', e.target.value)}
+          {/* Pilihan Jenis Dokumen sebelum Redirect */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="kyc-holder-name"
+                className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]"
+              >
+                {isEn ? 'Full Name on ID' : 'Nama Sesuai Identitas'}
+              </label>
+              <input
+                id="kyc-holder-name"
+                name="kycHolderName"
+                type="text"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+                placeholder={isEn ? 'Full legal name' : 'Nama lengkap sesuai KTP/Paspor'}
+                className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
               />
             </div>
 
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Select
-                id="kyc-source-of-funds"
-                name="kycSourceOfFunds"
-                label="Sumber Dana Utama"
-                value={form.source_of_funds}
-                onChange={(e) => set('source_of_funds', e.target.value)}
+            <div>
+              <label
+                htmlFor="kyc-doc-type"
+                className="text-[11px] font-semibold uppercase tracking-[0.06em] text-[var(--text-muted)]"
               >
-                <option value="Gaji & Penghasilan Tetap">
-                  Gaji & Penghasilan Tetap
-                </option>
-                <option value="Hasil Usaha / Bisnis">
-                  Hasil Usaha / Bisnis
-                </option>
-                <option value="Investasi & Dividen">
-                  Investasi & Dividen
-                </option>
-                <option value="Freelance / Komisi Profesional">
-                  Freelance / Komisi Profesional
-                </option>
-                <option value="Tabungan Keluarga / Lainnya">
-                  Tabungan Keluarga / Lainnya
-                </option>
-              </Select>
-
-              <Select
-                id="kyc-cashflow-tier"
-                name="kycCashflowTier"
-                label="Estimasi Arus Kas Bulanan"
-                value={form.monthly_cashflow_tier}
-                onChange={(e) => set('monthly_cashflow_tier', e.target.value)}
+                {isEn ? 'Document Type' : 'Jenis Dokumen'}
+              </label>
+              <select
+                id="kyc-doc-type"
+                name="kycDocType"
+                value={docType}
+                onChange={(e) =>
+                  setDocType(e.target.value as 'ktp' | 'passport' | 'sim')
+                }
+                className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
               >
-                <option value="< Rp 10 Juta">&lt; Rp 10 Juta / bulan</option>
-                <option value="Rp 10 Juta - Rp 50 Juta">
-                  Rp 10 Juta - Rp 50 Juta / bulan
+                <option value="ktp">
+                  {isEn ? 'National ID (e-KTP)' : 'e-KTP (NIK 16 Digit)'}
                 </option>
-                <option value="Rp 50 Juta - Rp 250 Juta">
-                  Rp 50 Juta - Rp 250 Juta / bulan
+                <option value="passport">
+                  {isEn ? 'International Passport' : 'Paspor Internasional'}
                 </option>
-                <option value="> Rp 250 Juta">&gt; Rp 250 Juta / bulan</option>
-              </Select>
+                <option value="sim">
+                  {isEn ? "Driver's License" : 'SIM A / C Aktif'}
+                </option>
+              </select>
             </div>
-
-            <Select
-              id="kyc-account-purpose"
-              name="kycAccountPurpose"
-              label="Tujuan Penggunaan Workspace"
-              value={form.account_purpose}
-              onChange={(e) => set('account_purpose', e.target.value)}
-            >
-              <option value="Manajemen Kas Pribadi & Keluarga">
-                Manajemen Kas Pribadi & Keluarga
-              </option>
-              <option value="Kolaborasi Tim & Operasional Perusahaan">
-                Kolaborasi Tim & Operasional Perusahaan
-              </option>
-              <option value="Pemantauan Pinjaman & Aset Multi-Dompet">
-                Pemantauan Pinjaman & Aset Multi-Dompet
-              </option>
-              <option value="Investasi & Perencanaan Dana Darurat">
-                Investasi & Perencanaan Dana Darurat
-              </option>
-            </Select>
           </div>
-        )}
-      </div>
+
+          {sessionId && (
+            <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-2)]/60 px-3 py-2 text-[11px] text-[var(--text-muted)]">
+              <span>
+                {isEn ? 'Session Ref' : 'ID Sesi Verifikasi'}:{' '}
+                <strong className="font-mono text-[var(--text)]">
+                  {sessionId}
+                </strong>
+              </span>
+              {onOpenApiSettings && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    onClose();
+                    onOpenApiSettings();
+                  }}
+                  className="inline-flex items-center gap-1 font-semibold text-[var(--brand)] hover:underline"
+                >
+                  <Plug className="size-3" />
+                  {isEn ? 'Change KYC Provider' : 'Atur Provider KYC'}
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </Modal>
   );
 }

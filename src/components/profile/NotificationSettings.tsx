@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useTranslations } from 'next-intl';
-import { Loader2, Megaphone, Send } from 'lucide-react';
+import { Megaphone, Send } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { Textarea } from '@/components/ui/Field';
 import { Toggle } from '@/components/ui/Toggle';
+import { BrandLoader } from '@/components/ui/BrandLoader';
 
 const NOTIFICATION_TYPES = [
   'connection_requested',
@@ -94,11 +95,7 @@ export function NotificationPreferences() {
   );
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-6">
-        <Loader2 className="size-4 animate-spin text-[var(--brand)]" />
-      </div>
-    );
+    return <BrandLoader size="sm" showSkeleton skeletonRows={3} />;
   }
 
   return (
@@ -214,11 +211,7 @@ export function AnnouncementEditor() {
   };
 
   if (loading) {
-    return (
-      <div className="flex justify-center py-6">
-        <Loader2 className="size-4 animate-spin text-[var(--brand)]" />
-      </div>
-    );
+    return <BrandLoader size="sm" showSkeleton skeletonRows={3} />;
   }
 
   return (

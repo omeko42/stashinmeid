@@ -5,16 +5,20 @@ import { useLocale } from 'next-intl';
 import {
   Activity,
   Globe,
-  Loader2,
   RefreshCw,
   Shield,
   User,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
+import { PanelSkeleton } from '@/components/ui/BrandLoader';
 import { APP_TIMEZONE } from '@/lib/format';
 import type { AuditEntry } from '@/app/api/audit/route';
 
-export function AuditLogPanel() {
+export function AuditLogPanel({
+  defaultView = 'my',
+}: {
+  defaultView?: 'my' | 'global';
+}) {
   const locale = useLocale();
   const isEn = locale === 'en';
 
@@ -22,7 +26,11 @@ export function AuditLogPanel() {
   const [myLogs, setMyLogs] = useState<AuditEntry[]>([]);
   const [globalLogs, setGlobalLogs] = useState<AuditEntry[]>([]);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [view, setView] = useState<'my' | 'global'>('my');
+  const [view, setView] = useState<'my' | 'global'>(defaultView);
+
+  useEffect(() => {
+    setView(defaultView);
+  }, [defaultView]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -109,9 +117,10 @@ export function AuditLogPanel() {
       </div>
 
       {loading ? (
-        <div className="flex justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-1)] py-12">
-          <Loader2 className="size-6 animate-spin text-[var(--brand)]" />
-        </div>
+        <PanelSkeleton
+          label={isEn ? 'Loading activity logs...' : 'Memuat riwayat audit log...'}
+          rows={4}
+        />
       ) : activeLogs.length === 0 ? (
         <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] px-4 py-10 text-center text-[12px] text-[var(--text-muted)]">
           {isEn

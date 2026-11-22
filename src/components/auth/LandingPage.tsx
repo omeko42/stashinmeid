@@ -34,8 +34,11 @@ import {
   MEMBERSHIP_TIER_ORDER,
   YEARLY_DISCOUNT_PCT,
   computePlanDisplayPricing,
+  mergePlansWithOverrides,
   type BillingCycle,
+  type MembershipPlan,
   type MembershipTier,
+  type PlanOverridesMap,
 } from '@/lib/membership';
 
 interface LandingPageProps {
@@ -332,7 +335,22 @@ export function LandingPage({
   const [demoScope, setDemoScope] = useState<DemoScopeKey>('personal');
   const [hoveredBarIdx, setHoveredBarIdx] = useState<number | null>(null);
   const [billingCycle, setBillingCycle] = useState<BillingCycle>('monthly');
+  const [livePlans, setLivePlans] =
+    useState<Record<MembershipTier, MembershipPlan>>(MEMBERSHIP_PLANS);
   const baseCurrency: string = primaryCurrency || (isEn ? 'USD' : 'IDR');
+
+  useEffect(() => {
+    fetch('/api/membership?public=1', { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((json) => {
+        if (json?.planOverrides) {
+          setLivePlans(
+            mergePlansWithOverrides(json.planOverrides as PlanOverridesMap)
+          );
+        }
+      })
+      .catch(() => {});
+  }, []);
   const [liveMarket, setLiveMarket] = useState<TickerItem[]>(
     FALLBACK_TICKERS[(baseCurrency in FALLBACK_TICKERS ? baseCurrency : 'USD') as BaseCurrency]
   );
@@ -1313,7 +1331,7 @@ export function LandingPage({
                 className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4"
               >
                 {MEMBERSHIP_TIER_ORDER.map((tierId: MembershipTier) => {
-                  const plan = MEMBERSHIP_PLANS[tierId];
+                  const plan = livePlans[tierId] ?? MEMBERSHIP_PLANS[tierId];
                   const highlight = tierId === 'pro';
                   const p = computePlanDisplayPricing({
                     plan,

@@ -1,15 +1,20 @@
 'use client';
 
-import { useTranslations } from 'next-intl';
+import { useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
 import {
+  BadgeCheck,
+  FileBadge,
   Fingerprint,
   KeyRound,
   Lock,
+  Pencil,
   ShieldCheck,
   Smartphone,
 } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { PasskeyManager } from './PasskeyManager';
+import type { KycVerificationStatus } from './KycModal';
 
 interface SecuritySettingsProps {
   appPin: string;
@@ -17,6 +22,7 @@ interface SecuritySettingsProps {
   mfaQr: string | null;
   mfaCode: string;
   canEdit: boolean;
+  kycStatus?: KycVerificationStatus;
   onNewPinChange: (value: string) => void;
   onSavePin: () => void;
   onRemovePin: () => void;
@@ -24,23 +30,12 @@ interface SecuritySettingsProps {
   onEnroll2FA: () => void;
   onMfaCodeChange: (value: string) => void;
   onVerify2FA: () => void;
+  onOpenEditProfile?: () => void;
+  onOpenKyc?: () => void;
 }
 
 /**
- * Pengaturan keamanan.
- *
- * Empat cara masuk yang berbeda, masing-masing dengan statusnya sendiri
- * supaya user langsung tahu mana yang sudah aktif:
- *
- *   1. Password   - selalu ada (dikelola di menu profil).
- *   2. Passkey    - daftar perPasskey, bisa dihapus.
- *   3. 2FA (TOTP) - opsional, sekali aktif minta kode saat login.
- *   4. PIN aplikasi - kunci layar aplikasi di perangkat ini saja.
- *
- * Bedanya penting untuk user: 2FA dan passkey melindungi akun dari
- * orang lain, sedangkan PIN aplikasi hanya melindungi data di layar
- * perangkat yang sedang dipakai. Jadi urutannya dari yang paling
- * relevan ke yang paling lokal.
+ * Pengaturan keamanan terhubung dengan Profil & e-KYC.
  */
 export function SecuritySettings({
   appPin,
@@ -48,6 +43,7 @@ export function SecuritySettings({
   mfaQr,
   mfaCode,
   canEdit,
+  kycStatus = 'unverified',
   onNewPinChange,
   onSavePin,
   onRemovePin,
@@ -55,20 +51,33 @@ export function SecuritySettings({
   onEnroll2FA,
   onMfaCodeChange,
   onVerify2FA,
+  onOpenEditProfile,
+  onOpenKyc,
 }: SecuritySettingsProps) {
+  const locale = useLocale();
+  const isEn = locale === 'en';
   const tSettings = useTranslations('settings');
+  const [passkeyCount, setPasskeyCount] = useState(0);
 
   return (
     <div className="space-y-4">
-      {/* Passkey - metode login tanpa password, jadi paling relevan */}
+      {/* Passkey - status badge mencerminkan jumlah passkey nyata */}
       <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-5">
         <SecurityHeader
           icon={<Fingerprint className="size-4 text-[var(--brand)]" />}
           title={tSettings('security.passkey.title')}
-          status={tSettings('security.passkeyStatus')}
-          statusOn
+          status={
+            passkeyCount > 0
+              ? `${tSettings('security.passkeyStatus')} (${passkeyCount})`
+              : isEn
+                ? 'Not registered'
+                : 'Belum terdaftar'
+          }
+          statusOn={passkeyCount > 0}
         />
-        <PasskeyManager />
+        <div className="mt-3">
+          <PasskeyManager onCountChange={setPasskeyCount} />
+        </div>
       </section>
 
       {/* 2FA - melindungi akun dari orang lain */}
@@ -77,7 +86,9 @@ export function SecuritySettings({
           icon={<Smartphone className="size-4 text-[var(--info)]" />}
           title={tSettings('security.twofa')}
           status={
-            mfaQr ? tSettings('security.twofaActive') : tSettings('security.twofaOff')
+            mfaQr
+              ? tSettings('security.twofaActive')
+              : tSettings('security.twofaOff')
           }
           statusOn={Boolean(mfaQr)}
         />
@@ -98,8 +109,6 @@ export function SecuritySettings({
           </Button>
         ) : (
           <div className="mt-3 space-y-3">
-            {/* QR code datang sebagai data URL dari Supabase - next/image
-                tidak bisa mengoptimasi data URL, jadi <img> yang tepat di sini. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={mfaQr}
@@ -138,7 +147,9 @@ export function SecuritySettings({
           icon={<Lock className="size-4 text-[var(--text-muted)]" />}
           title={tSettings('security.pin')}
           status={
-            appPin ? tSettings('security.pinSet') : tSettings('security.pinNotSet')
+            appPin
+              ? tSettings('security.pinSet')
+              : tSettings('security.pinNotSet')
           }
           statusOn={Boolean(appPin)}
         />
@@ -188,28 +199,76 @@ export function SecuritySettings({
         )}
       </section>
 
-      {/* Password - pretaut yang singkat soal di mana dikelola */}
-      <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-5">
-        <SecurityHeader
-          icon={<KeyRound className="size-4 text-[var(--brand)]" />}
-          title={tSettings('security.password')}
-          status={tSettings('security.passwordManaged')}
-          statusOn
-        />
-        <p className="mt-2 text-[12px] leading-relaxed text-[var(--text-muted)]">
-          {tSettings('security.passwordHint')}
-        </p>
-      </section>
+      {/* Password & Verifikasi e-KYC Terhubung Langsung */}
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <section className="flex flex-col justify-between rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+          <div>
+            <SecurityHeader
+              icon={<KeyRound className="size-4 text-[var(--brand)]" />}
+              title={tSettings('security.password')}
+              status={tSettings('security.passwordManaged')}
+              statusOn
+            />
+            <p className="mt-2 text-[12px] leading-relaxed text-[var(--text-muted)]">
+              {tSettings('security.passwordHint')}
+            </p>
+          </div>
+          {onOpenEditProfile && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="mt-3"
+              icon={<Pencil className="size-3.5" />}
+              onClick={onOpenEditProfile}
+            >
+              {isEn ? 'Change Password & Profile' : 'Ubah Password & Profil'}
+            </Button>
+          )}
+        </section>
+
+        <section className="flex flex-col justify-between rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+          <div>
+            <SecurityHeader
+              icon={<FileBadge className="size-4 text-[var(--info)]" />}
+              title={isEn ? 'Identity e-KYC' : 'Verifikasi e-KYC'}
+              status={
+                kycStatus === 'verified'
+                  ? isEn
+                    ? 'Verified'
+                    : 'Terverifikasi'
+                  : kycStatus === 'pending'
+                    ? isEn
+                      ? 'Pending'
+                      : 'Menunggu'
+                    : isEn
+                      ? 'Unverified'
+                      : 'Belum Verifikasi'
+              }
+              statusOn={kycStatus === 'verified'}
+            />
+            <p className="mt-2 text-[12px] leading-relaxed text-[var(--text-muted)]">
+              {isEn
+                ? 'Third-party identity check (+30% unified profile completeness).'
+                : 'Verifikasi identitas lewat provider pihak ketiga (+30% skor kelengkapan profil).'}
+            </p>
+          </div>
+          {onOpenKyc && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="mt-3"
+              icon={<BadgeCheck className="size-3.5" />}
+              onClick={onOpenKyc}
+            >
+              {isEn ? 'Open e-KYC Portal' : 'Buka Portal e-KYC'}
+            </Button>
+          )}
+        </section>
+      </div>
     </div>
   );
 }
 
-/**
- * Kepala seksi keamanan: ikon, judul, dan badge status.
- *
- * Badge status memakai dua warna supaya kelihatan aktif vs belum -
- * "belum aktif" bukan berarti salah, tapi belum dipakai.
- */
 function SecurityHeader({
   icon,
   title,

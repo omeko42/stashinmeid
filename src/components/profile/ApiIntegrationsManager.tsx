@@ -10,7 +10,6 @@ import {
   CreditCard,
   ExternalLink,
   FileBadge,
-  Loader2,
   Newspaper,
   Plug,
   RefreshCw,
@@ -21,6 +20,7 @@ import {
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/Button';
 import { PasswordInput } from '@/components/ui/PasswordInput';
+import { PanelSkeleton } from '@/components/ui/BrandLoader';
 import { useConfirm } from '@/components/ui/ConfirmProvider';
 import {
   DEFAULT_API_INTEGRATIONS,
@@ -569,9 +569,10 @@ export function ApiIntegrationsManager() {
 
       {/* Detail Form */}
       {loading ? (
-        <div className="flex justify-center rounded-xl border border-[var(--line)] bg-[var(--surface-1)] py-12">
-          <Loader2 className="size-6 animate-spin text-[var(--brand)]" />
-        </div>
+        <PanelSkeleton
+          label="Memuat konfigurasi koneksi API..."
+          rows={3}
+        />
       ) : (
         <AnimatePresence mode="wait">
           <motion.div

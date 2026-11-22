@@ -34,7 +34,10 @@ import { DebtsTab, type DebtFormState } from '@/components/tabs/DebtsTab';
 import { SettingsTab } from '@/components/tabs/SettingsTab';
 import { ProfileTab } from '@/components/tabs/ProfileTab';
 import { SecuritySettings } from '@/components/profile/SecuritySettings';
-import { KycModal } from '@/components/profile/KycModal';
+import {
+  KycModal,
+  type KycVerificationStatus,
+} from '@/components/profile/KycModal';
 import {
   UsersTab,
   type CreateUserPayload,
@@ -194,7 +197,7 @@ export default function DashboardClient({
   const [usersLoading, setUsersLoading] = useState(false);
   const [usersError, setUsersError] = useState<string | null>(null);
 
-  // Keamanan: PIN & 2FA
+  // Keamanan: PIN, 2FA & Status e-KYC Pihak Ketiga Terpadu
   const [appPin, setAppPin] = useState('');
   const [pinLocked, setPinLocked] = useState(false);
   const [pinInput, setPinInput] = useState('');
@@ -202,6 +205,7 @@ export default function DashboardClient({
   const [mfaQr, setMfaQr] = useState<string | null>(null);
   const [mfaFactorId, setMfaFactorId] = useState<string | null>(null);
   const [mfaCode, setMfaCode] = useState('');
+  const [kycStatus, setKycStatus] = useState<KycVerificationStatus>('unverified');
 
   // Profil
   const [profileUsername, setProfileUsername] = useState(
@@ -253,6 +257,13 @@ export default function DashboardClient({
         ? localStorage.getItem('stashinmeid_sidebar_collapsed')
         : null;
     if (savedCollapsed === '1') setSidebarCollapsed(true);
+    const savedKyc =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('stashinmeid_kyc_status')
+        : null;
+    if (savedKyc === 'verified' || savedKyc === 'pending') {
+      setKycStatus(savedKyc);
+    }
   }, []);
 
   const handleToggleSidebarCollapse = useCallback(() => {
@@ -471,14 +482,65 @@ export default function DashboardClient({
     [budgets.budgets, scopedTransactions]
   );
 
+  // Skor Kelengkapan Akun, Keamanan & e-KYC Terpadu (0 - 100%)
+  // Dipakai bersama oleh ProfileTab, KycModal, dan SettingsTab agar angkanya selalu 100% konsisten.
   const profileCompleteness = useMemo(() => {
-    let score = 40;
-    if (profileUsername) score += 15;
-    if (profileEmail && profileEmail.includes('@')) score += 15;
-    if (profileClient) score += 15;
-    if (appPin) score += 15;
+    let score = 0;
+    // 1. Identitas & Email (30%)
+    if (profileClient) score += 10;
+    if (profileUsername) score += 10;
+    if (profileEmail && profileEmail.includes('@')) score += 10;
+    // 2. Bio & Foto Profil (20%)
+    if (profileBio && profileBio.trim().length >= 5) score += 10;
+    if (profileAvatarUrl) score += 10;
+    // 3. Keamanan PIN / 2FA (20%)
+    if (appPin || mfaQr) score += 20;
+    // 4. Verifikasi e-KYC Pihak Ketiga (30%)
+    if (kycStatus === 'verified') score += 30;
+    else if (kycStatus === 'pending') score += 15;
     return Math.min(100, score);
-  }, [profileUsername, profileEmail, profileClient, appPin]);
+  }, [
+    profileClient,
+    profileUsername,
+    profileEmail,
+    profileBio,
+    profileAvatarUrl,
+    appPin,
+    mfaQr,
+    kycStatus,
+  ]);
+
+  // Pengingat keuangan nyata untuk AnnouncementBar (tanpa teks dummy!)
+  const liveAlerts = useMemo(() => {
+    const alerts: string[] = [];
+    if (kolega.pendingInvites.length > 0) {
+      alerts.push(
+        isEn
+          ? `${kolega.pendingInvites.length} pending group invitation(s) waiting in Social`
+          : `${kolega.pendingInvites.length} undangan grup menunggu konfirmasi di menu Sosial`
+      );
+    }
+    const nowMs = appNow().getTime();
+    for (const g of upcomingDueGroups) {
+      const days = Math.ceil((g.nextDue.getTime() - nowMs) / 86_400_000);
+      if (days >= 0 && days <= 7) {
+        alerts.push(
+          isEn
+            ? `Loan due in ${days === 0 ? 'today' : `${days}d`}: ${g.items.map((d) => d.platform).join(', ')}`
+            : `Cicilan jatuh tempo ${days === 0 ? 'hari ini' : `${days} hari lagi`}: ${g.items.map((d) => d.platform).join(', ')}`
+        );
+      }
+    }
+    const overBudgets = budgetList.filter((b) => b.over);
+    if (overBudgets.length > 0) {
+      alerts.push(
+        isEn
+          ? `Budget limit exceeded: ${overBudgets.map((b) => b.budget.category).join(', ')}`
+          : `Anggaran melampaui batas: ${overBudgets.map((b) => b.budget.category).join(', ')}`
+      );
+    }
+    return alerts;
+  }, [kolega.pendingInvites, upcomingDueGroups, budgetList, isEn]);
 
   // ------------------------------------------------------------------
   // Transaksi
@@ -1599,8 +1661,8 @@ export default function DashboardClient({
           sidebarCollapsed ? 'lg:pl-[4.5rem]' : 'lg:pl-60'
         }`}
       >
-        {/* Pita pengumuman: paling atas, aman dari notch/URL bar iPhone */}
-        <AnnouncementBar />
+        {/* Pita pengumuman & pengingat nyata (tanpa teks dummy) */}
+        <AnnouncementBar liveAlerts={liveAlerts} />
 
         <MobileHeader
           profileClient={profileClient}
@@ -2005,7 +2067,15 @@ export default function DashboardClient({
                   onExportPdf={handleExportPdf}
                   onExportWord={handleExportWord}
                   onSavePrimaryCurrency={assets.savePrimaryCurrency}
+                  isAdmin={userRole === 'admin'}
                   isSuperadmin={isSuperadmin}
+                  appPinSet={Boolean(appPin)}
+                  kycStatus={kycStatus}
+                  profileCompleteness={profileCompleteness}
+                  onOpenSecurity={() => setSecurityOpen(true)}
+                  onOpenKyc={() => setKycOpen(true)}
+                  onOpenProfile={() => navigate('profile')}
+                  onOpenUsers={() => navigate('users')}
                 />
               )}
 
@@ -2019,8 +2089,13 @@ export default function DashboardClient({
                   profileCompleteness={profileCompleteness}
                   profileAvatarUrl={profileAvatarUrl}
                   profileBannerUrl={profileBannerUrl}
+                  appPinSet={Boolean(appPin)}
+                  kycStatus={kycStatus}
                   canEdit={canEdit}
                   onEditProfile={openEditProfile}
+                  onOpenSecurity={() => setSecurityOpen(true)}
+                  onOpenKyc={() => setKycOpen(true)}
+                  onOpenSettings={() => navigate('settings')}
                   onProfileMediaChange={(avatar, banner) => {
                     if (avatar !== undefined) setProfileAvatarUrl(avatar);
                     if (banner !== undefined) setProfileBannerUrl(banner);
@@ -2044,6 +2119,7 @@ export default function DashboardClient({
                   mfaQr={mfaQr}
                   mfaCode={mfaCode}
                   canEdit={canEdit}
+                  kycStatus={kycStatus}
                   onNewPinChange={setNewPinInput}
                   onSavePin={handleSavePin}
                   onRemovePin={handleRemovePin}
@@ -2054,14 +2130,27 @@ export default function DashboardClient({
                   onEnroll2FA={handleEnroll2FA}
                   onMfaCodeChange={setMfaCode}
                   onVerify2FA={handleVerify2FA}
+                  onOpenEditProfile={() => {
+                    setSecurityOpen(false);
+                    openEditProfile();
+                  }}
+                  onOpenKyc={() => {
+                    setSecurityOpen(false);
+                    setKycOpen(true);
+                  }}
                 />
               </Modal>
 
-              {/* KYC: modal dari menu profil di sidebar */}
+              {/* KYC Pihak Ketiga: modal terhubung dengan skor kelengkapan Profil */}
               <KycModal
                 open={kycOpen}
                 onClose={() => setKycOpen(false)}
                 isSuperadmin={isSuperadmin}
+                unifiedCompleteness={profileCompleteness}
+                kycStatus={kycStatus}
+                defaultFullName={profileClient}
+                onStatusChange={setKycStatus}
+                onOpenApiSettings={() => navigate('settings')}
               />
 
               {/* Notifikasi: modal dari menu profil (di bawah Profil, di atas KYC) */}

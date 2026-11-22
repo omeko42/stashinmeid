@@ -6,7 +6,6 @@ import {
   CalendarClock,
   Crown,
   KeyRound,
-  Loader2,
   Plus,
   RefreshCw,
   Search,
@@ -27,6 +26,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { PasswordInput } from '@/components/ui/PasswordInput';
+import { PanelSkeleton } from '@/components/ui/BrandLoader';
 import { APP_TIMEZONE } from '@/lib/format';
 
 export interface ManagedUser {
@@ -309,9 +309,7 @@ export function UsersTab({
       )}
 
       {loading && users.length === 0 ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="size-6 animate-spin text-[var(--brand)]" />
-        </div>
+        <PanelSkeleton label="Memuat daftar pengguna..." rows={5} />
       ) : filteredUsers.length === 0 ? (
         <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)]">
           <EmptyState
