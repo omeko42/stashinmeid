@@ -31,9 +31,12 @@ import {
 import { OverviewTab } from '@/components/tabs/OverviewTab';
 import { SaldoTab, type SaldoSub } from '@/components/tabs/SaldoTab';
 import { DebtsTab, type DebtFormState } from '@/components/tabs/DebtsTab';
-import { SettingsTab } from '@/components/tabs/SettingsTab';
+import {
+  SettingsTab,
+  type PersonalSection,
+} from '@/components/tabs/SettingsTab';
 import { ProfileTab } from '@/components/tabs/ProfileTab';
-import { SecuritySettings } from '@/components/profile/SecuritySettings';
+import { FloatingQuickChat } from '@/components/shell/FloatingQuickChat';
 import {
   KycModal,
   type KycVerificationStatus,
@@ -137,7 +140,6 @@ export default function DashboardClient({
   const tUsers = useTranslations('users');
   const tQuickAdd = useTranslations('quickAdd');
   const tSettings = useTranslations('settings.profile');
-  const tSecSettings = useTranslations('settings');
   const router = useRouter();
 
   const supabase = createClient();
@@ -157,8 +159,24 @@ export default function DashboardClient({
   const [searchQuery, setSearchQuery] = useState('');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [commandOpen, setCommandOpen] = useState(false);
-  const [securityOpen, setSecurityOpen] = useState(false);
+  const [settingsSectionRequest, setSettingsSectionRequest] = useState<{
+    section: PersonalSection;
+    seq: number;
+  } | null>(null);
+  const [externalChatPeer, setExternalChatPeer] = useState<{
+    id: string;
+    client_name: string;
+    avatar_url: string | null;
+  } | null>(null);
   const [kycOpen, setKycOpen] = useState(false);
+
+  const openSecurityPage = () => {
+    setSettingsSectionRequest((prev) => ({
+      section: 'security',
+      seq: (prev?.seq ?? 0) + 1,
+    }));
+    navigate('settings');
+  };
   const [notificationsOpen, setNotificationsOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [activeScope, setActiveScope] = useState<'all' | 'personal' | string>(
@@ -1651,7 +1669,7 @@ export default function DashboardClient({
         unreadNotifications={notifications.unreadCount}
         onOpenNotifications={() => setNotificationsOpen(true)}
         onOpenKyc={() => setKycOpen(true)}
-        onOpenSecurity={() => setSecurityOpen(true)}
+        onOpenSecurity={openSecurityPage}
         onOpenSettings={() => navigate('settings')}
         onLogout={handleLogout}
       />
@@ -1672,7 +1690,7 @@ export default function DashboardClient({
           onOpenNotifications={() => setNotificationsOpen(true)}
           onProfile={() => navigate('profile')}
           onOpenKyc={() => setKycOpen(true)}
-          onOpenSecurity={() => setSecurityOpen(true)}
+          onOpenSecurity={openSecurityPage}
           onOpenSettings={() => navigate('settings')}
           onUsers={() => navigate('users')}
           onScan={() => fileInputRef.current?.click()}
@@ -2052,6 +2070,7 @@ export default function DashboardClient({
                     setActiveScope(groupId);
                     navigate('overview');
                   }}
+                  externalChatPeer={externalChatPeer}
                 />
               )}
 
@@ -2072,10 +2091,26 @@ export default function DashboardClient({
                   appPinSet={Boolean(appPin)}
                   kycStatus={kycStatus}
                   profileCompleteness={profileCompleteness}
-                  onOpenSecurity={() => setSecurityOpen(true)}
+                  onOpenSecurity={openSecurityPage}
                   onOpenKyc={() => setKycOpen(true)}
                   onOpenProfile={() => navigate('profile')}
                   onOpenUsers={() => navigate('users')}
+                  requestedSection={settingsSectionRequest}
+                  securityProps={{
+                    appPin,
+                    newPinInput,
+                    mfaQr,
+                    mfaCode,
+                    canEdit,
+                    onNewPinChange: setNewPinInput,
+                    onSavePin: handleSavePin,
+                    onRemovePin: handleRemovePin,
+                    onLockNow: () => setPinLocked(true),
+                    onEnroll2FA: handleEnroll2FA,
+                    onMfaCodeChange: setMfaCode,
+                    onVerify2FA: handleVerify2FA,
+                    onOpenEditProfile: openEditProfile,
+                  }}
                 />
               )}
 
@@ -2093,7 +2128,7 @@ export default function DashboardClient({
                   kycStatus={kycStatus}
                   canEdit={canEdit}
                   onEditProfile={openEditProfile}
-                  onOpenSecurity={() => setSecurityOpen(true)}
+                  onOpenSecurity={openSecurityPage}
                   onOpenKyc={() => setKycOpen(true)}
                   onOpenSettings={() => navigate('settings')}
                   onProfileMediaChange={(avatar, banner) => {
@@ -2104,42 +2139,6 @@ export default function DashboardClient({
                   connections={connections}
                 />
               )}
-
-              {/* Keamanan pribadi: modal pop-up dari menu profil di sidebar */}
-              <Modal
-                open={securityOpen}
-                onClose={() => setSecurityOpen(false)}
-                title={tSecSettings('security.title')}
-                description={tSecSettings('security.twofaHint')}
-                size="lg"
-              >
-                <SecuritySettings
-                  appPin={appPin}
-                  newPinInput={newPinInput}
-                  mfaQr={mfaQr}
-                  mfaCode={mfaCode}
-                  canEdit={canEdit}
-                  kycStatus={kycStatus}
-                  onNewPinChange={setNewPinInput}
-                  onSavePin={handleSavePin}
-                  onRemovePin={handleRemovePin}
-                  onLockNow={() => {
-                    setSecurityOpen(false);
-                    setPinLocked(true);
-                  }}
-                  onEnroll2FA={handleEnroll2FA}
-                  onMfaCodeChange={setMfaCode}
-                  onVerify2FA={handleVerify2FA}
-                  onOpenEditProfile={() => {
-                    setSecurityOpen(false);
-                    openEditProfile();
-                  }}
-                  onOpenKyc={() => {
-                    setSecurityOpen(false);
-                    setKycOpen(true);
-                  }}
-                />
-              </Modal>
 
               {/* KYC Pihak Ketiga: modal terhubung dengan skor kelengkapan Profil */}
               <KycModal
@@ -2394,9 +2393,36 @@ export default function DashboardClient({
         </div>
       )}
 
-      {/* Floating Action Button (+) kanan bawah — Catat & Upload (AI) */}
-      {canEdit && (
-        <div className="fixed bottom-6 right-6 z-40 hidden flex-col items-end gap-2.5 lg:flex">
+      {/* Floating Action Stack kanan bawah: Obrolan Cepat (mengambang di semua menu kecuali Obrolan) + Tombol Catat/Upload AI */}
+      <div className="fixed bottom-20 right-4 z-40 flex flex-col items-end gap-2.5 lg:bottom-6 lg:right-6">
+        {!(activeTab === 'social' && sosialSub === 'chat') && !isDemoMode && (
+          <FloatingQuickChat
+            contacts={connections.accepted.map((c) => ({
+              id: c.user_id,
+              client_name: c.profile?.client_name || c.profile?.email || 'Kolega',
+              email: c.profile?.email || '',
+              avatar_url: c.profile?.avatar_url ?? null,
+            }))}
+            onOpenFullChat={(peer) => {
+              if (peer) {
+                setExternalChatPeer({
+                  id: peer.id,
+                  client_name: peer.client_name,
+                  avatar_url: peer.avatar_url ?? null,
+                });
+              }
+              setSosialSub('chat');
+              navigate('social');
+            }}
+            onFindColleague={() => {
+              setSosialSub('find');
+              navigate('social');
+            }}
+          />
+        )}
+
+        {canEdit && (
+          <div className="hidden flex-col items-end gap-2.5 lg:flex">
           <AnimatePresence>
             {fabOpen && (
               <>
@@ -2464,8 +2490,9 @@ export default function DashboardClient({
               <Plus className="size-6" aria-hidden />
             )}
           </button>
-        </div>
-      )}
+          </div>
+        )}
+      </div>
 
       <CommandPalette
         open={commandOpen}

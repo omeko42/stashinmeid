@@ -9,6 +9,7 @@ import {
   Building2,
   Check,
   Compass,
+  Copy,
   ExternalLink,
   Globe,
   Landmark,
@@ -21,6 +22,7 @@ import {
   RefreshCw,
   Search,
   Send,
+  Share2,
   TrendingUp,
   UserCheck,
   UserPlus,
@@ -55,6 +57,11 @@ interface SocialTabProps {
   onQuickAddForGroup?: (groupId: string) => void;
   onAddDebtForGroup?: (groupId: string) => void;
   onFocusGroupInDashboard?: (groupId: string) => void;
+  externalChatPeer?: {
+    id: string;
+    client_name: string;
+    avatar_url: string | null;
+  } | null;
 }
 
 interface GlobalUserResult {
@@ -131,6 +138,7 @@ export function SocialTab({
   onQuickAddForGroup,
   onAddDebtForGroup,
   onFocusGroupInDashboard,
+  externalChatPeer,
 }: SocialTabProps) {
   const tSos = useTranslations('sosial');
   const tKolega = useTranslations('settings.kolega');
@@ -168,15 +176,17 @@ export function SocialTab({
   const [inviteEmail, setInviteEmail] = useState('');
   const [inviting, setInviting] = useState(false);
 
-  // State Obrolan & Fast Chat
+  // State Obrolan
   const [chatTarget, setChatTarget] = useState<{
     id: string;
     client_name: string;
     avatar_url: string | null;
   } | null>(null);
-  const [fastChatPeerId, setFastChatPeerId] = useState<string>('');
-  const [fastChatText, setFastChatText] = useState('');
-  const [fastChatSending, setFastChatSending] = useState(false);
+
+  // State Pop-up Bagikan Momen Koneksi (ke Feed StashinMe atau Media Sosial)
+  const [shareConnName, setShareConnName] = useState<string | null>(null);
+  const [shareConnText, setShareConnText] = useState('');
+  const [shareConnPosting, setShareConnPosting] = useState(false);
 
   // State Feed composer focus / prefill dari berita
   const [feedAutoFocus, setFeedAutoFocus] = useState(false);
@@ -220,7 +230,7 @@ export function SocialTab({
     }
   }, [sub, loadMarketNews]);
 
-  // Daftar kontak dari kolega yang sudah accepted (untuk WA-style chat & Fast Chat)
+  // Daftar kontak dari kolega yang sudah accepted (untuk WA-style chat)
   const acceptedContacts = useMemo(
     () =>
       connections.accepted.map((c) => ({
@@ -231,12 +241,6 @@ export function SocialTab({
       })),
     [connections.accepted]
   );
-
-  useEffect(() => {
-    if (!fastChatPeerId && acceptedContacts.length > 0) {
-      setFastChatPeerId(acceptedContacts[0].id);
-    }
-  }, [acceptedContacts, fastChatPeerId]);
 
   // Transaksi & Pinjaman yang khusus milik Grup yang sedang dipilih
   const groupTransactions = useMemo(() => {
@@ -345,28 +349,27 @@ export function SocialTab({
     }
   };
 
-  const handleSendFastChat = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const body = fastChatText.trim();
-    if (!body || !fastChatPeerId || fastChatSending) return;
-    setFastChatSending(true);
+  const handleShareConnectionToFeed = async () => {
+    const body = shareConnText.trim();
+    if (!body || shareConnPosting) return;
+    setShareConnPosting(true);
     try {
-      const res = await fetch('/api/social/messages', {
+      const res = await fetch('/api/social/posts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ peer: fastChatPeerId, body }),
+        body: JSON.stringify({ body }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok) {
-        toast.error(json.error || 'Gagal mengirim pesan cepat.');
+        toast.error(json.error || 'Gagal membagikan ke Feed.');
       } else {
-        setFastChatText('');
-        const targetName =
-          acceptedContacts.find((c) => c.id === fastChatPeerId)?.client_name || 'Kolega';
-        toast.success(`Pesan cepat terkirim ke ${targetName}`);
+        toast.success('Berhasil dibagikan ke Feed StashinMe!');
+        setShareConnName(null);
+        setShareConnText('');
+        onSubChange('feed');
       }
     } finally {
-      setFastChatSending(false);
+      setShareConnPosting(false);
     }
   };
 
@@ -532,86 +535,6 @@ export function SocialTab({
           })}
         </div>
       </div>
-
-      {/* BAR OBROLAN CEPAT (FAST CHAT) - selalu tampil di luar sub-menu Obrolan */}
-      {sub !== 'chat' && (
-        <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-3.5">
-          <form
-            onSubmit={handleSendFastChat}
-            className="flex flex-col gap-2.5 sm:flex-row sm:items-center"
-          >
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
-                <MessageCircle className="size-3.5" aria-hidden />
-              </span>
-              <span className="text-[12px] font-semibold text-[var(--text)]">
-                Obrolan Cepat:
-              </span>
-            </div>
-
-            {acceptedContacts.length === 0 ? (
-              <div className="flex flex-1 items-center justify-between gap-2 text-[12px] text-[var(--text-muted)]">
-                <span>Belum ada kontak kolega terhubung untuk Fast Chat.</span>
-                <Button size="sm" variant="secondary" onClick={() => onSubChange('find')}>
-                  Cari Kolega
-                </Button>
-              </div>
-            ) : (
-              <>
-                <select
-                  id="fast-chat-peer"
-                  name="fastChatPeer"
-                  aria-label="Pilih kolega tujuan pesan cepat"
-                  value={fastChatPeerId}
-                  onChange={(e) => setFastChatPeerId(e.target.value)}
-                  className="h-9 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[12px] font-medium text-[var(--text)] focus:border-[var(--brand)] focus:outline-none sm:w-48"
-                >
-                  {acceptedContacts.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      @{c.client_name}
-                    </option>
-                  ))}
-                </select>
-
-                <input
-                  id="fast-chat-message"
-                  name="fastChatMessage"
-                  type="text"
-                  value={fastChatText}
-                  onChange={(e) => setFastChatText(e.target.value)}
-                  placeholder="Tulis pesan cepat..."
-                  aria-label="Tulis pesan cepat ke kolega"
-                  className="h-9 min-w-0 flex-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-                />
-
-                <div className="flex items-center gap-1.5 shrink-0">
-                  <Button
-                    type="submit"
-                    size="sm"
-                    loading={fastChatSending}
-                    disabled={!fastChatText.trim()}
-                    icon={<Send className="size-3.5" />}
-                  >
-                    Kirim
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    onClick={() => {
-                      const peer = acceptedContacts.find((c) => c.id === fastChatPeerId);
-                      if (peer) openFullChatWith(peer);
-                      else onSubChange('chat');
-                    }}
-                  >
-                    Buka Chat
-                  </Button>
-                </div>
-              </>
-            )}
-          </form>
-        </section>
-      )}
 
       {/* =====================================================================
           SUB-MENU 1: RINGKASAN (SELECTED KOLEGA / GRUP KEUANGAN)
@@ -1201,7 +1124,10 @@ export function SocialTab({
           SUB-MENU 2: OBROLAN (WA-STYLE CONTACTS + CHAT)
       ===================================================================== */}
       {sub === 'chat' && (
-        <ChatPanel contacts={acceptedContacts} initialPeer={chatTarget} />
+        <ChatPanel
+          contacts={acceptedContacts}
+          initialPeer={chatTarget ?? externalChatPeer ?? null}
+        />
       )}
 
       {/* =====================================================================
@@ -1254,6 +1180,10 @@ export function SocialTab({
                             try {
                               await connections.respond(c.id, 'accept');
                               toast.success(tConn('accepted'));
+                              setShareConnName(name);
+                              setShareConnText(
+                                `Baru saja terhubung dengan ${name} di StashinMe! Kolaborasi keuangan makin rapi di https://stashinme.biz.id`
+                              );
                             } catch (e) {
                               toast.error(
                                 e instanceof Error ? e.message : tKolega('failed')
@@ -1749,6 +1679,94 @@ export function SocialTab({
               })}
           </div>
         )}
+      </Modal>
+
+      {/* Pop-up Bagikan Momen Koneksi ke Feed StashinMe atau Media Sosial */}
+      <Modal
+        open={Boolean(shareConnName)}
+        onClose={() => {
+          setShareConnName(null);
+          setShareConnText('');
+        }}
+        title={`Terhubung dengan ${shareConnName ?? 'Kolega'}!`}
+        description="Mau bagikan momen koneksi baru ini ke Feed StashinMe atau ke media sosial Anda?"
+        size="md"
+      >
+        <div className="space-y-4">
+          <div>
+            <label
+              htmlFor="share-conn-textarea"
+              className="mb-1.5 block text-[12px] font-medium text-[var(--text-muted)]"
+            >
+              Teks Postingan
+            </label>
+            <textarea
+              id="share-conn-textarea"
+              name="shareConnectionText"
+              rows={3}
+              value={shareConnText}
+              onChange={(e) => setShareConnText(e.target.value)}
+              className="w-full rounded-xl border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2.5 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+            />
+          </div>
+
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              size="sm"
+              loading={shareConnPosting}
+              disabled={!shareConnText.trim()}
+              icon={<Send className="size-3.5" />}
+              onClick={() => void handleShareConnectionToFeed()}
+            >
+              Posting ke Feed StashinMe
+            </Button>
+
+            <a
+              href={`https://wa.me/?text=${encodeURIComponent(shareConnText)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] font-medium text-[var(--text)] transition hover:border-[var(--brand)]"
+            >
+              <Share2 className="size-3.5 text-[var(--brand)]" aria-hidden />
+              WhatsApp
+            </a>
+
+            <a
+              href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareConnText)}`}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] font-medium text-[var(--text)] transition hover:border-[var(--brand)]"
+            >
+              <ExternalLink className="size-3.5" aria-hidden />
+              X / Twitter
+            </a>
+
+            <button
+              type="button"
+              onClick={async () => {
+                await navigator.clipboard.writeText(shareConnText);
+                toast.success('Teks disalin, siap dibagikan ke medsos!');
+              }}
+              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] font-medium text-[var(--text)] transition hover:border-[var(--brand)]"
+            >
+              <Copy className="size-3.5" aria-hidden />
+              Salin Teks
+            </button>
+          </div>
+
+          <div className="flex justify-end border-t border-[var(--line)] pt-3">
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setShareConnName(null);
+                setShareConnText('');
+              }}
+            >
+              Nanti Saja
+            </Button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

@@ -36,12 +36,17 @@ import { MembershipPanel } from '@/components/profile/MembershipPanel';
 import { AuditLogPanel } from '@/components/profile/AuditLogPanel';
 import { DangerZone } from '@/components/profile/DangerZone';
 import type { KycVerificationStatus } from '@/components/profile/KycModal';
+import {
+  SecuritySettings,
+  type SecuritySettingsProps,
+} from '@/components/profile/SecuritySettings';
 import { Button } from '@/components/ui/Button';
 import { BalanceVisibilityToggle } from '@/components/ui/BalanceVisibilityToggle';
 import { useBalancePrivacy } from '@/components/ui/BalancePrivacy';
 
-type PersonalSection =
+export type PersonalSection =
   | 'appearance'
+  | 'security'
   | 'notifications'
   | 'membership'
   | 'audit'
@@ -75,6 +80,8 @@ interface SettingsTabProps {
   onOpenKyc?: () => void;
   onOpenProfile?: () => void;
   onOpenUsers?: () => void;
+  securityProps?: SecuritySettingsProps;
+  requestedSection?: { section: PersonalSection; seq: number } | null;
 }
 
 /**
@@ -104,6 +111,8 @@ export function SettingsTab({
   onOpenKyc,
   onOpenProfile,
   onOpenUsers,
+  securityProps,
+  requestedSection,
 }: SettingsTabProps) {
   const tSettings = useTranslations('settings');
   const locale = useLocale();
@@ -115,6 +124,13 @@ export function SettingsTab({
     useState<PersonalSection>('appearance');
   const [adminSection, setAdminSection] =
     useState<AdminSection>('admin_billing');
+  const [lastRequestSeq, setLastRequestSeq] = useState(0);
+
+  if (requestedSection && requestedSection.seq !== lastRequestSeq) {
+    setLastRequestSeq(requestedSection.seq);
+    setAdminMode(false);
+    setPersonalSection(requestedSection.section);
+  }
 
   const personalTabs: {
     id: PersonalSection;
@@ -123,8 +139,13 @@ export function SettingsTab({
   }[] = [
     {
       id: 'appearance',
-      label: isEn ? 'Display & Security' : 'Tampilan & Keamanan',
+      label: isEn ? 'Display' : 'Tampilan',
       icon: <SlidersHorizontal className="size-4" />,
+    },
+    {
+      id: 'security',
+      label: isEn ? 'Security' : 'Keamanan',
+      icon: <ShieldCheck className="size-4" />,
     },
     {
       id: 'notifications',
@@ -353,15 +374,16 @@ export function SettingsTab({
                         ? 'PIN Not Set'
                         : 'PIN Belum Diatur'}
                   </span>
-                  {onOpenSecurity && (
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={onOpenSecurity}
-                    >
-                      {isEn ? 'Manage Security' : 'Atur Keamanan'}
-                    </Button>
-                  )}
+                  <Button
+                    size="sm"
+                    variant="secondary"
+                    onClick={() => {
+                      if (securityProps) setPersonalSection('security');
+                      else onOpenSecurity?.();
+                    }}
+                  >
+                    {isEn ? 'Manage Security' : 'Atur Keamanan'}
+                  </Button>
                 </div>
               </SettingRow>
 
@@ -422,6 +444,22 @@ export function SettingsTab({
                   </Button>
                 </SettingRow>
               )}
+            </div>
+          )}
+
+          {personalSection === 'security' && securityProps && (
+            <div role="tabpanel" className="space-y-4">
+              <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+                <h2 className="text-[15px] font-semibold text-[var(--text)]">
+                  {isEn ? 'Account Security' : 'Keamanan Akun'}
+                </h2>
+                <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
+                  {isEn
+                    ? 'Manage Passkeys, 2FA Authenticator, Device PIN Lock, and Account Password.'
+                    : 'Kelola Passkey, 2FA Authenticator, Kunci PIN Perangkat, dan Password Akun Anda.'}
+                </p>
+              </div>
+              <SecuritySettings {...securityProps} />
             </div>
           )}
 
