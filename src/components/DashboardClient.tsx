@@ -2154,6 +2154,12 @@ export default function DashboardClient({
             );
           })()}
 
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+          >
               {activeTab === 'overview' && (
                 <OverviewTab
                   transactions={scopedTransactions}
@@ -2367,25 +2373,6 @@ export default function DashboardClient({
                 />
               )}
 
-              {/* KYC Pihak Ketiga: modal terhubung dengan skor kelengkapan Profil */}
-              <KycModal
-                open={kycOpen}
-                onClose={() => setKycOpen(false)}
-                isSuperadmin={isSuperadmin}
-                unifiedCompleteness={profileCompleteness}
-                kycStatus={kycStatus}
-                defaultFullName={profileClient}
-                onStatusChange={setKycStatus}
-                onOpenApiSettings={() => navigate('settings')}
-              />
-
-              {/* Notifikasi: modal dari menu profil (di bawah Profil, di atas KYC) */}
-              <NotificationModal
-                open={notificationsOpen}
-                onClose={() => setNotificationsOpen(false)}
-                api={notifications}
-              />
-
               {activeTab === 'users' && (isSuperadmin || userRole === 'admin') && (
                 <UsersTab
                   users={managedUsers}
@@ -2399,6 +2386,26 @@ export default function DashboardClient({
                   onCreateUser={handleCreateUser}
                 />
               )}
+          </motion.div>
+
+          {/* KYC Pihak Ketiga: modal terhubung dengan skor kelengkapan Profil */}
+          <KycModal
+            open={kycOpen}
+            onClose={() => setKycOpen(false)}
+            isSuperadmin={isSuperadmin}
+            unifiedCompleteness={profileCompleteness}
+            kycStatus={kycStatus}
+            defaultFullName={profileClient}
+            onStatusChange={setKycStatus}
+            onOpenApiSettings={() => navigate('settings')}
+          />
+
+          {/* Notifikasi: modal dari menu profil (di bawah Profil, di atas KYC) */}
+          <NotificationModal
+            open={notificationsOpen}
+            onClose={() => setNotificationsOpen(false)}
+            api={notifications}
+          />
         </main>
       </div>
 

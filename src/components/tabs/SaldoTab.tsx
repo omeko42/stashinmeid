@@ -1,6 +1,8 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { AnimatePresence, motion } from 'framer-motion';
+import { Banknote, Landmark, Wallet } from 'lucide-react';
 import { Segmented } from '@/components/ui/Segmented';
 import { Amount, Label } from '@/components/ui/Surface';
 import { BalanceVisibilityToggle } from '@/components/ui/BalanceVisibilityToggle';
@@ -15,7 +17,7 @@ export type SaldoSub = 'cashflow' | 'budget' | 'assets';
 
 interface SaldoTabProps {
   assets: AssetsApi;
-  /** Nilai saldo fisik & non-fisik yang sudah digabung dengan arus kas aktif. */
+  /** Nilai saldo tunai & non-tunai yang sudah digabung dengan arus kas aktif. */
   computedTotals: {
     physical: number;
     nonPhysical: number;
@@ -43,9 +45,9 @@ interface SaldoTabProps {
 }
 
 /**
- * Saldo - satu menu gabungan: ringkasan saldo fisik vs non-fisik
+ * Saldo - satu menu gabungan: ringkasan saldo tunai vs non-tunai
  * (terhubung langsung dengan Arus Kas & Dompet Aset),
- * lalu sub-tab Anggaran / Arus Kas / Aset.
+ * lalu sub-tab Arus Kas / Anggaran / Aset dengan transisi halus.
  */
 export function SaldoTab({
   assets,
@@ -94,12 +96,22 @@ export function SaldoTab({
 
   return (
     <div className="space-y-5">
-      {/* Saldo fisik vs non-fisik */}
+      {/* Saldo tunai vs non-tunai */}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4 sm:col-span-1">
-          <div className="flex items-center gap-1.5">
-            <Label>{t('totalLabel')}</Label>
-            <BalanceVisibilityToggle />
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, ease: [0.22, 1, 0.36, 1] }}
+          className="hero-surface card-interactive rounded-xl border border-[var(--brand)]/30 bg-[var(--surface-1)] p-4"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              <Label>{t('totalLabel')}</Label>
+              <BalanceVisibilityToggle />
+            </div>
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--brand-soft)] text-[var(--brand)]">
+              <Wallet className="size-3.5" aria-hidden />
+            </span>
           </div>
           <div className="mt-1.5">
             <Amount value={formatRp(grandTotal)} size="lg" />
@@ -107,25 +119,47 @@ export function SaldoTab({
           <p className="mt-1 text-[11px] text-[var(--text-muted)]">
             {t('totalHint', { currency: assets.primaryCurrency })}
           </p>
-        </section>
-        <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
-          <Label>{t('physical')}</Label>
+        </motion.section>
+
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
+          className="card-interactive rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <Label>{t('physical')}</Label>
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-2)] text-[var(--brand)]">
+              <Banknote className="size-3.5" aria-hidden />
+            </span>
+          </div>
           <div className="mt-1.5">
             <Amount value={formatRp(physicalTotal)} size="lg" />
           </div>
           <p className="mt-1 text-[11px] text-[var(--text-muted)]">
             {t('physicalHint', { count: physicalCount })}
           </p>
-        </section>
-        <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
-          <Label>{t('nonPhysical')}</Label>
+        </motion.section>
+
+        <motion.section
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.24, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
+          className="card-interactive rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <Label>{t('nonPhysical')}</Label>
+            <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--info-soft)] text-[var(--info)]">
+              <Landmark className="size-3.5" aria-hidden />
+            </span>
+          </div>
           <div className="mt-1.5">
             <Amount value={formatRp(nonPhysicalTotal)} size="lg" />
           </div>
           <p className="mt-1 text-[11px] text-[var(--text-muted)]">
             {t('nonPhysicalHint', { count: nonPhysicalCount })}
           </p>
-        </section>
+        </motion.section>
       </div>
 
       <Segmented
@@ -136,35 +170,45 @@ export function SaldoTab({
         ariaLabel={t('subLabel')}
       />
 
-      {sub === 'cashflow' && (
-        <CashflowTab
-          transactions={transactions}
-          filteredTransactions={filteredTransactions}
-          filterType={filterType}
-          searchQuery={searchQuery}
-          canEdit={canEdit}
-          accounts={assets.accounts}
-          sharedGroups={sharedGroups}
-          onFilterTypeChange={onFilterTypeChange}
-          onSearchChange={onSearchChange}
-          onEdit={onEditTransaction}
-          onDelete={onDeleteTransaction}
-          onQuickAdd={onQuickAdd}
-          onExportCsv={onExportCsv}
-        />
-      )}
+      <AnimatePresence mode="wait">
+        <motion.div
+          key={sub}
+          initial={{ opacity: 0, y: 6 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -4 }}
+          transition={{ duration: 0.18, ease: [0.22, 1, 0.36, 1] }}
+        >
+          {sub === 'cashflow' && (
+            <CashflowTab
+              transactions={transactions}
+              filteredTransactions={filteredTransactions}
+              filterType={filterType}
+              searchQuery={searchQuery}
+              canEdit={canEdit}
+              accounts={assets.accounts}
+              sharedGroups={sharedGroups}
+              onFilterTypeChange={onFilterTypeChange}
+              onSearchChange={onSearchChange}
+              onEdit={onEditTransaction}
+              onDelete={onDeleteTransaction}
+              onQuickAdd={onQuickAdd}
+              onExportCsv={onExportCsv}
+            />
+          )}
 
-      {sub === 'budget' && (
-        <BudgetTab
-          budgets={budgets}
-          transactions={transactions}
-          canEdit={canEdit}
-          onSave={onBudgetSave}
-          onRemove={onBudgetRemove}
-        />
-      )}
+          {sub === 'budget' && (
+            <BudgetTab
+              budgets={budgets}
+              transactions={transactions}
+              canEdit={canEdit}
+              onSave={onBudgetSave}
+              onRemove={onBudgetRemove}
+            />
+          )}
 
-      {sub === 'assets' && <AssetsTab assets={assets} />}
+          {sub === 'assets' && <AssetsTab assets={assets} />}
+        </motion.div>
+      </AnimatePresence>
     </div>
   );
 }

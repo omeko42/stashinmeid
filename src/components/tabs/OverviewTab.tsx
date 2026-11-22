@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { motion } from 'framer-motion';
 import { ArrowDownRight, ArrowUpRight, CalendarClock } from 'lucide-react';
 import type { Debt, Transaction } from '@/types/finance';
-import { formatDate, formatRp } from '@/lib/format';
+import { daysUntil, formatDate, formatFullDate, formatRp } from '@/lib/format';
 import { getCategory } from '@/lib/categories';
 import { Amount, Label, Progress, Rule, SectionTitle } from '@/components/ui/Surface';
 import { Button } from '@/components/ui/Button';
@@ -35,7 +36,7 @@ interface OverviewTabProps {
   activeDebtCount: number;
   upcomingDueGroups: UpcomingDueGroup[];
   budgetStatuses: BudgetStatus[];
-  /** Aset dompet: fisik vs non-fisik, untuk tooltip di hero saldo. */
+  /** Aset dompet: tunai vs non-tunai, untuk tooltip di hero saldo. */
   assetTotals?: { physical: number; nonPhysical: number };
   canEdit: boolean;
   onOpenDebts: () => void;
@@ -43,12 +44,22 @@ interface OverviewTabProps {
   onOpenBudget: () => void;
 }
 
+const TONE_BADGE: Record<string, string> = {
+  brand: 'bg-[var(--brand-soft)] text-[var(--brand)]',
+  out: 'bg-[var(--out-soft)] text-[var(--out)]',
+  due: 'bg-[var(--due-soft)] text-[var(--due)]',
+  info: 'bg-[var(--info-soft)] text-[var(--info)]',
+  muted: 'bg-[var(--surface-2)] text-[var(--text-muted)]',
+};
+
+const cardMotion = (delay = 0) => ({
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.28, delay, ease: [0.22, 1, 0.36, 1] as const },
+});
+
 /**
- * Ringkasan.
- *
- * Hero-nya bukan kartu gradien - dia pita full-width dengan angka saldo besar
- * di kiri dan dua kolom masuk/keluar yang dipisah garis vertikal. Angka adalah
- * pahlawan; sisanya dirapatkan.
+ * Ringkasan utama dashboard.
  */
 export function OverviewTab({
   transactions,
@@ -76,7 +87,7 @@ export function OverviewTab({
     () =>
       [...transactions]
         .sort((a, b) => b.transaction_date.localeCompare(a.transaction_date))
-        .slice(0, 5),
+        .slice(0, 6),
     [transactions]
   );
 
@@ -88,8 +99,11 @@ export function OverviewTab({
 
   return (
     <div className="space-y-5">
-      {/* HERO - pita saldo */}
-      <section className="border-b border-[var(--line)] pb-5">
+      {/* HERO - panel saldo dengan ambient radial glow halus */}
+      <motion.section
+        {...cardMotion(0)}
+        className="hero-surface card-interactive rounded-2xl border border-[var(--line)] bg-[var(--surface-1)] p-5 sm:p-6"
+      >
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -106,9 +120,9 @@ export function OverviewTab({
                   )}
                   size="hero"
                 />
-                {/* Hover saldo: detail dompet fisik vs non-fisik */}
+                {/* Hover saldo: detail dompet tunai vs non-tunai */}
                 {assetTotals && assetTotals.physical + assetTotals.nonPhysical > 0 && (
-                  <div className="pointer-events-none invisible absolute left-0 top-full z-20 mt-1.5 w-64 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-3 opacity-0 shadow-lg transition-opacity group-hover:visible group-hover:opacity-100">
+                  <div className="pointer-events-none invisible absolute left-0 top-full z-20 mt-2 w-64 translate-y-1 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)]/95 p-3 opacity-0 shadow-[var(--shadow-lg)] backdrop-blur-sm transition-all duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
                     <span className="text-[11px] font-semibold text-[var(--text-muted)]">
                       {tOverview('assetTooltip')}
                     </span>
@@ -144,39 +158,46 @@ export function OverviewTab({
             </div>
             <p className="mt-1.5 text-[12px] text-[var(--text-muted)]">
               {tOverview('balanceHint')} · {tOverview('savingsRate')}{' '}
-              <span className="tnum font-semibold text-[var(--brand)]">
+              <span className="tnum inline-flex items-center rounded-md bg-[var(--brand-soft)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--brand)]">
                 {savingsRate}%
               </span>
             </p>
           </div>
         </div>
 
-        {/* Debit / kredit dipisah garis vertikal, bukan kartu terpisah */}
-        <div className="mt-5 grid grid-cols-2 divide-x divide-[var(--line)]">
-          <div className="pr-4">
+        {/* Debit / kredit dipisah garis vertikal */}
+        <div className="mt-5 grid grid-cols-1 gap-3 border-t border-[var(--line)] pt-4 sm:grid-cols-2 sm:gap-0 sm:divide-x sm:divide-[var(--line)]">
+          <div className="sm:pr-5">
             <div className="flex items-center gap-1.5">
-              <ArrowDownRight className="size-3.5 text-[var(--brand)]" aria-hidden />
+              <span className="flex size-5 items-center justify-center rounded-md bg-[var(--brand-soft)] text-[var(--brand)]">
+                <ArrowDownRight className="size-3.5" aria-hidden />
+              </span>
               <Label>{tOverview('inflow')}</Label>
             </div>
-            <div className="mt-1">
+            <div className="mt-1.5">
               <Amount value={formatRp(totalInflow)} tone="brand" size="lg" />
             </div>
           </div>
-          <div className="pl-4">
+          <div className="sm:pl-5">
             <div className="flex items-center gap-1.5">
-              <ArrowUpRight className="size-3.5 text-[var(--out)]" aria-hidden />
+              <span className="flex size-5 items-center justify-center rounded-md bg-[var(--out-soft)] text-[var(--out)]">
+                <ArrowUpRight className="size-3.5" aria-hidden />
+              </span>
               <Label>{tOverview('outflow')}</Label>
             </div>
-            <div className="mt-1">
+            <div className="mt-1.5">
               <Amount value={formatRp(totalOutflow)} tone="out" size="lg" />
             </div>
           </div>
         </div>
-      </section>
+      </motion.section>
 
       {/* Tren + komposisi pinjaman */}
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
-        <section className="lg:col-span-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+        <motion.section
+          {...cardMotion(0.05)}
+          className="card-interactive rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4 lg:col-span-2"
+        >
           <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
             <SectionTitle>{tOverview('trendTitle')}</SectionTitle>
             <Segmented
@@ -188,43 +209,55 @@ export function OverviewTab({
             />
           </div>
           <CashflowChart transactions={transactions} period={period} />
-        </section>
+        </motion.section>
 
-        <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
-          <SectionTitle action={
-            <button
-              type="button"
-              onClick={onOpenDebts}
-              className="shrink-0 text-[11px] font-semibold text-[var(--brand)] hover:underline"
+        <motion.section
+          {...cardMotion(0.1)}
+          className="card-interactive flex flex-col justify-between rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4"
+        >
+          <div>
+            <SectionTitle
+              action={
+                <button
+                  type="button"
+                  onClick={onOpenDebts}
+                  className="shrink-0 text-[11px] font-semibold text-[var(--brand)] hover:underline"
+                >
+                  {t('overview.openDebtsShort')}
+                </button>
+              }
             >
-              {t('overview.openDebtsShort')}
-            </button>
-          }>
-            {tOverview('debtComposition')}
-          </SectionTitle>
-          <div className="mt-2">
-            <DebtDonut debts={debts} />
-          </div>
-          <Rule className="my-3" />
-          <div className="space-y-1.5">
-            <div className="flex items-baseline justify-between gap-2">
-              <Label>{tOverview('totalDebt')}</Label>
-              <Amount value={formatRp(totalDebt)} tone="due" size="sm" />
+              {tOverview('debtComposition')}
+            </SectionTitle>
+            <div className="mt-2">
+              <DebtDonut debts={debts} />
             </div>
-            <div className="flex items-baseline justify-between gap-2">
-              <Label>{tOverview('monthlyInstallment')}</Label>
-              <Amount value={formatRp(monthlyDebtBurden)} size="sm" />
-            </div>
-            <p className="text-[11px] text-[var(--text-faint)]">
-              {activeDebtCount} {tOverview('activeDebts')}
-            </p>
           </div>
-        </section>
+          <div>
+            <Rule className="my-3" />
+            <div className="space-y-1.5">
+              <div className="flex items-baseline justify-between gap-2">
+                <Label>{tOverview('totalDebt')}</Label>
+                <Amount value={formatRp(totalDebt)} tone="due" size="sm" className="shrink-0" />
+              </div>
+              <div className="flex items-baseline justify-between gap-2">
+                <Label>{tOverview('monthlyInstallment')}</Label>
+                <Amount value={formatRp(monthlyDebtBurden)} size="sm" className="shrink-0" />
+              </div>
+              <p className="text-[11px] text-[var(--text-faint)]">
+                {activeDebtCount} {tOverview('activeDebts')}
+              </p>
+            </div>
+          </div>
+        </motion.section>
       </div>
 
       {/* Jatuh tempo + transaksi terbaru */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-        <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+        <motion.section
+          {...cardMotion(0.14)}
+          className="card-interactive rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4"
+        >
           <SectionTitle>
             <span className="inline-flex items-center gap-2">
               <CalendarClock className="size-4 text-[var(--due)]" aria-hidden />
@@ -239,28 +272,42 @@ export function OverviewTab({
           ) : (
             <div className="mt-2">
               {upcomingDueGroups.map((g) => {
-                // Kalo total pinjaman dalam gugus <= 10, tampilkan semua;
-                // kalau lebih, 9 tertinggi + 1 baris "N lainnya".
                 const shown = g.items.length <= 10 ? g.items : g.items.slice(0, 9);
                 const hidden = g.items.length - shown.length;
+                const dueIso = `${g.nextDue.getFullYear()}-${String(g.nextDue.getMonth() + 1).padStart(2, '0')}-${String(g.nextDue.getDate()).padStart(2, '0')}`;
+                const dLeft = daysUntil(dueIso);
+                const urgent = dLeft <= 3;
+
                 return (
                   <div
                     key={g.dueDay}
-                    className="group relative flex items-center justify-between gap-3 border-b border-[var(--line)] py-2.5 last:border-b-0"
+                    className="group relative flex items-center justify-between gap-3 border-b border-[var(--line)] py-2.5 transition-colors last:border-b-0 hover:bg-[var(--surface-2)]/40 sm:px-1.5 sm:rounded-lg"
                   >
-                    <div className="min-w-0">
-                      <p className="truncate text-[13px] font-medium text-[var(--text)]">
-                        {tOverview('dueMerged', { count: g.items.length })}
-                      </p>
-                      <p className="text-[11px] text-[var(--text-faint)]">
-                        {formatDate(g.nextDue.toISOString().slice(0, 10))} ·{' '}
-                        {g.items.map((d) => d.platform).join(', ')}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <p className="truncate text-[13px] font-medium text-[var(--text)]">
+                          {tOverview('dueMerged', { count: g.items.length })}
+                        </p>
+                        {Number.isFinite(dLeft) && dLeft >= 0 && (
+                          <span
+                            className={`tnum shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-semibold ${
+                              urgent
+                                ? 'bg-[var(--out-soft)] text-[var(--out)]'
+                                : 'bg-[var(--due-soft)] text-[var(--due)]'
+                            }`}
+                          >
+                            {dLeft === 0 ? 'Hari ini' : `H-${dLeft}`}
+                          </span>
+                        )}
+                      </div>
+                      <p className="mt-0.5 truncate text-[11px] text-[var(--text-faint)]">
+                        {formatDate(dueIso)} · {g.items.map((d) => d.platform).join(', ')}
                       </p>
                     </div>
-                    <Amount value={formatRp(g.total)} tone="due" size="sm" />
+                    <Amount value={formatRp(g.total)} tone="due" size="sm" className="shrink-0" />
 
-                    {/* Detail muncul saat hover */}
-                    <div className="pointer-events-none absolute bottom-full left-0 z-30 mb-1 hidden w-[min(20rem,calc(100vw-3rem))] rounded-lg border border-[var(--line)] bg-[var(--surface-1)] p-3 shadow-lg group-hover:block">
+                    {/* Detail muncul halus saat hover */}
+                    <div className="pointer-events-none invisible absolute bottom-full left-0 z-30 mb-1.5 w-[min(20rem,calc(100vw-3rem))] translate-y-1 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)]/95 p-3 opacity-0 shadow-[var(--shadow-lg)] backdrop-blur-sm transition-all duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
                       <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
                         {tOverview('dueDetailTitle')} · {g.items.length}{' '}
                         {tOverview('dueDetailCount')}
@@ -284,7 +331,12 @@ export function OverviewTab({
                             <span>
                               {tOverview('dueOthers', { count: hidden })}
                             </span>
-                            <span>{formatRp(g.total - shown.reduce((s, d) => s + Number(d.monthly_installment), 0))}</span>
+                            <span>
+                              {formatRp(
+                                g.total -
+                                  shown.reduce((s, d) => s + Number(d.monthly_installment), 0)
+                              )}
+                            </span>
                           </div>
                         )}
                       </div>
@@ -298,9 +350,12 @@ export function OverviewTab({
               })}
             </div>
           )}
-        </section>
+        </motion.section>
 
-        <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+        <motion.section
+          {...cardMotion(0.18)}
+          className="card-interactive rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4"
+        >
           <SectionTitle
             action={
               <button
@@ -327,19 +382,25 @@ export function OverviewTab({
                 return (
                   <div
                     key={tx.id}
-                    className="flex items-center justify-between gap-3 border-b border-[var(--line)] py-2.5 last:border-b-0"
+                    className="flex items-center justify-between gap-3 border-b border-[var(--line)] py-2.5 transition-colors last:border-b-0 hover:bg-[var(--surface-2)]/40 sm:rounded-lg sm:px-1.5"
                   >
-                    <div className="flex min-w-0 items-center gap-2.5">
-                      <Icon
-                        className="size-4 shrink-0 text-[var(--text-faint)]"
-                        aria-hidden
-                      />
-                      <div className="min-w-0">
-                        <p className="truncate text-[13px] font-medium text-[var(--text)]">
+                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
+                      <div
+                        className={`flex size-7 shrink-0 items-center justify-center rounded-lg ${
+                          TONE_BADGE[meta.tone] ?? TONE_BADGE.muted
+                        }`}
+                      >
+                        <Icon className="size-3.5" aria-hidden />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <p
+                          title={tx.description || tx.category}
+                          className="truncate text-[13px] font-medium text-[var(--text)]"
+                        >
                           {tx.description || tx.category}
                         </p>
-                        <p className="text-[11px] text-[var(--text-faint)]">
-                          {formatDate(tx.transaction_date)} · {tx.category}
+                        <p className="tnum truncate text-[11px] text-[var(--text-faint)]">
+                          {formatFullDate(tx.transaction_date)} · {tx.category}
                         </p>
                       </div>
                     </div>
@@ -347,17 +408,21 @@ export function OverviewTab({
                       value={`${tx.type === 'inflow' ? '+' : '-'}${formatRp(tx.amount)}`}
                       tone={tx.type === 'inflow' ? 'brand' : 'out'}
                       size="sm"
+                      className="shrink-0"
                     />
                   </div>
                 );
               })}
             </div>
           )}
-        </section>
+        </motion.section>
       </div>
 
       {/* Anggaran per kategori */}
-      <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+      <motion.section
+        {...cardMotion(0.22)}
+        className="card-interactive rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4"
+      >
         <SectionTitle
           action={
             <button
@@ -414,7 +479,7 @@ export function OverviewTab({
             ))}
           </div>
         )}
-      </section>
+      </motion.section>
     </div>
   );
 }

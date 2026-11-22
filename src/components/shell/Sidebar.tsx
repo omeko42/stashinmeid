@@ -1,6 +1,7 @@
 'use client';
 
 import { useTranslations } from 'next-intl';
+import { motion } from 'framer-motion';
 import {
   Landmark,
   LayoutDashboard,
@@ -150,21 +151,38 @@ export function Sidebar({
               aria-current={active ? 'page' : undefined}
               title={collapsed ? item.label : undefined}
               className={cn(
-                'relative flex w-full items-center rounded-lg py-2 text-[13px] font-medium transition-colors',
+                'group relative flex w-full items-center rounded-lg py-2 text-[13px] font-medium transition-colors duration-150',
                 collapsed ? 'justify-center px-0' : 'gap-2.5 px-2.5',
                 active
-                  ? 'bg-[var(--surface-2)] text-[var(--text)]'
-                  : 'text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                  ? 'text-[var(--text)]'
+                  : 'text-[var(--text-muted)] hover:bg-[var(--surface-2)]/70 hover:text-[var(--text)]'
               )}
             >
               {active && (
-                <span
-                  className="absolute left-0 top-1/2 h-4 w-0.5 -translate-y-1/2 rounded-r-full bg-[var(--brand)]"
+                <motion.span
+                  layoutId="sidebar-active-bg"
+                  transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  className="absolute inset-0 rounded-lg bg-[var(--surface-2)] ring-1 ring-[var(--brand)]/25"
                   aria-hidden
                 />
               )}
-              {item.icon}
-              {!collapsed && <span className="truncate">{item.label}</span>}
+              {active && (
+                <motion.span
+                  layoutId="sidebar-active-bar"
+                  transition={{ type: 'spring', stiffness: 420, damping: 32 }}
+                  className="absolute left-0 top-1/2 z-10 h-4 w-[3px] -translate-y-1/2 rounded-r-full bg-[var(--brand)]"
+                  aria-hidden
+                />
+              )}
+              <span
+                className={cn(
+                  'relative z-10 transition-colors',
+                  active ? 'text-[var(--brand)]' : 'group-hover:text-[var(--text)]'
+                )}
+              >
+                {item.icon}
+              </span>
+              {!collapsed && <span className="relative z-10 truncate">{item.label}</span>}
             </button>
           );
         })}

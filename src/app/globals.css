@@ -214,6 +214,48 @@ html[data-theme] body {
   animation-play-state: paused;
 }
 
+/* Soft edge fade untuk marquee agar teks masuk & keluar mulus tanpa terpotong tajam */
+.marquee-mask {
+  mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 28px,
+    black calc(100% - 44px),
+    transparent 100%
+  );
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent 0%,
+    black 28px,
+    black calc(100% - 44px),
+    transparent 100%
+  );
+}
+
+/* Permukaan kartu interaktif: transisi halus pada border, bayangan, dan elevasi ringan */
+.card-interactive {
+  transition:
+    border-color 180ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 220ms cubic-bezier(0.22, 1, 0.36, 1),
+    background-color 180ms ease;
+}
+
+.card-interactive:hover {
+  border-color: var(--line-strong);
+  box-shadow: var(--shadow-md);
+}
+
+/* Hero radial glow halus (adaptif gelap & terang) */
+.hero-surface {
+  position: relative;
+  background-image: radial-gradient(
+    ellipse 70% 120% at 0% 0%,
+    color-mix(in srgb, var(--brand) 10%, transparent),
+    transparent 65%
+  );
+}
+
 /*
  * Adaptasi Tema Terang untuk Landing Page.
  * Saat data-theme="light" aktif, latar, kartu, teks, border, dan input

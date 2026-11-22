@@ -130,16 +130,40 @@ function ChartTooltip({
 
   const inflow = payload.find((p) => p.dataKey === 'inflow')?.value ?? 0;
   const outflow = payload.find((p) => p.dataKey === 'outflow')?.value ?? 0;
+  const net = inflow - outflow;
 
   return (
-    <div className="rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 py-2 shadow-[var(--shadow-md)]">
-      <p className="text-[11px] font-semibold text-[var(--text-muted)]">{label}</p>
-      <p className="tnum mt-1 text-[12px] font-semibold text-[var(--brand)]">
-        Masuk {formatRp(inflow)}
+    <div className="min-w-[168px] rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)]/95 px-3 py-2.5 shadow-[var(--shadow-md)] backdrop-blur-sm">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
+        {label}
       </p>
-      <p className="tnum text-[12px] font-semibold text-[var(--out)]">
-        Keluar {formatRp(outflow)}
-      </p>
+      <div className="mt-1.5 space-y-1 text-[12px]">
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
+            <span className="size-2 rounded-full bg-[var(--brand)]" aria-hidden />
+            Masuk
+          </span>
+          <span className="tnum font-semibold text-[var(--brand)]">{formatRp(inflow)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
+            <span className="size-2 rounded-full bg-[var(--out)]" aria-hidden />
+            Keluar
+          </span>
+          <span className="tnum font-semibold text-[var(--out)]">{formatRp(outflow)}</span>
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-[var(--line)] pt-1">
+          <span className="text-[11px] font-medium text-[var(--text-muted)]">Selisih</span>
+          <span
+            className={`tnum font-semibold ${
+              net >= 0 ? 'text-[var(--brand)]' : 'text-[var(--out)]'
+            }`}
+          >
+            {net >= 0 ? '+' : ''}
+            {formatRp(net)}
+          </span>
+        </div>
+      </div>
     </div>
   );
 }
@@ -171,16 +195,16 @@ export function CashflowChart({
   }
 
   return (
-    <div className="h-56 w-full">
+    <div className="h-60 w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="smInflowGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--brand)" stopOpacity={0.28} />
+              <stop offset="5%" stopColor="var(--brand)" stopOpacity={0.32} />
               <stop offset="95%" stopColor="var(--brand)" stopOpacity={0} />
             </linearGradient>
             <linearGradient id="smOutflowGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--out)" stopOpacity={0.24} />
+              <stop offset="5%" stopColor="var(--out)" stopOpacity={0.26} />
               <stop offset="95%" stopColor="var(--out)" stopOpacity={0} />
             </linearGradient>
           </defs>
@@ -202,30 +226,36 @@ export function CashflowChart({
             tickLine={false}
             axisLine={false}
             tickFormatter={(v) => formatShortRp(Number(v))}
-            width={64}
-            domain={[0, (max: number) => max * 1.15]}
+            width={58}
+            domain={[0, (max: number) => (max > 0 ? max * 1.15 : 100)]}
           />
           <Tooltip
             content={<ChartTooltip />}
-            cursor={{ stroke: 'var(--line-strong)', strokeWidth: 1 }}
+            cursor={{ stroke: 'var(--line-strong)', strokeWidth: 1, strokeDasharray: '3 3' }}
           />
           <Area
             type="monotone"
             dataKey="inflow"
             name="Masuk"
             stroke="var(--brand)"
-            strokeWidth={2}
+            strokeWidth={2.25}
             fill="url(#smInflowGrad)"
             fillOpacity={1}
+            activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--surface-1)', fill: 'var(--brand)' }}
+            animationDuration={600}
+            animationEasing="ease-out"
           />
           <Area
             type="monotone"
             dataKey="outflow"
             name="Keluar"
             stroke="var(--out)"
-            strokeWidth={2}
+            strokeWidth={2.25}
             fill="url(#smOutflowGrad)"
             fillOpacity={1}
+            activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--surface-1)', fill: 'var(--out)' }}
+            animationDuration={600}
+            animationEasing="ease-out"
           />
         </AreaChart>
       </ResponsiveContainer>

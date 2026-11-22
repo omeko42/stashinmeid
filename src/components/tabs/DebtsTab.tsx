@@ -1,9 +1,19 @@
 'use client';
 
+import { useMemo } from 'react';
 import { useTranslations } from 'next-intl';
-import { Calculator, CheckCircle2, Plus, Trash2, Users } from 'lucide-react';
+import { motion } from 'framer-motion';
+import {
+  Calculator,
+  CalendarClock,
+  CheckCircle2,
+  Landmark,
+  Plus,
+  Trash2,
+  Users,
+} from 'lucide-react';
 import type { Debt } from '@/types/finance';
-import { formatRp } from '@/lib/format';
+import { appNow, daysUntil, formatRp, nextDueDate } from '@/lib/format';
 import { Amount, Label, Progress, Rule } from '@/components/ui/Surface';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -59,6 +69,21 @@ export function DebtsTab({
   const set = (key: keyof DebtFormState) => (value: string) =>
     onFormChange({ ...debtForm, [key]: value });
 
+  const totals = useMemo(() => {
+    const active = debts.filter((d) => d.status === 'active');
+    const totalRemaining = active.reduce((s, d) => s + Number(d.remaining_balance || 0), 0);
+    const totalMonthly = active.reduce((s, d) => s + Number(d.monthly_installment || 0), 0);
+    const paidOffCount = debts.length - active.length;
+    return {
+      activeCount: active.length,
+      paidOffCount,
+      totalRemaining,
+      totalMonthly,
+    };
+  }, [debts]);
+
+  const today = appNow();
+
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -82,49 +107,72 @@ export function DebtsTab({
         )}
       </div>
 
-      {/* Simulator - banner datar, bukan kartu gradien */}
-      <section className="rounded-xl border border-[var(--info)]/25 bg-[var(--info-soft)] p-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="mt-0.5 flex size-9 shrink-0 items-center justify-center rounded-lg bg-[var(--surface-1)] text-[var(--info)]">
-              <Calculator className="size-4" aria-hidden />
+      {/* Ringkasan Pinjaman KPI */}
+      {debts.length > 0 && (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <div className="card-interactive rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <Label>{tDebts('card.remainingLabel')}</Label>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--due-soft)] text-[var(--due)]">
+                <Landmark className="size-3.5" aria-hidden />
+              </span>
             </div>
-            <div>
-              <h3 className="text-[14px] font-semibold text-[var(--text)]">
-                {tDebts('simulator.title')}
-              </h3>
-              <p className="text-[12px] text-[var(--text-muted)]">
-                {tDebts('simulator.selected', { count: simStats.count })} ·{' '}
-                {tDebts('simulator.payoff')}{' '}
-                <span className="tnum font-semibold text-[var(--text)]">
-                  {formatRp(simStats.payoffNeeded)}
-                </span>
-              </p>
+            <div className="mt-1.5">
+              <Amount value={formatRp(totals.totalRemaining)} tone="due" size="lg" />
             </div>
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              {totals.activeCount} aktif
+              {totals.paidOffCount > 0 ? ` · ${totals.paidOffCount} lunas` : ''}
+            </p>
           </div>
-          <div className="flex items-center gap-3 sm:text-right">
-            <div>
-              <Label>{tDebts('simulator.savings')}</Label>
-              <div className="mt-0.5">
-                <Amount
-                  value={`+${formatRp(simStats.monthlySaved)}`}
-                  tone="brand"
-                  size="lg"
-                />
-              </div>
+          <div className="card-interactive rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <Label>{tDebts('card.installmentLabel')}</Label>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--out-soft)] text-[var(--out)]">
+                <CalendarClock className="size-3.5" aria-hidden />
+              </span>
             </div>
-            {simStats.count > 0 && (
-              <Button size="sm" variant="ghost" onClick={onClearSim}>
-                {tDebts('simulator.clear')}
-              </Button>
-            )}
+            <div className="mt-1.5">
+              <Amount value={formatRp(totals.totalMonthly)} size="lg" />
+            </div>
+            <p className="mt-1 text-[11px] text-[var(--text-muted)]">
+              Total kewajiban cicilan bulanan
+            </p>
+          </div>
+          <div className="card-interactive rounded-xl border border-[var(--info)]/25 bg-[var(--info-soft)] p-4">
+            <div className="flex items-center justify-between gap-2">
+              <Label>{tDebts('simulator.savings')}</Label>
+              <span className="flex size-7 items-center justify-center rounded-lg bg-[var(--surface-1)] text-[var(--info)]">
+                <Calculator className="size-3.5" aria-hidden />
+              </span>
+            </div>
+            <div className="mt-1.5 flex items-baseline justify-between gap-2">
+              <Amount value={`+${formatRp(simStats.monthlySaved)}`} tone="brand" size="lg" />
+              {simStats.count > 0 && (
+                <button
+                  type="button"
+                  onClick={onClearSim}
+                  className="text-[11px] font-semibold text-[var(--info)] hover:underline"
+                >
+                  {tDebts('simulator.clear')}
+                </button>
+              )}
+            </div>
+            <p className="tnum mt-1 truncate text-[11px] text-[var(--text-muted)]">
+              {simStats.count > 0
+                ? `${simStats.count} dipilih · Lunasi ${formatRp(simStats.payoffNeeded)}`
+                : 'Centang pinjaman di bawah untuk simulasi lunas'}
+            </p>
           </div>
         </div>
-      </section>
+      )}
 
       {/* Form tambah pinjaman */}
       {showDebtForm && canEdit && (
-        <form
+        <motion.form
+          initial={{ opacity: 0, y: -6 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.2 }}
           onSubmit={onSubmitForm}
           className="grid grid-cols-1 gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4 sm:grid-cols-3"
         >
@@ -268,7 +316,7 @@ export function DebtsTab({
               {tCommon('cancel')}
             </Button>
           </div>
-        </form>
+        </motion.form>
       )}
 
       {debts.length === 0 ? (
@@ -288,7 +336,7 @@ export function DebtsTab({
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {debts.map((debt) => {
+          {debts.map((debt, idx) => {
             const isSimSelected = simSelectedIds.includes(debt.id);
             const paidPct =
               debt.total_tenor && debt.remaining_tenor !== null
@@ -306,10 +354,21 @@ export function DebtsTab({
                 : 0;
             const settled = debt.status === 'paid_off';
 
+            let dueCountdown: number | null = null;
+            if (!settled && debt.due_day) {
+              const nd = nextDueDate(debt.due_day, today);
+              const iso = `${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, '0')}-${String(nd.getDate()).padStart(2, '0')}`;
+              const dLeft = daysUntil(iso);
+              if (Number.isFinite(dLeft) && dLeft >= 0) dueCountdown = dLeft;
+            }
+
             return (
-              <article
+              <motion.article
                 key={debt.id}
-                className={`rounded-xl border bg-[var(--surface-1)] p-4 transition ${
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.22, delay: Math.min(idx * 0.04, 0.24) }}
+                className={`card-interactive rounded-xl border bg-[var(--surface-1)] p-4 ${
                   isSimSelected
                     ? 'border-[var(--info)] ring-1 ring-[var(--info)]/40'
                     : settled
@@ -331,7 +390,7 @@ export function DebtsTab({
                       />
                     )}
                     <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <h3 className="truncate text-[14px] font-semibold text-[var(--text)]">
                           {debt.platform}
                         </h3>
@@ -343,6 +402,17 @@ export function DebtsTab({
                         ) : (
                           <span className="inline-flex items-center rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
                             Pribadi
+                          </span>
+                        )}
+                        {dueCountdown !== null && dueCountdown <= 7 && (
+                          <span
+                            className={`tnum inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                              dueCountdown <= 3
+                                ? 'bg-[var(--out-soft)] text-[var(--out)]'
+                                : 'bg-[var(--due-soft)] text-[var(--due)]'
+                            }`}
+                          >
+                            {dueCountdown === 0 ? 'Jatuh tempo hari ini' : `H-${dueCountdown}`}
                           </span>
                         )}
                         {settled && (
@@ -374,22 +444,19 @@ export function DebtsTab({
                 <div className="mt-3 space-y-1.5">
                   <div className="flex items-baseline justify-between gap-2">
                     <Label>{tDebts('card.progress')}</Label>
-                    <span className="tnum text-[11px] text-[var(--text-muted)]">
+                    <span className="tnum text-[11px] font-semibold text-[var(--text-muted)]">
                       {paidPct}%
                     </span>
                   </div>
-                  <Progress
-                    value={paidPct}
-                    tone={settled ? 'brand' : 'due'}
-                  />
+                  <Progress value={paidPct} tone={settled ? 'brand' : 'due'} />
                 </div>
 
                 <Rule className="my-3" />
 
-                <div className="grid grid-cols-3 gap-2">
-                  <div>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                  <div className="min-w-0">
                     <Label>{tDebts('card.remainingLabel')}</Label>
-                    <div className="mt-0.5">
+                    <div className="mt-0.5 truncate">
                       <Amount
                         value={formatRp(debt.remaining_balance)}
                         tone="due"
@@ -397,9 +464,9 @@ export function DebtsTab({
                       />
                     </div>
                   </div>
-                  <div>
+                  <div className="min-w-0">
                     <Label>{tDebts('card.installmentLabel')}</Label>
-                    <div className="mt-0.5">
+                    <div className="mt-0.5 truncate">
                       <Amount
                         value={
                           debt.monthly_installment
@@ -410,7 +477,7 @@ export function DebtsTab({
                       />
                     </div>
                   </div>
-                  <div>
+                  <div className="col-span-2 min-w-0 sm:col-span-1">
                     <Label>{tDebts('card.tenorLabel')}</Label>
                     <div className="mt-0.5">
                       <span className="tnum text-[13px] font-semibold text-[var(--text)]">
@@ -418,7 +485,7 @@ export function DebtsTab({
                       </span>
                       {debt.due_day && (
                         <span className="tnum ml-1 text-[11px] text-[var(--text-faint)]">
-                          tgl {debt.due_day}
+                          · tgl {debt.due_day}
                         </span>
                       )}
                     </div>
@@ -436,7 +503,7 @@ export function DebtsTab({
                     {tDebts('card.pay')}
                   </Button>
                 )}
-              </article>
+              </motion.article>
             );
           })}
         </div>

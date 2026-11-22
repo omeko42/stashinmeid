@@ -82,38 +82,40 @@ export function AnnouncementBar({
       role="status"
       className="relative overflow-hidden border-b border-[var(--line)] bg-[var(--brand-soft)] pt-[env(safe-area-inset-top)]"
     >
-      <div
-        onClick={onClickAlert}
-        className={`ann-marquee flex w-max items-center py-1.5 text-[11px] font-medium text-[var(--brand)] ${
-          onClickAlert ? 'cursor-pointer' : ''
-        }`}
-      >
-        {[0, 1].map((groupIdx) => (
-          <div
-            key={groupIdx}
-            aria-hidden={groupIdx === 1 ? true : undefined}
-            className="flex shrink-0 items-center"
-          >
-            {repeatedSegments.map((text, itemIdx) => (
-              <span
-                key={`${groupIdx}-${itemIdx}`}
-                aria-hidden={groupIdx === 1 || itemIdx >= segments.length ? true : undefined}
-                className="inline-flex shrink-0 items-center whitespace-nowrap"
-              >
-                <span className="inline-flex items-center gap-2">
-                  <Megaphone className="size-3 shrink-0" aria-hidden />
-                  <span>{text}</span>
-                </span>
+      <div className="marquee-mask overflow-hidden">
+        <div
+          onClick={onClickAlert}
+          className={`ann-marquee flex w-max items-center py-1.5 text-[11px] font-medium text-[var(--brand)] ${
+            onClickAlert ? 'cursor-pointer' : ''
+          }`}
+        >
+          {[0, 1].map((groupIdx) => (
+            <div
+              key={groupIdx}
+              aria-hidden={groupIdx === 1 ? true : undefined}
+              className="flex shrink-0 items-center"
+            >
+              {repeatedSegments.map((text, itemIdx) => (
                 <span
-                  aria-hidden
-                  className="mx-8 text-[11px] text-[var(--brand)]/45 select-none"
+                  key={`${groupIdx}-${itemIdx}`}
+                  aria-hidden={groupIdx === 1 || itemIdx >= segments.length ? true : undefined}
+                  className="inline-flex shrink-0 items-center whitespace-nowrap"
                 >
-                  •
+                  <span className="inline-flex items-center gap-2">
+                    <Megaphone className="size-3 shrink-0" aria-hidden />
+                    <span>{text}</span>
+                  </span>
+                  <span
+                    aria-hidden
+                    className="mx-8 text-[11px] text-[var(--brand)]/45 select-none"
+                  >
+                    •
+                  </span>
                 </span>
-              </span>
-            ))}
-          </div>
-        ))}
+              ))}
+            </div>
+          ))}
+        </div>
       </div>
       <button
         type="button"
