@@ -1,18 +1,31 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import { useTranslations } from 'next-intl';
-import { motion } from 'framer-motion';
-import { ArrowDownRight, ArrowUpRight, CalendarClock } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useLocale, useTranslations } from 'next-intl';
+import { AnimatePresence, motion } from 'framer-motion';
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Calendar,
+  CalendarClock,
+  Check,
+  SlidersHorizontal,
+} from 'lucide-react';
 import type { Debt, Transaction } from '@/types/finance';
 import { daysUntil, formatDate, formatFullDate, formatRp } from '@/lib/format';
 import { getCategory } from '@/lib/categories';
+import {
+  createDefaultPeriodFilter,
+  filterTransactionsByPeriod,
+  formatPeriodLabel,
+  type PeriodFilterState,
+  type PeriodPreset,
+} from '@/lib/periodFilter';
 import { Amount, Label, Progress, Rule, SectionTitle } from '@/components/ui/Surface';
 import { Button } from '@/components/ui/Button';
 import { BalanceVisibilityToggle } from '@/components/ui/BalanceVisibilityToggle';
 import { EmptyState } from '@/components/ui/EmptyState';
-import { Segmented } from '@/components/ui/Segmented';
-import { CashflowChart, type ChartPeriod } from '@/components/charts/CashflowChart';
+import { CashflowChart } from '@/components/charts/CashflowChart';
 import { DebtDonut } from '@/components/charts/DebtDonut';
 import type { BudgetStatus } from '@/lib/budget';
 
@@ -59,15 +72,13 @@ const cardMotion = (delay = 0) => ({
 });
 
 /**
- * Ringkasan utama dashboard.
+ * Ringkasan utama dashboard dengan Filter Periode terpadu (Icon Popover)
+ * yang langsung menyinkronkan MASUK, KELUAR, Tingkat Tabung, dan Grafik Tren.
  */
 export function OverviewTab({
   transactions,
   debts,
-  totalInflow,
-  totalOutflow,
   netCashflow,
-  savingsRate,
   totalDebt,
   monthlyDebtBurden,
   activeDebtCount,
@@ -79,9 +90,66 @@ export function OverviewTab({
   onOpenCashflow,
   onOpenBudget,
 }: OverviewTabProps) {
+  const locale = useLocale();
+  const isEn = locale === 'en';
   const t = useTranslations();
   const tOverview = useTranslations('overview');
-  const [period, setPeriod] = useState<ChartPeriod>('month');
+
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(() =>
+    createDefaultPeriodFilter('month')
+  );
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterPopoverRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onPointerDown = (e: MouseEvent) => {
+      if (
+        filterPopoverRef.current &&
+        !filterPopoverRef.current.contains(e.target as Node)
+      ) {
+        setFilterOpen(false);
+      }
+    };
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKeyDown);
+    };
+  }, [filterOpen]);
+
+  // Transaksi tersaring sesuai periode aktif — dipakai oleh MASUK, KELUAR, Tingkat Tabung & Grafik
+  const periodTransactions = useMemo(
+    () => filterTransactionsByPeriod(transactions, periodFilter),
+    [transactions, periodFilter]
+  );
+
+  const periodStats = useMemo(() => {
+    let inflow = 0;
+    let outflow = 0;
+    for (const tx of periodTransactions) {
+      if (tx.type === 'inflow') inflow += Number(tx.amount);
+      else outflow += Number(tx.amount);
+    }
+    const net = inflow - outflow;
+    const savingsRate =
+      inflow > 0 ? Math.max(0, Math.round((net / inflow) * 100)) : 0;
+    return { inflow, outflow, net, savingsRate };
+  }, [periodTransactions]);
+
+  // Tahun historis dari data transaksi nyata (untuk shortcut 1-klik di mode Custom)
+  const availableYears = useMemo(() => {
+    const ys = new Set<string>();
+    for (const tx of transactions) {
+      const y = tx.transaction_date?.slice(0, 4);
+      if (y && /^\d{4}$/.test(y)) ys.add(y);
+    }
+    return [...ys].sort((a, b) => b.localeCompare(a));
+  }, [transactions]);
 
   const recentTransactions = useMemo(
     () =>
@@ -91,11 +159,52 @@ export function OverviewTab({
     [transactions]
   );
 
-  const periodOptions = [
-    { value: 'week' as const, label: tOverview('period.week') },
-    { value: 'month' as const, label: tOverview('period.month') },
-    { value: 'year' as const, label: tOverview('period.year') },
+  const activePeriodLabel = formatPeriodLabel(periodFilter, isEn);
+
+  const presetItems: { id: PeriodPreset; label: string; hint: string }[] = [
+    {
+      id: 'day',
+      label: isEn ? 'Today' : 'Hari ini',
+      hint: isEn ? 'Current day' : 'Transaksi hari ini',
+    },
+    {
+      id: 'week',
+      label: isEn ? 'Week (7d)' : 'Minggu',
+      hint: isEn ? 'Last 7 days' : '7 hari terakhir',
+    },
+    {
+      id: 'month',
+      label: isEn ? 'Month' : 'Bulan',
+      hint: isEn ? 'This calendar month' : 'Bulan berjalan',
+    },
+    {
+      id: 'ytd',
+      label: 'YTD',
+      hint: isEn ? 'Jan 1 – Today' : 'Awal tahun s/d hari ini',
+    },
+    {
+      id: 'year',
+      label: isEn ? 'Year' : 'Tahun',
+      hint: isEn ? 'Full current year' : 'Satu tahun penuh',
+    },
+    {
+      id: 'all',
+      label: isEn ? 'All Time' : 'Semua',
+      hint: isEn ? 'Entire history' : 'Seluruh riwayat',
+    },
+    {
+      id: 'custom',
+      label: 'Custom',
+      hint: isEn ? 'Pick date range' : 'Pilih rentang tanggal',
+    },
   ];
+
+  const selectPreset = (preset: PeriodPreset) => {
+    setPeriodFilter((prev) => ({ ...prev, preset }));
+    if (preset !== 'custom') {
+      setFilterOpen(false);
+    }
+  };
 
   return (
     <div className="space-y-5">
@@ -104,7 +213,7 @@ export function OverviewTab({
         {...cardMotion(0)}
         className="hero-surface card-interactive rounded-2xl border border-[var(--line)] bg-[var(--surface-1)] p-5 sm:p-6"
       >
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
               <Label>{tOverview('balanceLabel')}</Label>
@@ -156,16 +265,32 @@ export function OverviewTab({
                 )}
               </div>
             </div>
-            <p className="mt-1.5 text-[12px] text-[var(--text-muted)]">
-              {tOverview('balanceHint')} · {tOverview('savingsRate')}{' '}
+            <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-[12px] text-[var(--text-muted)]">
+              <span>{tOverview('balanceHint')}</span>
+              <span>·</span>
+              <span>{tOverview('savingsRate')}</span>
               <span className="tnum inline-flex items-center rounded-md bg-[var(--brand-soft)] px-1.5 py-0.5 text-[11px] font-semibold text-[var(--brand)]">
-                {savingsRate}%
+                {periodStats.savingsRate}%
               </span>
             </p>
           </div>
+
+          {/* Badge periode aktif di Hero — klik langsung buka filter periode */}
+          <button
+            type="button"
+            onClick={() => setFilterOpen((v) => !v)}
+            title={isEn ? 'Change period filter' : 'Ubah filter periode'}
+            className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)]/80 px-2.5 py-1.5 text-[11px] font-semibold text-[var(--text-muted)] transition hover:border-[var(--brand)] hover:text-[var(--text)]"
+          >
+            <Calendar className="size-3.5 text-[var(--brand)]" aria-hidden />
+            <span>{activePeriodLabel}</span>
+            <span className="tnum text-[10px] text-[var(--text-faint)]">
+              ({periodTransactions.length.toLocaleString('id-ID')})
+            </span>
+          </button>
         </div>
 
-        {/* Debit / kredit dipisah garis vertikal */}
+        {/* Debit / kredit mengikuti filter periode aktif */}
         <div className="mt-5 grid grid-cols-1 gap-3 border-t border-[var(--line)] pt-4 sm:grid-cols-2 sm:gap-0 sm:divide-x sm:divide-[var(--line)]">
           <div className="sm:pr-5">
             <div className="flex items-center gap-1.5">
@@ -173,9 +298,12 @@ export function OverviewTab({
                 <ArrowDownRight className="size-3.5" aria-hidden />
               </span>
               <Label>{tOverview('inflow')}</Label>
+              <span className="text-[10px] font-medium text-[var(--text-faint)]">
+                · {activePeriodLabel}
+              </span>
             </div>
             <div className="mt-1.5">
-              <Amount value={formatRp(totalInflow)} tone="brand" size="lg" />
+              <Amount value={formatRp(periodStats.inflow)} tone="brand" size="lg" />
             </div>
           </div>
           <div className="sm:pl-5">
@@ -184,9 +312,12 @@ export function OverviewTab({
                 <ArrowUpRight className="size-3.5" aria-hidden />
               </span>
               <Label>{tOverview('outflow')}</Label>
+              <span className="text-[10px] font-medium text-[var(--text-faint)]">
+                · {activePeriodLabel}
+              </span>
             </div>
             <div className="mt-1.5">
-              <Amount value={formatRp(totalOutflow)} tone="out" size="lg" />
+              <Amount value={formatRp(periodStats.outflow)} tone="out" size="lg" />
             </div>
           </div>
         </div>
@@ -198,17 +329,181 @@ export function OverviewTab({
           {...cardMotion(0.05)}
           className="card-interactive rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4 lg:col-span-2"
         >
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-            <SectionTitle>{tOverview('trendTitle')}</SectionTitle>
-            <Segmented
-              options={periodOptions}
-              value={period}
-              onChange={setPeriod}
-              size="sm"
-              ariaLabel={tOverview('period.label')}
-            />
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="min-w-0">
+              <SectionTitle>{tOverview('trendTitle')}</SectionTitle>
+              <p className="mt-0.5 text-[11px] text-[var(--text-faint)]">
+                {activePeriodLabel} · {periodTransactions.length.toLocaleString('id-ID')}{' '}
+                {isEn ? 'transactions' : 'transaksi'}
+              </p>
+            </div>
+
+            {/* Ikon Filter Periode + Popover (Hari / Minggu / Bulan / YTD / Tahun / Semua / Custom) */}
+            <div ref={filterPopoverRef} className="relative shrink-0">
+              <button
+                type="button"
+                onClick={() => setFilterOpen((v) => !v)}
+                aria-haspopup="dialog"
+                aria-expanded={filterOpen}
+                aria-label={isEn ? 'Filter period' : 'Filter periode'}
+                title={isEn ? `Period: ${activePeriodLabel}` : `Periode: ${activePeriodLabel}`}
+                className={`inline-flex h-9 items-center gap-2 rounded-lg border px-2.5 text-[12px] font-semibold transition ${
+                  filterOpen
+                    ? 'border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]'
+                    : 'border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)]'
+                }`}
+              >
+                <SlidersHorizontal className="size-3.5 shrink-0" aria-hidden />
+                <span className="hidden sm:inline">{activePeriodLabel}</span>
+              </button>
+
+              <AnimatePresence>
+                {filterOpen && (
+                  <motion.div
+                    role="dialog"
+                    aria-label={isEn ? 'Period Filter' : 'Filter Periode'}
+                    initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                    transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
+                    className="absolute right-0 top-full z-40 mt-2 w-[min(19.5rem,calc(100vw-2.5rem))] rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)] p-3 shadow-[var(--shadow-lg)]"
+                  >
+                    <div className="mb-2 flex items-center justify-between px-1">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                        {isEn ? 'Filter Period' : 'Filter Periode'}
+                      </span>
+                      <span className="text-[10px] text-[var(--text-faint)]">
+                        {isEn ? 'Applies to In/Out & Chart' : 'Berlaku ke Masuk/Keluar & Grafik'}
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {presetItems.map((item) => {
+                        const active = periodFilter.preset === item.id;
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => selectPreset(item.id)}
+                            className={`flex items-center justify-between gap-2 rounded-lg border px-2.5 py-2 text-left transition ${
+                              item.id === 'custom' ? 'col-span-2' : ''
+                            } ${
+                              active
+                                ? 'border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]'
+                                : 'border-[var(--line)] bg-[var(--surface-2)]/60 text-[var(--text)] hover:border-[var(--line-strong)] hover:bg-[var(--surface-2)]'
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-[12px] font-semibold leading-tight">
+                                {item.label}
+                              </p>
+                              <p className="mt-0.5 truncate text-[10px] text-[var(--text-faint)]">
+                                {item.hint}
+                              </p>
+                            </div>
+                            {active && <Check className="size-3.5 shrink-0" aria-hidden />}
+                          </button>
+                        );
+                      })}
+                    </div>
+
+                    {/* Rentang tanggal custom + shortcut tahun historis */}
+                    <AnimatePresence initial={false}>
+                      {periodFilter.preset === 'custom' && (
+                        <motion.div
+                          initial={{ opacity: 0, height: 0 }}
+                          animate={{ opacity: 1, height: 'auto' }}
+                          exit={{ opacity: 0, height: 0 }}
+                          transition={{ duration: 0.16 }}
+                          className="mt-3 space-y-2.5 overflow-hidden border-t border-[var(--line)] pt-3"
+                        >
+                          <div className="grid grid-cols-2 gap-2">
+                            <div>
+                              <label
+                                htmlFor="overview-filter-start"
+                                className="mb-1 block text-[10px] font-semibold text-[var(--text-muted)]"
+                              >
+                                {isEn ? 'From' : 'Dari Tanggal'}
+                              </label>
+                              <input
+                                id="overview-filter-start"
+                                type="date"
+                                value={periodFilter.startDate}
+                                onChange={(e) =>
+                                  setPeriodFilter((prev) => ({
+                                    ...prev,
+                                    preset: 'custom',
+                                    startDate: e.target.value,
+                                  }))
+                                }
+                                className="h-8 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2 text-[11px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                              />
+                            </div>
+                            <div>
+                              <label
+                                htmlFor="overview-filter-end"
+                                className="mb-1 block text-[10px] font-semibold text-[var(--text-muted)]"
+                              >
+                                {isEn ? 'To' : 'Sampai Tanggal'}
+                              </label>
+                              <input
+                                id="overview-filter-end"
+                                type="date"
+                                value={periodFilter.endDate}
+                                onChange={(e) =>
+                                  setPeriodFilter((prev) => ({
+                                    ...prev,
+                                    preset: 'custom',
+                                    endDate: e.target.value,
+                                  }))
+                                }
+                                className="h-8 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2 text-[11px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                              />
+                            </div>
+                          </div>
+
+                          {availableYears.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1">
+                              <span className="pr-1 text-[10px] font-semibold text-[var(--text-faint)]">
+                                {isEn ? 'Quick year:' : 'Tahun cepat:'}
+                              </span>
+                              {availableYears.map((yr) => (
+                                <button
+                                  key={yr}
+                                  type="button"
+                                  onClick={() => {
+                                    setPeriodFilter({
+                                      preset: 'custom',
+                                      startDate: `${yr}-01-01`,
+                                      endDate: `${yr}-12-31`,
+                                    });
+                                    setFilterOpen(false);
+                                  }}
+                                  className="tnum rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-muted)] transition hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                                >
+                                  {yr}
+                                </button>
+                              ))}
+                            </div>
+                          )}
+
+                          <Button
+                            size="sm"
+                            fullWidth
+                            onClick={() => setFilterOpen(false)}
+                          >
+                            {isEn ? 'Apply Range' : 'Terapkan Rentang'}
+                          </Button>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
           </div>
-          <CashflowChart transactions={transactions} period={period} />
+
+          <CashflowChart transactions={periodTransactions} filter={periodFilter} />
         </motion.section>
 
         <motion.section
@@ -281,7 +576,7 @@ export function OverviewTab({
                 return (
                   <div
                     key={g.dueDay}
-                    className="group relative flex items-center justify-between gap-3 border-b border-[var(--line)] py-2.5 transition-colors last:border-b-0 hover:bg-[var(--surface-2)]/40 sm:px-1.5 sm:rounded-lg"
+                    className="group relative flex items-center justify-between gap-3 border-b border-[var(--line)] py-2.5 transition-colors last:border-b-0 hover:bg-[var(--surface-2)]/40 sm:rounded-lg sm:px-1.5"
                   >
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">

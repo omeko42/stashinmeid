@@ -1,19 +1,28 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import {
   Calculator,
   CalendarClock,
   CheckCircle2,
   Landmark,
+  Pencil,
+  Percent,
   Plus,
   Trash2,
   Users,
+  Wallet,
+  Zap,
 } from 'lucide-react';
 import type { Debt } from '@/types/finance';
 import { appNow, daysUntil, formatRp, nextDueDate } from '@/lib/format';
+import {
+  estimateMonthlyInterest,
+  parseDebtNotes,
+  type InterestType,
+} from '@/lib/debtMeta';
 import { Amount, Label, Progress, Rule } from '@/components/ui/Surface';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
@@ -26,13 +35,21 @@ export interface DebtFormState {
   tenor: string;
   dueDay: string;
   groupId: string;
+  interestRate: string;
+  interestType: InterestType;
+  autoPay: boolean;
+  autoPayDay: string;
+  autoPayAccountId: string;
+  notes: string;
 }
 
 interface DebtsTabProps {
   debts: Debt[];
   showDebtForm: boolean;
+  editingDebtId?: string | null;
   debtForm: DebtFormState;
   canEdit: boolean;
+  accounts?: { id: string; name: string; kind: string; currency: string }[];
   sharedGroups?: { id: string; name: string }[];
   groupNameById?: Record<string, string>;
   simSelectedIds: string[];
@@ -41,6 +58,7 @@ interface DebtsTabProps {
   onClearSim: () => void;
   onFormChange: (next: DebtFormState) => void;
   onToggleForm: () => void;
+  onEdit?: (debt: Debt) => void;
   onSubmitForm: (e: React.FormEvent) => void;
   onPay: (debt: Debt) => void;
   onDelete: (id: string) => void;
@@ -49,8 +67,10 @@ interface DebtsTabProps {
 export function DebtsTab({
   debts,
   showDebtForm,
+  editingDebtId = null,
   debtForm,
   canEdit,
+  accounts = [],
   sharedGroups = [],
   groupNameById = {},
   simSelectedIds,
@@ -59,14 +79,27 @@ export function DebtsTab({
   onClearSim,
   onFormChange,
   onToggleForm,
+  onEdit,
   onSubmitForm,
   onPay,
   onDelete,
 }: DebtsTabProps) {
+  const locale = useLocale();
+  const isEn = locale === 'en';
   const tDebts = useTranslations('debts');
   const tCommon = useTranslations('common');
 
-  const set = (key: keyof DebtFormState) => (value: string) =>
+  const accountById = useMemo(
+    () => new Map(accounts.map((a) => [a.id, a])),
+    [accounts]
+  );
+
+  const walletName = (id: string | null) => {
+    if (!id || id === '__cash__') return isEn ? 'Cash' : 'Kas Tunai';
+    return accountById.get(id)?.name ?? (isEn ? 'Wallet' : 'Dompet');
+  };
+
+  const set = <K extends keyof DebtFormState>(key: K) => (value: DebtFormState[K]) =>
     onFormChange({ ...debtForm, [key]: value });
 
   const totals = useMemo(() => {
@@ -74,9 +107,11 @@ export function DebtsTab({
     const totalRemaining = active.reduce((s, d) => s + Number(d.remaining_balance || 0), 0);
     const totalMonthly = active.reduce((s, d) => s + Number(d.monthly_installment || 0), 0);
     const paidOffCount = debts.length - active.length;
+    const autoPayCount = active.filter((d) => parseDebtNotes(d.notes).meta.autoPay).length;
     return {
       activeCount: active.length,
       paidOffCount,
+      autoPayCount,
       totalRemaining,
       totalMonthly,
     };
@@ -102,7 +137,11 @@ export function DebtsTab({
             icon={<Plus className="size-4" />}
             onClick={onToggleForm}
           >
-            {tDebts('add')}
+            {showDebtForm && editingDebtId
+              ? isEn
+                ? 'Close Edit'
+                : 'Tutup Edit'
+              : tDebts('add')}
           </Button>
         )}
       </div>
@@ -121,8 +160,11 @@ export function DebtsTab({
               <Amount value={formatRp(totals.totalRemaining)} tone="due" size="lg" />
             </div>
             <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-              {totals.activeCount} aktif
-              {totals.paidOffCount > 0 ? ` · ${totals.paidOffCount} lunas` : ''}
+              {totals.activeCount} {isEn ? 'active' : 'aktif'}
+              {totals.autoPayCount > 0 ? ` · ${totals.autoPayCount} auto-pay` : ''}
+              {totals.paidOffCount > 0
+                ? ` · ${totals.paidOffCount} ${isEn ? 'paid off' : 'lunas'}`
+                : ''}
             </p>
           </div>
           <div className="card-interactive rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4">
@@ -136,7 +178,7 @@ export function DebtsTab({
               <Amount value={formatRp(totals.totalMonthly)} size="lg" />
             </div>
             <p className="mt-1 text-[11px] text-[var(--text-muted)]">
-              Total kewajiban cicilan bulanan
+              {isEn ? 'Total monthly installment obligation' : 'Total kewajiban cicilan bulanan'}
             </p>
           </div>
           <div className="card-interactive rounded-xl border border-[var(--info)]/25 bg-[var(--info-soft)] p-4">
@@ -160,132 +202,330 @@ export function DebtsTab({
             </div>
             <p className="tnum mt-1 truncate text-[11px] text-[var(--text-muted)]">
               {simStats.count > 0
-                ? `${simStats.count} dipilih · Lunasi ${formatRp(simStats.payoffNeeded)}`
-                : 'Centang pinjaman di bawah untuk simulasi lunas'}
+                ? `${simStats.count} ${isEn ? 'selected · Payoff' : 'dipilih · Lunasi'} ${formatRp(simStats.payoffNeeded)}`
+                : isEn
+                  ? 'Tick loans below to simulate payoff'
+                  : 'Centang pinjaman di bawah untuk simulasi lunas'}
             </p>
           </div>
         </div>
       )}
 
-      {/* Form tambah pinjaman */}
+      {/* Form tambah / edit pinjaman (termasuk Suku Bunga Flat/Floating & Auto-Payment) */}
       {showDebtForm && canEdit && (
         <motion.form
           initial={{ opacity: 0, y: -6 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
           onSubmit={onSubmitForm}
-          className="grid grid-cols-1 gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4 sm:grid-cols-3"
+          className="space-y-4 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)] p-4 shadow-[var(--shadow-md)]"
         >
-          <div>
-            <label
-              htmlFor="debt-platform"
-              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-            >
-              {tDebts('form.platform')}
-            </label>
-            <input
-              id="debt-platform"
-              name="platform"
-              type="text"
-              required
-              value={debtForm.platform}
-              onChange={(e) => set('platform')(e.target.value)}
-              placeholder="Spinjam, Kredivo"
-              className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-            />
+          <div className="flex items-center justify-between border-b border-[var(--line)] pb-2.5">
+            <h3 className="text-[14px] font-semibold text-[var(--text)]">
+              {editingDebtId
+                ? isEn
+                  ? 'Edit Loan Details'
+                  : 'Edit Pengaturan Pinjaman'
+                : isEn
+                  ? 'Add New Loan'
+                  : 'Tambah Pinjaman Baru'}
+            </h3>
+            {editingDebtId && (
+              <span className="rounded-md bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                {debtForm.platform}
+              </span>
+            )}
           </div>
-          <div>
-            <label
-              htmlFor="debt-contract"
-              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-            >
-              {tDebts('form.contract')}
-            </label>
-            <input
-              id="debt-contract"
-              name="contract"
-              type="text"
-              value={debtForm.contract}
-              onChange={(e) => set('contract')(e.target.value)}
-              className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
-            />
+
+          {/* Informasi pokok pinjaman */}
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <div>
+              <label
+                htmlFor="debt-platform"
+                className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+              >
+                {tDebts('form.platform')}
+              </label>
+              <input
+                id="debt-platform"
+                name="platform"
+                type="text"
+                required
+                value={debtForm.platform}
+                onChange={(e) => set('platform')(e.target.value)}
+                placeholder="BRIguna, SPinjam, Kredivo"
+                className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="debt-contract"
+                className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+              >
+                {tDebts('form.contract')}
+              </label>
+              <input
+                id="debt-contract"
+                name="contract"
+                type="text"
+                value={debtForm.contract}
+                onChange={(e) => set('contract')(e.target.value)}
+                className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="debt-balance"
+                className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+              >
+                {tDebts('form.balance')}
+              </label>
+              <input
+                id="debt-balance"
+                name="balance"
+                type="number"
+                required
+                min="1"
+                value={debtForm.balance}
+                onChange={(e) => set('balance')(e.target.value)}
+                placeholder="4000000"
+                className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="debt-installment"
+                className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+              >
+                {tDebts('form.installment')}
+              </label>
+              <input
+                id="debt-installment"
+                name="installment"
+                type="number"
+                min="0"
+                value={debtForm.installment}
+                onChange={(e) => set('installment')(e.target.value)}
+                placeholder="500000"
+                className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="debt-tenor"
+                className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+              >
+                {tDebts('form.tenor')}
+              </label>
+              <input
+                id="debt-tenor"
+                name="tenor"
+                type="number"
+                min="1"
+                value={debtForm.tenor}
+                onChange={(e) => set('tenor')(e.target.value)}
+                placeholder="12"
+                className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+              />
+            </div>
+            <div>
+              <label
+                htmlFor="debt-due-day"
+                className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+              >
+                {tDebts('form.dueDay')}
+              </label>
+              <input
+                id="debt-due-day"
+                name="dueDay"
+                type="number"
+                min="1"
+                max="31"
+                value={debtForm.dueDay}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  onFormChange({
+                    ...debtForm,
+                    dueDay: val,
+                    autoPayDay: debtForm.autoPayDay || val,
+                  });
+                }}
+                placeholder="24"
+                className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+              />
+            </div>
           </div>
-          <div>
-            <label
-              htmlFor="debt-balance"
-              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-            >
-              {tDebts('form.balance')}
-            </label>
-            <input
-              id="debt-balance"
-              name="balance"
-              type="number"
-              required
-              min="1"
-              value={debtForm.balance}
-              onChange={(e) => set('balance')(e.target.value)}
-              placeholder="4000000"
-              className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-            />
+
+          {/* Suku Bunga & Skema Flat / Floating */}
+          <div className="grid grid-cols-1 gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)]/50 p-3 sm:grid-cols-2">
+            <div>
+              <label
+                htmlFor="debt-interest-rate"
+                className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-muted)]"
+              >
+                <Percent className="size-3.5 text-[var(--due)]" aria-hidden />
+                {isEn ? 'Interest Rate (% / year)' : 'Suku Bunga (% / tahun)'}
+              </label>
+              <input
+                id="debt-interest-rate"
+                name="interestRate"
+                type="number"
+                step="0.01"
+                min="0"
+                max="200"
+                value={debtForm.interestRate}
+                onChange={(e) => set('interestRate')(e.target.value)}
+                placeholder={isEn ? 'e.g. 11.5' : 'mis. 11.5'}
+                className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <span className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]">
+                {isEn ? 'Interest Scheme' : 'Skema Bunga'}
+              </span>
+              <div className="grid grid-cols-2 gap-1.5">
+                {(
+                  [
+                    {
+                      id: 'flat' as const,
+                      label: 'Flat',
+                      desc: isEn ? 'Fixed rate' : 'Tetap',
+                    },
+                    {
+                      id: 'floating' as const,
+                      label: 'Floating',
+                      desc: isEn ? 'Market rate' : 'Mengambang',
+                    },
+                  ] as const
+                ).map((opt) => {
+                  const active = debtForm.interestType === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => set('interestType')(opt.id)}
+                      className={`flex h-9 items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-semibold transition ${
+                        active
+                          ? 'border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]'
+                          : 'border-[var(--line)] bg-[var(--surface-1)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                      }`}
+                    >
+                      <span>{opt.label}</span>
+                      <span className="text-[10px] font-normal opacity-75">
+                        ({opt.desc})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           </div>
-          <div>
-            <label
-              htmlFor="debt-installment"
-              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-            >
-              {tDebts('form.installment')}
-            </label>
-            <input
-              id="debt-installment"
-              name="installment"
-              type="number"
-              min="0"
-              value={debtForm.installment}
-              onChange={(e) => set('installment')(e.target.value)}
-              placeholder="500000"
-              className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-            />
+
+          {/* Auto-Payment: Tanggal & Dompet/Rekening Sumber */}
+          <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)]/50 p-3">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`flex size-7 items-center justify-center rounded-lg ${
+                    debtForm.autoPay
+                      ? 'bg-[var(--brand-soft)] text-[var(--brand)]'
+                      : 'bg-[var(--surface-1)] text-[var(--text-faint)]'
+                  }`}
+                >
+                  <Zap className="size-3.5" aria-hidden />
+                </span>
+                <div>
+                  <p className="text-[12px] font-semibold text-[var(--text)]">
+                    {isEn ? 'Auto-Payment Schedule' : 'Auto-Payment Otomatis'}
+                  </p>
+                  <p className="text-[11px] text-[var(--text-muted)]">
+                    {isEn
+                      ? 'Automatically deducts installment every month from the chosen wallet'
+                      : 'Otomatis mencatat cicilan keluar tiap bulan dari dompet/rekening pilihan'}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={debtForm.autoPay}
+                onClick={() =>
+                  onFormChange({
+                    ...debtForm,
+                    autoPay: !debtForm.autoPay,
+                    autoPayDay: debtForm.autoPayDay || debtForm.dueDay || '1',
+                    autoPayAccountId:
+                      debtForm.autoPayAccountId ||
+                      accounts[0]?.id ||
+                      '__cash__',
+                  })
+                }
+                className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                  debtForm.autoPay ? 'bg-[var(--brand)]' : 'bg-[var(--line-strong)]'
+                }`}
+              >
+                <span
+                  className={`inline-block size-4 transform rounded-full bg-white shadow transition-transform ${
+                    debtForm.autoPay ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+
+            {debtForm.autoPay && (
+              <div className="grid grid-cols-1 gap-3 border-t border-[var(--line)] pt-3 sm:grid-cols-2">
+                <div>
+                  <label
+                    htmlFor="debt-autopay-day"
+                    className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+                  >
+                    {isEn ? 'Auto-Pay Every Day of Month (1-31)' : 'Auto-Bayar Setiap Tanggal (1-31)'}
+                  </label>
+                  <input
+                    id="debt-autopay-day"
+                    name="autoPayDay"
+                    type="number"
+                    min="1"
+                    max="31"
+                    required={debtForm.autoPay}
+                    value={debtForm.autoPayDay}
+                    onChange={(e) => set('autoPayDay')(e.target.value)}
+                    placeholder="24"
+                    className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label
+                    htmlFor="debt-autopay-account"
+                    className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-muted)]"
+                  >
+                    <Wallet className="size-3.5 text-[var(--brand)]" aria-hidden />
+                    {isEn ? 'Source Wallet / Bank Account' : 'Dompet / Rekening Sumber'}
+                  </label>
+                  <select
+                    id="debt-autopay-account"
+                    name="autoPayAccountId"
+                    value={debtForm.autoPayAccountId || '__cash__'}
+                    onChange={(e) => set('autoPayAccountId')(e.target.value)}
+                    className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                  >
+                    <option value="__cash__">
+                      {isEn ? 'Cash Wallet (Tunai)' : 'Kas Tunai'}
+                    </option>
+                    {accounts.map((acc) => (
+                      <option key={acc.id} value={acc.id}>
+                        {acc.name} ({acc.kind.toUpperCase()})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+            )}
           </div>
-          <div>
-            <label
-              htmlFor="debt-tenor"
-              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-            >
-              {tDebts('form.tenor')}
-            </label>
-            <input
-              id="debt-tenor"
-              name="tenor"
-              type="number"
-              min="1"
-              value={debtForm.tenor}
-              onChange={(e) => set('tenor')(e.target.value)}
-              placeholder="12"
-              className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-            />
-          </div>
-          <div>
-            <label
-              htmlFor="debt-due-day"
-              className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-            >
-              {tDebts('form.dueDay')}
-            </label>
-            <input
-              id="debt-due-day"
-              name="dueDay"
-              type="number"
-              min="1"
-              max="31"
-              value={debtForm.dueDay}
-              onChange={(e) => set('dueDay')(e.target.value)}
-              placeholder="1"
-              className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-            />
-          </div>
+
           {sharedGroups.length > 0 && (
-            <div className="sm:col-span-3">
+            <div>
               <label
                 htmlFor="debt-group-id"
                 className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
@@ -308,9 +548,14 @@ export function DebtsTab({
               </select>
             </div>
           )}
-          <div className="flex gap-2 sm:col-span-3">
+
+          <div className="flex gap-2">
             <Button type="submit" size="sm">
-              {tCommon('save')}
+              {editingDebtId
+                ? isEn
+                  ? 'Save Changes'
+                  : 'Simpan Perubahan'
+                : tCommon('save')}
             </Button>
             <Button type="button" size="sm" variant="secondary" onClick={onToggleForm}>
               {tCommon('cancel')}
@@ -353,6 +598,11 @@ export function DebtsTab({
                   )
                 : 0;
             const settled = debt.status === 'paid_off';
+            const { meta } = parseDebtNotes(debt.notes);
+            const monthlyEstInterest = estimateMonthlyInterest(
+              Number(debt.remaining_balance),
+              meta.interestRate
+            );
 
             let dueCountdown: number | null = null;
             if (!settled && debt.due_day) {
@@ -430,16 +680,55 @@ export function DebtsTab({
                     </div>
                   </div>
                   {canEdit && (
-                    <IconButton
-                      label={tCommon('delete')}
-                      size="sm"
-                      onClick={() => onDelete(debt.id)}
-                      className="shrink-0 text-[var(--text-faint)] hover:text-[var(--out)]"
-                    >
-                      <Trash2 className="size-4" />
-                    </IconButton>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      {onEdit && (
+                        <IconButton
+                          label={isEn ? 'Edit loan' : 'Edit pinjaman'}
+                          size="sm"
+                          onClick={() => onEdit(debt)}
+                          className="text-[var(--text-faint)] hover:text-[var(--brand)]"
+                        >
+                          <Pencil className="size-3.5" />
+                        </IconButton>
+                      )}
+                      <IconButton
+                        label={tCommon('delete')}
+                        size="sm"
+                        onClick={() => onDelete(debt.id)}
+                        className="text-[var(--text-faint)] hover:text-[var(--out)]"
+                      >
+                        <Trash2 className="size-4" />
+                      </IconButton>
+                    </div>
                   )}
                 </div>
+
+                {/* Badge Bunga (Flat/Floating) & Auto-Payment */}
+                {(meta.interestRate !== null || meta.autoPay) && (
+                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                    {meta.interestRate !== null && (
+                      <span
+                        title={
+                          monthlyEstInterest > 0
+                            ? `${isEn ? 'Est. monthly interest' : 'Est. bunga/bln'}: ~${formatRp(monthlyEstInterest)}`
+                            : undefined
+                        }
+                        className="tnum inline-flex items-center gap-1 rounded-md border border-[var(--due)]/25 bg-[var(--due-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--due)]"
+                      >
+                        <Percent className="size-2.5" aria-hidden />
+                        {meta.interestRate}%/{isEn ? 'yr' : 'thn'} ·{' '}
+                        {meta.interestType === 'floating' ? 'Floating' : 'Flat'}
+                      </span>
+                    )}
+                    {meta.autoPay && (
+                      <span className="inline-flex items-center gap-1 rounded-md border border-[var(--brand)]/25 bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                        <Zap className="size-2.5" aria-hidden />
+                        Auto tgl {meta.autoPayDay || debt.due_day || 1} ·{' '}
+                        {walletName(meta.autoPayAccountId)}
+                      </span>
+                    )}
+                  </div>
+                )}
 
                 <div className="mt-3 space-y-1.5">
                   <div className="flex items-baseline justify-between gap-2">

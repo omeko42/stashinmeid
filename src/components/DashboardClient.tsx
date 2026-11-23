@@ -63,6 +63,7 @@ import {
   parseCSVTransactions,
 } from '@/lib/exportUtils';
 import { budgetStatuses } from '@/lib/budget';
+import { parseDebtNotes, serializeDebtNotes } from '@/lib/debtMeta';
 import { reportDbError } from '@/lib/dbErrors';
 import { createDemoDebts, createDemoTransactions } from '@/lib/demoData';
 import { appNow, nextDueDate, todayIso } from '@/lib/format';
@@ -107,6 +108,12 @@ const EMPTY_DEBT_FORM: DebtFormState = {
   tenor: '',
   dueDay: '',
   groupId: '',
+  interestRate: '',
+  interestType: 'flat',
+  autoPay: false,
+  autoPayDay: '',
+  autoPayAccountId: '',
+  notes: '',
 };
 
 /**
@@ -160,6 +167,8 @@ export default function DashboardClient({
   const [searchQuery, setSearchQuery] = useState('');
   const [showQuickAdd, setShowQuickAdd] = useState(false);
   const [editingTxId, setEditingTxId] = useState<string | null>(null);
+  const [editingDebtId, setEditingDebtId] = useState<string | null>(null);
+  const autoPayRanRef = useRef<Set<string>>(new Set());
   const [commandOpen, setCommandOpen] = useState(false);
   const [settingsAdminMode, setSettingsAdminMode] = useState(false);
   const [settingsPersonalSection, setSettingsPersonalSection] =
@@ -1023,6 +1032,34 @@ export default function DashboardClient({
   // Pinjaman
   // ------------------------------------------------------------------
 
+  const openEditDebt = (debt: Debt) => {
+    const parsed = parseDebtNotes(debt.notes);
+    setEditingDebtId(debt.id);
+    setDebtForm({
+      platform: debt.platform,
+      contract: debt.contract_no || '',
+      balance: String(debt.remaining_balance ?? ''),
+      installment: String(debt.monthly_installment ?? ''),
+      tenor: debt.remaining_tenor !== null ? String(debt.remaining_tenor) : '',
+      dueDay: debt.due_day !== null ? String(debt.due_day) : '',
+      groupId: debt.group_id || '',
+      interestRate:
+        parsed.meta.interestRate !== null ? String(parsed.meta.interestRate) : '',
+      interestType: parsed.meta.interestType,
+      autoPay: parsed.meta.autoPay,
+      autoPayDay:
+        parsed.meta.autoPayDay !== null
+          ? String(parsed.meta.autoPayDay)
+          : debt.due_day !== null
+            ? String(debt.due_day)
+            : '',
+      autoPayAccountId: parsed.meta.autoPayAccountId || '__cash__',
+      notes: parsed.text,
+    });
+    setShowDebtForm(true);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleAddDebt = async (e: React.FormEvent) => {
     e.preventDefault();
     const balanceNum = Number(debtForm.balance);
@@ -1033,17 +1070,109 @@ export default function DashboardClient({
 
     if (!debtForm.platform || !balanceNum) return;
 
+    const rateNum =
+      debtForm.interestRate.trim() !== '' && Number.isFinite(Number(debtForm.interestRate))
+        ? Math.max(0, Number(debtForm.interestRate))
+        : null;
+    const autoDayNum = debtForm.autoPay
+      ? Math.min(31, Math.max(1, Number(debtForm.autoPayDay || debtForm.dueDay) || 1))
+      : null;
+
+    const now = appNow();
+    const currentYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const existingDebt = editingDebtId
+      ? debts.find((d) => d.id === editingDebtId)
+      : null;
+    const existingMeta = existingDebt ? parseDebtNotes(existingDebt.notes).meta : null;
+
+    // Safeguard: bila baru mengaktifkan auto-pay untuk tanggal yang sudah lewat di bulan ini,
+    // tandai bulan ini selesai agar tidak mendebet mendadak saat klik Simpan.
+    let nextLastAutoPaidYm = existingMeta?.lastAutoPaidYm ?? null;
+    if (
+      debtForm.autoPay &&
+      !existingMeta?.autoPay &&
+      autoDayNum !== null &&
+      autoDayNum < now.getDate()
+    ) {
+      nextLastAutoPaidYm = currentYm;
+    }
+
+    const encodedNotes = serializeDebtNotes(debtForm.notes, {
+      interestRate: rateNum,
+      interestType: debtForm.interestType,
+      autoPay: debtForm.autoPay,
+      autoPayDay: autoDayNum,
+      autoPayAccountId: debtForm.autoPay
+        ? debtForm.autoPayAccountId || '__cash__'
+        : null,
+      lastAutoPaidYm: nextLastAutoPaidYm,
+    });
+
+    // MODE EDIT PINJAMAN EKSISTING
+    if (editingDebtId && existingDebt) {
+      const updates = {
+        platform: debtForm.platform.trim(),
+        contract_no: debtForm.contract.trim() || null,
+        total_tenor:
+          tenorNum !== null
+            ? Math.max(existingDebt.total_tenor ?? tenorNum, tenorNum)
+            : existingDebt.total_tenor,
+        remaining_tenor: tenorNum,
+        due_day: dueNum,
+        remaining_balance: balanceNum,
+        monthly_installment: installmentNum,
+        notes: encodedNotes,
+        group_id: targetGroupId,
+      };
+
+      if (!isDemoMode && isSuperadmin) {
+        const res = await fetch('/api/superadmin/finance', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            table: 'debts',
+            id: editingDebtId,
+            updates,
+          }),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          reportDbError(json.error, t('errors.generic'));
+          return;
+        }
+      } else if (!isDemoMode && supabase) {
+        const { error } = await supabase
+          .from('debts')
+          .update(updates)
+          .eq('id', editingDebtId);
+        if (error) {
+          reportDbError(error, t('errors.generic'));
+          return;
+        }
+      }
+
+      setDebts((prev) =>
+        prev.map((d) => (d.id === editingDebtId ? { ...d, ...updates } : d))
+      );
+      setEditingDebtId(null);
+      setDebtForm(EMPTY_DEBT_FORM);
+      setShowDebtForm(false);
+      toast.success(isEn ? 'Loan updated' : 'Pengaturan pinjaman diperbarui');
+      return;
+    }
+
+    // MODE TAMBAH PINJAMAN BARU
     const newDebt: Debt = {
       id: crypto.randomUUID(),
-      platform: debtForm.platform,
-      contract_no: debtForm.contract || null,
+      platform: debtForm.platform.trim(),
+      contract_no: debtForm.contract.trim() || null,
       total_tenor: tenorNum,
       remaining_tenor: tenorNum,
       due_day: dueNum,
       remaining_balance: balanceNum,
       monthly_installment: installmentNum,
       status: 'active',
-      notes: null,
+      notes: encodedNotes,
       group_id: targetGroupId,
     };
 
@@ -1062,6 +1191,7 @@ export default function DashboardClient({
             remaining_balance: newDebt.remaining_balance,
             monthly_installment: newDebt.monthly_installment,
             status: 'active',
+            notes: encodedNotes,
             ...(targetGroupId ? { group_id: targetGroupId } : {}),
           },
         }),
@@ -1088,6 +1218,7 @@ export default function DashboardClient({
             remaining_balance: newDebt.remaining_balance,
             monthly_installment: newDebt.monthly_installment,
             status: 'active',
+            notes: encodedNotes,
             ...(targetGroupId ? { group_id: targetGroupId } : {}),
           })
           .select()
@@ -1108,32 +1239,44 @@ export default function DashboardClient({
     toast.success(tDebts('added'));
   };
 
-  const handlePayDebt = async (debt: Debt) => {
+  /**
+   * Eksekusi pembayaran 1x cicilan (dipakai oleh klik manual & Auto-Payment bulanan).
+   * Bila dompet sumber dikonfigurasi (`meta.autoPayAccountId`), saldo dompet ikut terpotong.
+   */
+  const executeDebtInstallment = async (
+    debt: Debt,
+    options: { isAutoPay?: boolean; stampYm?: string } = {}
+  ): Promise<boolean> => {
     const payAmount =
       debt.monthly_installment > 0
         ? Math.min(debt.monthly_installment, debt.remaining_balance)
         : debt.remaining_balance;
+    if (payAmount <= 0) return false;
 
-    const ok = await confirm({
-      title: isEn
-        ? `Pay installment for ${debt.platform}?`
-        : `Bayar cicilan ${debt.platform}?`,
-      description: isEn
-        ? `An outflow transaction will be recorded and the remaining balance will be reduced.`
-        : `Pengeluaran sebesar Rp ${payAmount.toLocaleString('id-ID')} akan dicatat dan sisa pinjaman berkurang.`,
-      audit: {
-        action: 'Bayar Cicilan',
-        category: 'finance',
-        detail: `${debt.platform} · Rp ${payAmount.toLocaleString('id-ID')}`,
-      },
-    });
-    if (!ok) return;
+    const parsed = parseDebtNotes(debt.notes);
+    const sourceAccId =
+      parsed.meta.autoPayAccountId && parsed.meta.autoPayAccountId !== '__cash__'
+        ? parsed.meta.autoPayAccountId
+        : null;
+    const sourceAcc = sourceAccId
+      ? assets.accounts.find((a) => a.id === sourceAccId) ?? null
+      : null;
 
     const newBalance = Math.max(0, debt.remaining_balance - payAmount);
     const newTenor = debt.remaining_tenor
       ? Math.max(0, debt.remaining_tenor - 1)
       : null;
     const newStatus = newBalance === 0 ? 'paid_off' : 'active';
+    const updatedNotes = options.stampYm
+      ? serializeDebtNotes(parsed.text, {
+          ...parsed.meta,
+          lastAutoPaidYm: options.stampYm,
+        })
+      : debt.notes;
+
+    const txDescription = options.isAutoPay
+      ? `Auto-payment cicilan ${debt.platform}`
+      : `Bayar cicilan ${debt.platform}`;
 
     if (!isDemoMode && isSuperadmin) {
       const debtRes = await fetch('/api/superadmin/finance', {
@@ -1146,13 +1289,14 @@ export default function DashboardClient({
             remaining_balance: newBalance,
             remaining_tenor: newTenor,
             status: newStatus,
+            notes: updatedNotes,
           },
         }),
       });
       const debtJson = await debtRes.json().catch(() => ({}));
       if (!debtRes.ok) {
-        toast.error(debtJson.error || t('errors.generic'));
-        return;
+        if (!options.isAutoPay) toast.error(debtJson.error || t('errors.generic'));
+        return false;
       }
 
       const txRes = await fetch('/api/superadmin/finance', {
@@ -1164,18 +1308,18 @@ export default function DashboardClient({
             type: 'outflow',
             amount: payAmount,
             category: 'Tagihan & Cicilan',
-            description: `Bayar cicilan ${debt.platform}`,
+            description: txDescription,
             transaction_date: todayIso(),
             source: 'debt_payment',
+            ...(sourceAcc ? { account_id: sourceAcc.id } : {}),
+            ...(debt.group_id ? { group_id: debt.group_id } : {}),
           },
         }),
       });
       const txJson = await txRes.json().catch(() => ({}));
       if (!txRes.ok || !txJson.data?.[0]) {
-        toast.error(txJson.error || t('errors.generic'));
-        // Kompensasi best-effort: kembalikan saldo utang kalau transaksi
-        // cicilan tidak berhasil dicatat.
-        const rollback = await fetch('/api/superadmin/finance', {
+        if (!options.isAutoPay) toast.error(txJson.error || t('errors.generic'));
+        await fetch('/api/superadmin/finance', {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -1185,29 +1329,27 @@ export default function DashboardClient({
               remaining_balance: debt.remaining_balance,
               remaining_tenor: debt.remaining_tenor,
               status: debt.status,
+              notes: debt.notes,
             },
           }),
         });
-        if (!rollback.ok) toast.error(t('errors.generic'));
-        return;
+        return false;
       }
       setTransactions((prev) => [txJson.data[0], ...prev]);
     } else if (!isDemoMode && supabase) {
-      // Urutan penting: update utang dulu, baru catat transaksinya.
-      // Kalau dibalik, dan insert transaksi berhasil tapi update utang gagal,
-      // user sudah terbayar tapi sisa utangnya tidak berkurang.
       const { error: debtError } = await supabase
         .from('debts')
         .update({
           remaining_balance: newBalance,
           remaining_tenor: newTenor,
           status: newStatus,
+          notes: updatedNotes,
         })
         .eq('id', debt.id);
 
       if (debtError) {
-        reportDbError(debtError, t('errors.generic'));
-        return;
+        if (!options.isAutoPay) reportDbError(debtError, t('errors.generic'));
+        return false;
       }
 
       const { data: userData } = await supabase.auth.getUser();
@@ -1219,32 +1361,27 @@ export default function DashboardClient({
             type: 'outflow',
             amount: payAmount,
             category: 'Tagihan & Cicilan',
-            description: `Bayar cicilan ${debt.platform}`,
+            description: txDescription,
             transaction_date: todayIso(),
             source: 'debt_payment',
+            ...(sourceAcc ? { account_id: sourceAcc.id } : {}),
+            ...(debt.group_id ? { group_id: debt.group_id } : {}),
           })
           .select()
           .single();
 
         if (txError) {
-          // Utang sudah berkurang tapi transaksi tidak tercatat. Kembalikan
-          // sisa utang supaya angka di layar dan di database tetap sama.
-          reportDbError(txError, t('errors.generic'));
-          const { error: rollbackError } = await supabase
+          if (!options.isAutoPay) reportDbError(txError, t('errors.generic'));
+          await supabase
             .from('debts')
             .update({
               remaining_balance: debt.remaining_balance,
               remaining_tenor: debt.remaining_tenor,
               status: debt.status,
+              notes: debt.notes,
             })
             .eq('id', debt.id);
-
-          if (rollbackError) {
-            // Rollback juga gagal: sekarang angka di DB tidak sama dengan
-            // yang tampil. User perlu diberi tahu supaya mengecek kondisi data.
-            reportDbError(rollbackError, t('errors.generic'));
-          }
-          return;
+          return false;
         }
 
         if (txData) setTransactions((prev) => [txData, ...prev]);
@@ -1256,12 +1393,30 @@ export default function DashboardClient({
           type: 'outflow',
           amount: payAmount,
           category: 'Tagihan & Cicilan',
-          description: `Bayar cicilan ${debt.platform}`,
+          description: txDescription,
           transaction_date: todayIso(),
           source: 'debt_payment',
+          account_id: sourceAcc?.id ?? null,
+          group_id: debt.group_id ?? null,
         },
         ...prev,
       ]);
+    }
+
+    // Potong saldo dompet sumber bila pembayaran terkait rekening/dompet spesifik
+    if (sourceAcc) {
+      try {
+        await assets.saveAccount({
+          id: sourceAcc.id,
+          name: sourceAcc.name,
+          kind: sourceAcc.kind,
+          institution: sourceAcc.institution,
+          currency: sourceAcc.currency,
+          balance: Number(sourceAcc.balance) - payAmount,
+        });
+      } catch {
+        // Biarkan transaksi cicilan tetap tersimpan
+      }
     }
 
     setDebts((prev) =>
@@ -1272,11 +1427,102 @@ export default function DashboardClient({
               remaining_balance: newBalance,
               remaining_tenor: newTenor,
               status: newStatus,
+              notes: updatedNotes,
             }
           : d
       )
     );
-    toast.success(tDebts('card.paidToast'));
+    return true;
+  };
+
+  // Auto-Payment bulanan otomatis: jalan saat tanggal jatuh tempo tiba & belum dibayar bulan ini
+  useEffect(() => {
+    if (isDemoMode || !canEdit || assets.loading) return;
+    const now = appNow();
+    const currentYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const todayDay = now.getDate();
+
+    const dueForAutoPay = debts.filter((d) => {
+      if (d.status !== 'active' || d.remaining_balance <= 0) return false;
+      const { meta } = parseDebtNotes(d.notes);
+      if (!meta.autoPay) return false;
+      const targetDay = meta.autoPayDay || d.due_day;
+      if (!targetDay || todayDay < targetDay) return false;
+      if (meta.lastAutoPaidYm === currentYm) return false;
+      const key = `${d.id}:${currentYm}`;
+      if (autoPayRanRef.current.has(key)) return false;
+      return true;
+    });
+
+    if (dueForAutoPay.length === 0) return;
+
+    for (const d of dueForAutoPay) {
+      const key = `${d.id}:${currentYm}`;
+      autoPayRanRef.current.add(key);
+      void executeDebtInstallment(d, { isAutoPay: true, stampYm: currentYm }).then(
+        (ok) => {
+          if (ok) {
+            const { meta } = parseDebtNotes(d.notes);
+            const accName =
+              meta.autoPayAccountId && meta.autoPayAccountId !== '__cash__'
+                ? assets.accounts.find((a) => a.id === meta.autoPayAccountId)?.name ??
+                  'Dompet'
+                : 'Kas Tunai';
+            const amt =
+              d.monthly_installment > 0
+                ? Math.min(d.monthly_installment, d.remaining_balance)
+                : d.remaining_balance;
+            toast.success(
+              isEn
+                ? `Auto-paid ${d.platform} (Rp ${amt.toLocaleString('id-ID')}) from ${accName}`
+                : `Auto-payment ${d.platform} (Rp ${amt.toLocaleString('id-ID')}) tercatat dari ${accName}`
+            );
+          }
+        }
+      );
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [debts, assets.loading, isDemoMode, canEdit]);
+
+  const handlePayDebt = async (debt: Debt) => {
+    const payAmount =
+      debt.monthly_installment > 0
+        ? Math.min(debt.monthly_installment, debt.remaining_balance)
+        : debt.remaining_balance;
+
+    const { meta } = parseDebtNotes(debt.notes);
+    const sourceLabel =
+      meta.autoPayAccountId && meta.autoPayAccountId !== '__cash__'
+        ? assets.accounts.find((a) => a.id === meta.autoPayAccountId)?.name ??
+          'Dompet'
+        : isEn
+          ? 'Cash'
+          : 'Kas Tunai';
+
+    const ok = await confirm({
+      title: isEn
+        ? `Pay installment for ${debt.platform}?`
+        : `Bayar cicilan ${debt.platform}?`,
+      description: isEn
+        ? `An outflow of Rp ${payAmount.toLocaleString('id-ID')} (${sourceLabel}) will be recorded and the remaining balance will be reduced.`
+        : `Pengeluaran sebesar Rp ${payAmount.toLocaleString('id-ID')} (${sourceLabel}) akan dicatat dan sisa pinjaman berkurang.`,
+      audit: {
+        action: 'Bayar Cicilan',
+        category: 'finance',
+        detail: `${debt.platform} · Rp ${payAmount.toLocaleString('id-ID')} (${sourceLabel})`,
+      },
+    });
+    if (!ok) return;
+
+    const now = appNow();
+    const currentYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+    const done = await executeDebtInstallment(debt, {
+      isAutoPay: false,
+      stampYm: meta.autoPay ? currentYm : undefined,
+    });
+    if (done) {
+      toast.success(tDebts('card.paidToast'));
+    }
   };
 
   const handleDeleteDebt = async (id: string) => {
@@ -2231,12 +2477,14 @@ export default function DashboardClient({
               {activeTab === 'debts' && (
                 <DebtsTab
                   debts={scopedDebts}
+                  accounts={assets.accounts}
                   sharedGroups={
                     !isDemoMode
                       ? kolega.groups.map((g) => ({ id: g.id, name: g.name }))
                       : []
                   }
                   showDebtForm={showDebtForm}
+                  editingDebtId={editingDebtId}
                   debtForm={debtForm}
                   canEdit={canEdit}
                   simSelectedIds={simSelectedIds}
@@ -2250,15 +2498,23 @@ export default function DashboardClient({
                   }
                   onClearSim={() => setSimSelectedIds([])}
                   onFormChange={setDebtForm}
+                  onEdit={openEditDebt}
                   onToggleForm={() => {
-                    if (
-                      !showDebtForm &&
-                      activeScope !== 'personal' &&
-                      activeScope !== 'all'
-                    ) {
-                      setDebtForm((prev) => ({ ...prev, groupId: activeScope }));
+                    if (showDebtForm) {
+                      setEditingDebtId(null);
+                      setDebtForm(EMPTY_DEBT_FORM);
+                      setShowDebtForm(false);
+                      return;
                     }
-                    setShowDebtForm((v) => !v);
+                    setEditingDebtId(null);
+                    setDebtForm({
+                      ...EMPTY_DEBT_FORM,
+                      groupId:
+                        activeScope !== 'personal' && activeScope !== 'all'
+                          ? activeScope
+                          : '',
+                    });
+                    setShowDebtForm(true);
                   }}
                   onSubmitForm={handleAddDebt}
                   onPay={handlePayDebt}
