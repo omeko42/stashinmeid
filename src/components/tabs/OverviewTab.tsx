@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { AnimatePresence, motion } from 'framer-motion';
+import { motion } from 'framer-motion';
 import {
   ArrowDownRight,
   ArrowUpRight,
@@ -174,17 +174,7 @@ export function OverviewTab({
 
             <div className="mt-2">
               <div className="group relative inline-block">
-                <AnimatePresence mode="wait" initial={false}>
-                  <motion.div
-                    key={heroBalance}
-                    initial={{ opacity: 0, y: 5 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -5 }}
-                    transition={{ duration: 0.22, ease: EASE_OUT }}
-                  >
-                    <Amount value={formatRp(heroBalance)} size="hero" />
-                  </motion.div>
-                </AnimatePresence>
+                <Amount value={formatRp(heroBalance)} size="hero" />
 
                 {hasAssetTotals && assetTotals && (
                   <div className="pointer-events-none invisible absolute left-0 top-full z-20 mt-2 w-64 translate-y-1 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)]/95 p-3 opacity-0 shadow-[var(--shadow-lg)] backdrop-blur-md transition-all duration-150 group-hover:visible group-hover:translate-y-0 group-hover:opacity-100">
@@ -279,24 +269,15 @@ export function OverviewTab({
               <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-faint)]">
                 {isEn ? 'Net Flow' : 'Arus Bersih'} · {activePeriodLabel}
               </p>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={`${activePeriodLabel}-${periodStats.net}`}
-                  initial={{ opacity: 0, y: 3 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -3 }}
-                  transition={{ duration: 0.16, ease: EASE_OUT }}
-                  className="mt-0.5"
-                >
-                  <Amount
-                    value={`${periodStats.net >= 0 ? '+' : '-'}${formatRp(
-                      Math.abs(periodStats.net)
-                    )}`}
-                    tone={periodStats.net >= 0 ? 'brand' : 'out'}
-                    size="sm"
-                  />
-                </motion.div>
-              </AnimatePresence>
+              <div className="mt-0.5">
+                <Amount
+                  value={`${periodStats.net >= 0 ? '+' : '-'}${formatRp(
+                    Math.abs(periodStats.net)
+                  )}`}
+                  tone={periodStats.net >= 0 ? 'brand' : 'out'}
+                  size="sm"
+                />
+              </div>
             </div>
           </button>
         </div>
@@ -314,18 +295,9 @@ export function OverviewTab({
                   · {activePeriodLabel}
                 </span>
               </div>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={`in-${activePeriodLabel}-${periodStats.inflow}`}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.18, ease: EASE_OUT }}
-                  className="mt-1.5"
-                >
-                  <Amount value={formatRp(periodStats.inflow)} tone="brand" size="lg" />
-                </motion.div>
-              </AnimatePresence>
+              <div className="mt-1.5">
+                <Amount value={formatRp(periodStats.inflow)} tone="brand" size="lg" />
+              </div>
             </div>
 
             <div className="sm:pl-5">
@@ -338,18 +310,9 @@ export function OverviewTab({
                   · {activePeriodLabel}
                 </span>
               </div>
-              <AnimatePresence mode="wait" initial={false}>
-                <motion.div
-                  key={`out-${activePeriodLabel}-${periodStats.outflow}`}
-                  initial={{ opacity: 0, y: 4 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -4 }}
-                  transition={{ duration: 0.18, ease: EASE_OUT }}
-                  className="mt-1.5"
-                >
-                  <Amount value={formatRp(periodStats.outflow)} tone="out" size="lg" />
-                </motion.div>
-              </AnimatePresence>
+              <div className="mt-1.5">
+                <Amount value={formatRp(periodStats.outflow)} tone="out" size="lg" />
+              </div>
             </div>
           </div>
 

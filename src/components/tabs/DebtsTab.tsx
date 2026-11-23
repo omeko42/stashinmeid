@@ -558,6 +558,7 @@ export function DebtsTab({
                   nextOverrides[r.ym] = r.amount;
                 }
               }
+              const overrideCount = Object.keys(nextOverrides).length;
               const sum = Object.values(nextOverrides).reduce((s, v) => s + v, 0);
               const firstAmt = editableSchedule.rows[0]
                 ? nextOverrides[editableSchedule.rows[0].ym] ?? editableSchedule.firstAmount
@@ -566,6 +567,7 @@ export function DebtsTab({
                 ...debtForm,
                 installmentMode: 'custom',
                 scheduleOverrides: nextOverrides,
+                tenor: overrideCount > 0 ? String(overrideCount) : debtForm.tenor,
                 balance: sum > 0 ? String(sum) : debtForm.balance,
                 installment: firstAmt > 0 ? String(firstAmt) : debtForm.installment,
               });
@@ -1358,23 +1360,23 @@ export function DebtsTab({
           <table className="hidden w-full table-fixed border-collapse text-left sm:table">
             <thead className="bg-[var(--surface-2)]">
               <tr className="border-b border-[var(--line)]">
-                {canEdit && <th className="w-[36px] pl-3 pr-1 py-2.5" />}
-                <th className="w-[136px] px-2.5 py-2.5">
+                {canEdit && <th className="w-[34px] pl-3 pr-1 py-2.5" />}
+                <th className="w-[120px] px-2 py-2.5 whitespace-nowrap">
                   <Label>{isEn ? 'Next Due' : 'Jatuh Tempo'}</Label>
                 </th>
                 <th className="px-2.5 py-2.5">
                   <Label>{isEn ? 'Loan & Details' : 'Pinjaman & Detail'}</Label>
                 </th>
-                <th className="hidden w-[96px] px-2.5 py-2.5 lg:table-cell">
+                <th className="hidden w-[92px] px-2 py-2.5 whitespace-nowrap xl:table-cell">
                   <Label>Tenor</Label>
                 </th>
-                <th className="w-[124px] px-2.5 py-2.5 text-right">
+                <th className="w-[116px] px-2 py-2.5 text-right whitespace-nowrap">
                   <Label>{isEn ? 'Installment' : 'Cicilan / Bln'}</Label>
                 </th>
-                <th className="w-[136px] px-2.5 py-2.5 text-right">
+                <th className="w-[124px] px-2 py-2.5 text-right whitespace-nowrap">
                   <Label>{isEn ? 'Remaining' : 'Sisa Pinjaman'}</Label>
                 </th>
-                <th className="w-[118px] pl-2 pr-3 py-2.5 text-right">
+                <th className="w-[106px] pl-1.5 pr-3 py-2.5 text-right whitespace-nowrap">
                   <Label>{isEn ? 'Actions' : 'Aksi'}</Label>
                 </th>
               </tr>
@@ -1481,7 +1483,7 @@ export function DebtsTab({
                         </p>
                       </div>
                     </td>
-                    <td className="tnum hidden px-3 py-2.5 align-middle text-[var(--text-muted)] lg:table-cell">
+                    <td className="tnum hidden px-2 py-2.5 align-middle text-[var(--text-muted)] xl:table-cell">
                       {debt.remaining_tenor ?? '-'}
                       {debt.total_tenor ? ` / ${debt.total_tenor}` : ''} bln
                     </td>

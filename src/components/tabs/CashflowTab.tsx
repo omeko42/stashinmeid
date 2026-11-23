@@ -316,7 +316,7 @@ export function CashflowTab({
             />
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Segmented
               options={filterOptions}
               value={filterType}
@@ -924,7 +924,7 @@ export function CashflowTab({
                 </span>{' '}
                 transaksi
               </p>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Button
                   size="sm"
                   variant="secondary"

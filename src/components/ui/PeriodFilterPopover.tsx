@@ -159,7 +159,7 @@ export function PeriodFilterPopover({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: -6, scale: 0.97 }}
             transition={{ duration: 0.15, ease: [0.22, 1, 0.36, 1] }}
-            className="absolute right-0 top-full z-50 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)] p-3.5 shadow-[var(--shadow-lg)]"
+            className="fixed inset-x-4 top-24 z-50 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)] p-3.5 shadow-[var(--shadow-lg)] sm:absolute sm:inset-x-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[22rem]"
           >
             {/* Header */}
             <div className="mb-2.5 flex items-center justify-between gap-2">

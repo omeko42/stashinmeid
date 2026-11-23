@@ -235,7 +235,9 @@ export function CashflowChart({
     [transactions, filter]
   );
 
-  if (data.length === 0) {
+  const hasAnyValue = data.some((d) => d.inflow > 0 || d.outflow > 0);
+
+  if (transactions.length === 0 || data.length === 0 || !hasAnyValue) {
     return (
       <div className="flex h-full min-h-[268px] items-center justify-center text-[12px] text-[var(--text-muted)]">
         Belum ada transaksi pada periode ini.
@@ -282,7 +284,7 @@ export function CashflowChart({
                 fill="var(--brand)"
                 radius={[6, 6, 0, 0]}
                 maxBarSize={48}
-                animationDuration={500}
+                isAnimationActive={false}
               />
             )}
             {showOutflow && (
@@ -292,7 +294,7 @@ export function CashflowChart({
                 fill="var(--out)"
                 radius={[6, 6, 0, 0]}
                 maxBarSize={48}
-                animationDuration={500}
+                isAnimationActive={false}
               />
             )}
           </BarChart>
@@ -358,8 +360,7 @@ export function CashflowChart({
                 stroke: 'var(--surface-1)',
                 fill: 'var(--brand)',
               }}
-              animationDuration={550}
-              animationEasing="ease-out"
+              isAnimationActive={false}
             />
           )}
           {showOutflow && (
@@ -377,8 +378,7 @@ export function CashflowChart({
                 stroke: 'var(--surface-1)',
                 fill: 'var(--out)',
               }}
-              animationDuration={550}
-              animationEasing="ease-out"
+              isAnimationActive={false}
             />
           )}
         </AreaChart>

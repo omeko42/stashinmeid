@@ -331,7 +331,7 @@ export function SettingsTab({
           <div
             role="tablist"
             aria-label={tSettings('title')}
-            className="hidden gap-1 overflow-x-auto rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-1 lg:flex"
+            className="hidden flex-wrap gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-1 lg:flex"
           >
             {personalTabs.map((tab) => {
               const active = personalSection === tab.id;
@@ -342,7 +342,7 @@ export function SettingsTab({
                   role="tab"
                   aria-selected={active}
                   onClick={() => setPersonalSection(tab.id)}
-                  className={`flex shrink-0 items-center gap-2 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors ${
+                  className={`flex shrink-0 items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors ${
                     active
                       ? 'bg-[var(--surface-3)] text-[var(--text)]'
                       : 'text-[var(--text-muted)] hover:text-[var(--text)]'
