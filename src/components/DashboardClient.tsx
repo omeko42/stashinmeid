@@ -2080,6 +2080,14 @@ export default function DashboardClient({
       <Sidebar
         activeTab={activeTab}
         onNavigate={navigate}
+        socialSub={sosialSub}
+        onSelectSocialSub={(sub) => {
+          setSosialSub(sub);
+          navigate('social');
+        }}
+        socialManageBadge={
+          connections.incoming.length + kolega.pendingInvites.length
+        }
         profileClient={profileClient}
         profileEmail={profileEmail}
         profileUsername={profileUsername}

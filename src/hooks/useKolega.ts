@@ -5,6 +5,9 @@ import { useCallback, useEffect, useState } from 'react';
 export interface Kolega {
   user_id: string;
   role: string;
+  /** Jabatan / peran custom yang bisa diubah (mis. Ayah, Ibu, Direktur Utama, Komisaris). */
+  title?: string | null;
+  isSelf?: boolean;
   status: string;
   profile: {
     id: string;
@@ -130,6 +133,25 @@ export function useKolega() {
     [refresh]
   );
 
+  const updateMemberTitle = useCallback(
+    async (groupId: string, targetUserId: string, title: string) => {
+      const res = await fetch('/api/kolega', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          groupId,
+          action: 'set_title',
+          targetUserId,
+          title,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Gagal menyimpan jabatan anggota');
+      await refresh();
+    },
+    [refresh]
+  );
+
   return {
     groups,
     pendingInvites,
@@ -141,6 +163,7 @@ export function useKolega() {
     respondInvite,
     cancelInvite,
     remove,
+    updateMemberTitle,
   };
 }
 

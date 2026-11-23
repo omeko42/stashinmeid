@@ -111,21 +111,47 @@ export async function GET() {
     totalsByGroup.set(tx.group_id, t);
   }
 
+  // Ambil jabatan/peran custom anggota dari user_metadata pemilik tiap grup
+  const uniqueOwnerIds = [...new Set(groupsRes.data.map((g) => g.owner_id))];
+  const ownerMetaMap = new Map<string, Record<string, Record<string, string>>>();
+  await Promise.all(
+    uniqueOwnerIds.map(async (oid) => {
+      try {
+        const { data } = await admin.auth.admin.getUserById(oid);
+        const raw = data?.user?.user_metadata?.group_member_titles;
+        if (raw && typeof raw === 'object') {
+          ownerMetaMap.set(oid, raw as Record<string, Record<string, string>>);
+        }
+      } catch {
+        // Abaikan bila gagal membaca metadata
+      }
+    })
+  );
+
   return NextResponse.json({
     pendingInvites,
-    groups: groupsRes.data.map((g) => ({
-      ...g,
-      isOwner: g.owner_id === userId,
-      members: allMembers.data
-        .filter((m) => m.group_id === g.id)
-        .map((m) => ({
-          user_id: m.user_id,
-          role: m.role,
-          status: m.status,
-          profile: profileById.get(m.user_id) ?? null,
-        })),
-      totals: totalsByGroup.get(g.id) ?? { inflow: 0, outflow: 0 },
-    })),
+    groups: groupsRes.data.map((g) => {
+      const titlesForGroup = ownerMetaMap.get(g.owner_id)?.[g.id] ?? {};
+      return {
+        ...g,
+        isOwner: g.owner_id === userId,
+        members: allMembers.data
+          .filter((m) => m.group_id === g.id)
+          .map((m) => ({
+            user_id: m.user_id,
+            role: m.role,
+            title:
+              typeof titlesForGroup[m.user_id] === 'string' &&
+              titlesForGroup[m.user_id].trim()
+                ? titlesForGroup[m.user_id].trim()
+                : null,
+            isSelf: m.user_id === userId,
+            status: m.status,
+            profile: profileById.get(m.user_id) ?? null,
+          })),
+        totals: totalsByGroup.get(g.id) ?? { inflow: 0, outflow: 0 },
+      };
+    }),
   });
 }
 
@@ -249,8 +275,9 @@ export async function PATCH(req: NextRequest) {
   const groupId = typeof body?.groupId === 'string' ? body.groupId : '';
   const action = typeof body?.action === 'string' ? body.action : '';
   const targetUserId = typeof body?.targetUserId === 'string' ? body.targetUserId : '';
+  const rawTitle = typeof body?.title === 'string' ? body.title.trim().slice(0, 40) : '';
 
-  if (!groupId || !['accept', 'reject', 'cancel'].includes(action)) {
+  if (!groupId || !['accept', 'reject', 'cancel', 'set_title'].includes(action)) {
     return NextResponse.json({ error: 'Permintaan tidak valid.' }, { status: 400 });
   }
 
@@ -260,6 +287,59 @@ export async function PATCH(req: NextRequest) {
     .eq('id', groupId)
     .maybeSingle();
   if (!group) return NextResponse.json({ error: 'Grup tidak ditemukan.' }, { status: 404 });
+
+  if (action === 'set_title') {
+    const memberId = targetUserId || userId;
+    const isOwner = group.owner_id === userId;
+    const isSelf = memberId === userId;
+    if (!isOwner && !isSelf) {
+      return NextResponse.json(
+        { error: 'Hanya pemilik grup atau anggota bersangkutan yang dapat mengubah jabatan.' },
+        { status: 403 }
+      );
+    }
+
+    // Pastikan target memang anggota grup ini
+    const { data: membership } = await admin
+      .from('finance_group_members')
+      .select('user_id')
+      .eq('group_id', groupId)
+      .eq('user_id', memberId)
+      .maybeSingle();
+    if (!membership) {
+      return NextResponse.json({ error: 'Anggota tidak ditemukan di grup ini.' }, { status: 404 });
+    }
+
+    const { data: ownerData, error: ownerErr } = await admin.auth.admin.getUserById(group.owner_id);
+    if (ownerErr || !ownerData?.user) {
+      return NextResponse.json({ error: 'Gagal memuat data pemilik grup.' }, { status: 500 });
+    }
+
+    const existingMeta = (ownerData.user.user_metadata ?? {}) as Record<string, unknown>;
+    const existingAllTitles =
+      existingMeta.group_member_titles && typeof existingMeta.group_member_titles === 'object'
+        ? { ...(existingMeta.group_member_titles as Record<string, Record<string, string>>) }
+        : {};
+    const groupTitles = { ...(existingAllTitles[groupId] ?? {}) };
+
+    if (rawTitle) {
+      groupTitles[memberId] = rawTitle;
+    } else {
+      delete groupTitles[memberId];
+    }
+    existingAllTitles[groupId] = groupTitles;
+
+    const { error: updateErr } = await admin.auth.admin.updateUserById(group.owner_id, {
+      user_metadata: {
+        ...existingMeta,
+        group_member_titles: existingAllTitles,
+      },
+    });
+    if (updateErr) {
+      return NextResponse.json({ error: updateErr.message }, { status: 400 });
+    }
+    return NextResponse.json({ ok: true, title: rawTitle || null });
+  }
 
   if (action === 'cancel') {
     if (group.owner_id !== userId || !targetUserId) {

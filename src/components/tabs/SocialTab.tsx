@@ -17,6 +17,7 @@ import {
   Loader2,
   MessageCircle,
   Newspaper,
+  Pencil,
   PenSquare,
   Plus,
   RefreshCw,
@@ -204,6 +205,11 @@ export function SocialTab({
   const [findResults, setFindResults] = useState<GlobalUserResult[]>([]);
   const [findLoading, setFindLoading] = useState(false);
   const [busyConnId, setBusyConnId] = useState<string | null>(null);
+
+  // State edit jabatan / peran custom anggota grup (mis. Ayah, Ibu, Direktur Utama, Komisaris)
+  const [editingTitleMemberId, setEditingTitleMemberId] = useState<string | null>(null);
+  const [draftMemberTitle, setDraftMemberTitle] = useState('');
+  const [savingMemberTitle, setSavingMemberTitle] = useState(false);
 
   // State Berita & Pasar Live (Gratis: CNBC ID, Antara, CoinTelegraph, CoinGecko, ECB)
   const [newsFilter, setNewsFilter] = useState<'all' | FinanceNewsItem['region']>('all');
@@ -444,9 +450,9 @@ export function SocialTab({
   return (
     <div className="space-y-5">
       {/* HEADER MENU SOSIAL:
-          - Desktop (lg): Tombol Kembali + Judul di KIRI, Tab Sub-Menu di KANAN.
-          - Mobile (< lg): Tombol panah kembali (←) + Judul di atas; sub-navigasi pindah ke Bottom Navigation Bar bawah. */}
-      <div className="flex flex-col gap-3 border-b border-[var(--line)] pb-4 lg:flex-row lg:items-center lg:justify-between">
+          - Desktop (lg): Judul + badge sub-menu aktif (sub-navigasi kini dropdown rapi di Sidebar kiri).
+          - Mobile (< lg): Tombol panah kembali (←) + Judul di atas; sub-navigasi di Bottom Navigation Bar bawah. */}
+      <div className="flex flex-col gap-2 border-b border-[var(--line)] pb-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             {onBackToMain && (
@@ -454,7 +460,7 @@ export function SocialTab({
                 type="button"
                 onClick={onBackToMain}
                 aria-label="Kembali ke menu utama"
-                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-2 sm:px-2.5 text-[12px] font-medium text-[var(--text)] whitespace-nowrap transition hover:border-[var(--brand)] hover:text-[var(--brand)]"
+                className="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-2 sm:px-2.5 text-[12px] font-medium text-[var(--text)] whitespace-nowrap transition hover:border-[var(--brand)] hover:text-[var(--brand)] lg:hidden"
               >
                 <ArrowLeft className="size-4" aria-hidden />
                 <span className="hidden sm:inline">Kembali</span>
@@ -463,6 +469,15 @@ export function SocialTab({
             <h2 className="text-[18px] font-semibold text-[var(--text)]">
               Sosial
             </h2>
+            {(() => {
+              const activeNav = navItems.find((n) => n.id === sub);
+              return activeNav ? (
+                <span className="inline-flex items-center gap-1.5 rounded-full border border-[var(--line)] bg-[var(--surface-2)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--text)] whitespace-nowrap">
+                  {activeNav.icon}
+                  {activeNav.label}
+                </span>
+              ) : null;
+            })()}
             {selectedGroup && (
               <span className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--brand)] whitespace-nowrap">
                 <Users className="size-3" aria-hidden />
@@ -473,45 +488,6 @@ export function SocialTab({
           <p className="mt-0.5 text-[12px] text-[var(--text-muted)]">
             Kolega, obrolan cepat, feed, dan berita pasar.
           </p>
-        </div>
-
-        {/* Desktop Sub-Menu di sebelah KANAN (di mobile dipindahkan ke BottomNav bawah) */}
-        <div
-          role="tablist"
-          aria-label={tSos('title')}
-          className="hidden shrink-0 items-center gap-1 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-1 lg:flex"
-        >
-          {navItems.map((item) => {
-            const active = sub === item.id;
-            return (
-              <button
-                key={item.id}
-                type="button"
-                role="tab"
-                aria-selected={active}
-                onClick={() => {
-                  if (item.id === 'feed') setFeedAutoFocus(true);
-                  onSubChange(item.id);
-                }}
-                className={cn(
-                  'relative inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition-colors',
-                  active
-                    ? 'bg-[var(--brand)] text-[var(--brand-contrast)] shadow-sm'
-                    : item.highlight
-                      ? 'bg-[var(--brand-soft)] text-[var(--brand)] hover:bg-[var(--brand)] hover:text-[var(--brand-contrast)]'
-                      : 'text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
-                )}
-              >
-                {item.icon}
-                <span>{item.label}</span>
-                {item.badge !== undefined && item.badge > 0 && (
-                  <span className="tnum ml-0.5 flex min-w-[16px] items-center justify-center rounded-full bg-[var(--out)] px-1 text-[10px] font-bold leading-[16px] text-white">
-                    {item.badge}
-                  </span>
-                )}
-              </button>
-            );
-          })}
         </div>
       </div>
 
@@ -679,11 +655,19 @@ export function SocialTab({
                     <div>
                       <div className="flex items-center gap-2">
                         <Label>Ringkasan Kas Grup: {selectedGroup.name}</Label>
-                        {selectedGroup.isOwner && (
-                          <span className="rounded bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-semibold uppercase text-[var(--brand)]">
-                            {tKolega('owner')}
-                          </span>
-                        )}
+                        {(() => {
+                          const ownerMember = selectedGroup.members.find(
+                            (m) => m.user_id === selectedGroup.owner_id
+                          );
+                          const badgeText =
+                            ownerMember?.title ||
+                            (selectedGroup.isOwner ? tKolega('owner') : null);
+                          return badgeText ? (
+                            <span className="rounded bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                              {badgeText}
+                            </span>
+                          ) : null;
+                        })()}
                       </div>
                       <div className="mt-1.5">
                         <Amount value={formatRp(groupMetrics.balance)} size="xl" />
@@ -862,113 +846,229 @@ export function SocialTab({
                     {selectedGroup.members.map((m) => {
                       const displayName =
                         m.profile?.client_name || m.profile?.email || 'Anggota';
+                      const defaultRoleLabel =
+                        m.role === 'owner'
+                          ? 'Owner'
+                          : m.role === 'editor'
+                            ? 'Anggota'
+                            : 'Viewer';
+                      const roleLabel = m.title || defaultRoleLabel;
+                      const isEditingTitle = editingTitleMemberId === m.user_id;
+                      const canEditTitle = selectedGroup.isOwner || Boolean(m.isSelf);
+                      const titlePresets = [
+                        'Ayah',
+                        'Ibu',
+                        'Anak',
+                        'Direktur Utama',
+                        'Komisaris',
+                        'Bendahara',
+                      ];
+
+                      const saveTitle = async (nextTitle: string) => {
+                        setSavingMemberTitle(true);
+                        try {
+                          await kolega.updateMemberTitle(
+                            selectedGroup.id,
+                            m.user_id,
+                            nextTitle
+                          );
+                          setEditingTitleMemberId(null);
+                          toast.success(
+                            nextTitle.trim()
+                              ? `Jabatan diubah ke "${nextTitle.trim()}"`
+                              : 'Jabatan dikembalikan ke default'
+                          );
+                        } catch (e) {
+                          toast.error(
+                            e instanceof Error
+                              ? e.message
+                              : 'Gagal menyimpan jabatan'
+                          );
+                        } finally {
+                          setSavingMemberTitle(false);
+                        }
+                      };
+
                       return (
                         <div
                           key={m.user_id}
-                          className="flex items-center justify-between gap-2 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2"
+                          className="rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 py-2"
                         >
-                          <div className="flex min-w-0 items-center gap-2.5">
-                            <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[11px] font-bold text-[var(--brand)]">
-                              {displayName.slice(0, 1).toUpperCase()}
-                            </span>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <p className="truncate text-[12px] font-semibold text-[var(--text)]">
-                                  {displayName}
-                                </p>
-                                {m.status === 'pending' && (
-                                  <span className="rounded bg-[var(--due-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--due)]">
-                                    Menunggu
-                                  </span>
-                                )}
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="flex min-w-0 items-center gap-2.5">
+                              <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-[var(--brand-soft)] text-[11px] font-bold text-[var(--brand)]">
+                                {displayName.slice(0, 1).toUpperCase()}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <p className="truncate text-[12px] font-semibold text-[var(--text)]">
+                                    {displayName}
+                                  </p>
+                                  {m.status === 'pending' && (
+                                    <span className="rounded bg-[var(--due-soft)] px-1.5 py-0.5 text-[9px] font-semibold text-[var(--due)]">
+                                      Menunggu
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="mt-0.5 flex items-center gap-1">
+                                  <p className="truncate text-[11px] font-medium text-[var(--text-muted)]">
+                                    {roleLabel}
+                                  </p>
+                                  {canEditTitle && !isEditingTitle && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingTitleMemberId(m.user_id);
+                                        setDraftMemberTitle(m.title || '');
+                                      }}
+                                      aria-label="Ubah jabatan anggota"
+                                      title="Ubah jabatan / peran (mis. Ayah, Direktur Utama)"
+                                      className="rounded p-0.5 text-[var(--text-faint)] transition hover:bg-[var(--surface-1)] hover:text-[var(--brand)]"
+                                    >
+                                      <Pencil className="size-3" aria-hidden />
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                              <p className="truncate text-[10px] uppercase text-[var(--text-muted)]">
-                                {m.role}
-                              </p>
+                            </div>
+
+                            <div className="flex shrink-0 items-center gap-1">
+                              {m.status === 'pending' && selectedGroup.isOwner ? (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  onClick={async () => {
+                                    const ok = await confirm({
+                                      title: 'Batalkan Undangan?',
+                                      description: `Batalkan undangan ${displayName} ke grup "${selectedGroup.name}"?`,
+                                      confirmLabel: 'Ya, Batalkan',
+                                      tone: 'danger',
+                                      audit: {
+                                        action: 'Batalkan Undangan Grup',
+                                        category: 'group',
+                                        detail: `Membatalkan undangan ${displayName} dari grup ${selectedGroup.name}`,
+                                        targetUserId: m.user_id,
+                                      },
+                                    });
+                                    if (!ok) return;
+                                    try {
+                                      await kolega.cancelInvite(selectedGroup.id, m.user_id);
+                                      toast.success('Undangan dibatalkan.');
+                                    } catch (e) {
+                                      toast.error(
+                                        e instanceof Error ? e.message : tKolega('failed')
+                                      );
+                                    }
+                                  }}
+                                >
+                                  Batalkan
+                                </Button>
+                              ) : (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    onClick={() =>
+                                      openFullChatWith({
+                                        id: m.user_id,
+                                        client_name: displayName,
+                                        avatar_url: m.profile?.avatar_url ?? null,
+                                      })
+                                    }
+                                  >
+                                    Chat
+                                  </Button>
+                                  {selectedGroup.isOwner && m.role !== 'owner' && (
+                                    <IconButton
+                                      size="sm"
+                                      variant="ghost"
+                                      label={tKolega('remove')}
+                                      onClick={async () => {
+                                        const ok = await confirm({
+                                          title: 'Keluarkan Anggota?',
+                                          description: `Keluarkan ${displayName} dari grup "${selectedGroup.name}"?`,
+                                          confirmLabel: 'Ya, Keluarkan',
+                                          tone: 'danger',
+                                          audit: {
+                                            action: 'Keluarkan Anggota Grup',
+                                            category: 'group',
+                                            detail: `Mengeluarkan ${displayName} dari grup ${selectedGroup.name}`,
+                                            targetUserId: m.user_id,
+                                          },
+                                        });
+                                        if (!ok) return;
+                                        try {
+                                          await kolega.remove(selectedGroup.id, m.user_id);
+                                          toast.success(tKolega('removed'));
+                                        } catch (e) {
+                                          toast.error(
+                                            e instanceof Error ? e.message : tKolega('failed')
+                                          );
+                                        }
+                                      }}
+                                    >
+                                      <X className="size-3.5" />
+                                    </IconButton>
+                                  )}
+                                </>
+                              )}
                             </div>
                           </div>
 
-                          <div className="flex shrink-0 items-center gap-1">
-                            {m.status === 'pending' && selectedGroup.isOwner ? (
-                              <Button
-                                size="sm"
-                                variant="secondary"
-                                onClick={async () => {
-                                  const ok = await confirm({
-                                    title: 'Batalkan Undangan?',
-                                    description: `Batalkan undangan ${displayName} ke grup "${selectedGroup.name}"?`,
-                                    confirmLabel: 'Ya, Batalkan',
-                                    tone: 'danger',
-                                    audit: {
-                                      action: 'Batalkan Undangan Grup',
-                                      category: 'group',
-                                      detail: `Membatalkan undangan ${displayName} dari grup ${selectedGroup.name}`,
-                                      targetUserId: m.user_id,
-                                    },
-                                  });
-                                  if (!ok) return;
-                                  try {
-                                    await kolega.cancelInvite(selectedGroup.id, m.user_id);
-                                    toast.success('Undangan dibatalkan.');
-                                  } catch (e) {
-                                    toast.error(
-                                      e instanceof Error ? e.message : tKolega('failed')
-                                    );
-                                  }
-                                }}
-                              >
-                                Batalkan
-                              </Button>
-                            ) : (
-                              <>
-                                <Button
-                                  size="sm"
-                                  variant="ghost"
-                                  onClick={() =>
-                                    openFullChatWith({
-                                      id: m.user_id,
-                                      client_name: displayName,
-                                      avatar_url: m.profile?.avatar_url ?? null,
-                                    })
-                                  }
+                          {/* Editor inline jabatan / peran custom */}
+                          {isEditingTitle && (
+                            <div className="mt-2.5 space-y-2 border-t border-[var(--line)] pt-2.5">
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  type="text"
+                                  value={draftMemberTitle}
+                                  maxLength={40}
+                                  autoFocus
+                                  onChange={(e) => setDraftMemberTitle(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      void saveTitle(draftMemberTitle);
+                                    } else if (e.key === 'Escape') {
+                                      setEditingTitleMemberId(null);
+                                    }
+                                  }}
+                                  placeholder="Mis. Ayah, Ibu, Direktur Utama, Komisaris"
+                                  className="h-8 min-w-0 flex-1 rounded-md border border-[var(--line)] bg-[var(--surface-1)] px-2.5 text-[12px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+                                />
+                                <button
+                                  type="button"
+                                  disabled={savingMemberTitle}
+                                  onClick={() => void saveTitle(draftMemberTitle)}
+                                  aria-label="Simpan jabatan"
+                                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-md bg-[var(--brand)] text-[var(--brand-contrast)] transition hover:opacity-90 disabled:opacity-50"
                                 >
-                                  Chat
-                                </Button>
-                                {selectedGroup.isOwner && m.role !== 'owner' && (
-                                  <IconButton
-                                    size="sm"
-                                    variant="ghost"
-                                    label={tKolega('remove')}
-                                    onClick={async () => {
-                                      const ok = await confirm({
-                                        title: 'Keluarkan Anggota?',
-                                        description: `Keluarkan ${displayName} dari grup "${selectedGroup.name}"?`,
-                                        confirmLabel: 'Ya, Keluarkan',
-                                        tone: 'danger',
-                                        audit: {
-                                          action: 'Keluarkan Anggota Grup',
-                                          category: 'group',
-                                          detail: `Mengeluarkan ${displayName} dari grup ${selectedGroup.name}`,
-                                          targetUserId: m.user_id,
-                                        },
-                                      });
-                                      if (!ok) return;
-                                      try {
-                                        await kolega.remove(selectedGroup.id, m.user_id);
-                                        toast.success(tKolega('removed'));
-                                      } catch (e) {
-                                        toast.error(
-                                          e instanceof Error ? e.message : tKolega('failed')
-                                        );
-                                      }
-                                    }}
+                                  <Check className="size-3.5" aria-hidden />
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={savingMemberTitle}
+                                  onClick={() => setEditingTitleMemberId(null)}
+                                  aria-label="Batal"
+                                  className="inline-flex size-8 shrink-0 items-center justify-center rounded-md border border-[var(--line)] bg-[var(--surface-1)] text-[var(--text-muted)] transition hover:text-[var(--text)]"
+                                >
+                                  <X className="size-3.5" aria-hidden />
+                                </button>
+                              </div>
+                              <div className="flex flex-wrap gap-1">
+                                {titlePresets.map((preset) => (
+                                  <button
+                                    key={preset}
+                                    type="button"
+                                    onClick={() => setDraftMemberTitle(preset)}
+                                    className="rounded-md border border-[var(--line)] bg-[var(--surface-1)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)] transition hover:border-[var(--brand)] hover:text-[var(--brand)]"
                                   >
-                                    <X className="size-3.5" />
-                                  </IconButton>
-                                )}
-                              </>
-                            )}
-                          </div>
+                                    {preset}
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
                         </div>
                       );
                     })}
