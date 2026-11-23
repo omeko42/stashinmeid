@@ -11,12 +11,14 @@ import { CashflowTab } from './CashflowTab';
 import { AssetsTab } from './AssetsTab';
 import { formatRp } from '@/lib/format';
 import type { AssetsApi } from '@/hooks/useAssets';
+import type { ReceiptsApi } from '@/hooks/useReceipts';
 import type { Budget, BudgetPeriod, Transaction, TransactionType } from '@/types/finance';
 
 export type SaldoSub = 'cashflow' | 'budget' | 'assets';
 
 interface SaldoTabProps {
   assets: AssetsApi;
+  receipts?: ReceiptsApi;
   /** Nilai saldo tunai & non-tunai yang sudah digabung dengan arus kas aktif. */
   computedTotals: {
     physical: number;
@@ -40,7 +42,10 @@ interface SaldoTabProps {
   onEditTransaction?: (tx: Transaction) => void;
   onDeleteTransaction: (id: string) => void;
   onQuickAdd: () => void;
-  onExportCsv: () => void;
+  onExportCsv: (rows?: Transaction[], periodLabel?: string) => void;
+  onExportPdf?: (rows?: Transaction[], periodLabel?: string) => void;
+  onExportExcel?: (rows?: Transaction[], periodLabel?: string) => void;
+  onExportWord?: (rows?: Transaction[], periodLabel?: string) => void;
   sharedGroups?: { id: string; name: string }[];
 }
 
@@ -51,6 +56,7 @@ interface SaldoTabProps {
  */
 export function SaldoTab({
   assets,
+  receipts,
   computedTotals,
   sub,
   onSubChange,
@@ -68,6 +74,9 @@ export function SaldoTab({
   onDeleteTransaction,
   onQuickAdd,
   onExportCsv,
+  onExportPdf,
+  onExportExcel,
+  onExportWord,
   sharedGroups = [],
 }: SaldoTabProps) {
   const t = useTranslations('saldo');
@@ -187,12 +196,16 @@ export function SaldoTab({
               canEdit={canEdit}
               accounts={assets.accounts}
               sharedGroups={sharedGroups}
+              receipts={receipts}
               onFilterTypeChange={onFilterTypeChange}
               onSearchChange={onSearchChange}
               onEdit={onEditTransaction}
               onDelete={onDeleteTransaction}
               onQuickAdd={onQuickAdd}
               onExportCsv={onExportCsv}
+              onExportPdf={onExportPdf}
+              onExportExcel={onExportExcel}
+              onExportWord={onExportWord}
             />
           )}
 

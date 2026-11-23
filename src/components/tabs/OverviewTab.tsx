@@ -776,8 +776,15 @@ export function OverviewTab({
                 className="space-y-1.5"
               >
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="truncate text-[13px] font-medium text-[var(--text)]">
-                    {status.budget.category}
+                  <span className="flex min-w-0 items-center gap-1.5">
+                    <span className="truncate text-[13px] font-medium text-[var(--text)]">
+                      {status.parsed.label}
+                    </span>
+                    {status.parsed.qty && status.parsed.unit && (
+                      <span className="tnum shrink-0 rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">
+                        {status.parsed.qty} {status.parsed.unit}
+                      </span>
+                    )}
                   </span>
                   <span className="tnum shrink-0 text-[12px] text-[var(--text-muted)]">
                     {formatRp(status.spent)} / {formatRp(status.budget.amount)}

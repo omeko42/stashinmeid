@@ -366,3 +366,51 @@ export function normalizeTier(raw: unknown): MembershipTier {
 export function getMaxGroupsForTier(tier: MembershipTier): number {
   return MEMBERSHIP_PLANS[tier].maxGroups;
 }
+
+/**
+ * Kuota penyimpanan struk & file upload per tier (dalam MB).
+ * Rumus: `maxGroups + 2 MB`, khusus tier tertinggi (`business`) Unlimited (`null`).
+ * - free (3 grup)     -> 5 MB
+ * - standard (5 grup) -> 7 MB
+ * - pro (9 grup)      -> 11 MB
+ * - business          -> Unlimited (null)
+ */
+export function getStorageQuotaMbForTier(
+  tier: MembershipTier,
+  customMaxGroups?: number
+): number | null {
+  if (tier === 'business') return null;
+  const maxGroups =
+    typeof customMaxGroups === 'number' && customMaxGroups >= 1
+      ? Math.round(customMaxGroups)
+      : MEMBERSHIP_PLANS[tier].maxGroups;
+  return maxGroups + 2;
+}
+
+export function getStorageQuotaBytesForTier(
+  tier: MembershipTier,
+  customMaxGroups?: number
+): number | null {
+  const mb = getStorageQuotaMbForTier(tier, customMaxGroups);
+  return mb === null ? null : mb * 1024 * 1024;
+}
+
+/**
+ * Batas penggunaan AI Scan Struk harian per tier.
+ * Rumus: `maxGroups - 1` scan/hari, khusus tier tertinggi (`business`) Unlimited (`null`).
+ * - free (3 grup)     -> 2 scan/hari
+ * - standard (5 grup) -> 4 scan/hari
+ * - pro (9 grup)      -> 8 scan/hari
+ * - business          -> Unlimited (null)
+ */
+export function getDailyAiScanLimitForTier(
+  tier: MembershipTier,
+  customMaxGroups?: number
+): number | null {
+  if (tier === 'business') return null;
+  const maxGroups =
+    typeof customMaxGroups === 'number' && customMaxGroups >= 1
+      ? Math.round(customMaxGroups)
+      : MEMBERSHIP_PLANS[tier].maxGroups;
+  return Math.max(1, maxGroups - 1);
+}

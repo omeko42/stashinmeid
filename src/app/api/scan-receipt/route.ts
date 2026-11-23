@@ -4,6 +4,15 @@ import { GoogleGenAI, Type } from '@google/genai';
 import { verifySuperadminToken } from '@/lib/jwt';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { checkRateLimit, clientIp, rateLimitHeaders } from '@/lib/rateLimit';
+import {
+  getDailyAiScanLimitForTier,
+  resolveMembershipStatus,
+} from '@/lib/membership';
+
+function todayKeyWib(): string {
+  const now = new Date(Date.now() + 7 * 60 * 60 * 1000);
+  return now.toISOString().slice(0, 10);
+}
 
 // Batas: 20 scan per jam per IP. Scan struk memanggil Gemini API berbayar,
 // jadi endpoint ini tidak boleh bisa dibakar oleh siapa pun yang menemukan URL-nya.
@@ -96,6 +105,44 @@ export async function POST(req: NextRequest) {
       },
       { status: 429, headers: rateLimitHeaders(limit) }
     );
+  }
+
+  // Cek kuota harian AI per tier (`maxGroups - 1` / hari, khusus Business/Admin Unlimited)
+  const admin = createAdminClient();
+  const realUid = userId.startsWith('superadmin:')
+    ? userId.split(':')[2] || null
+    : userId;
+  let aiDailyLimit: number | null = null;
+  let aiUsedToday = 0;
+  let aiUserMeta: Record<string, unknown> | null = null;
+  const todayKey = todayKeyWib();
+
+  if (admin && realUid && !userId.startsWith('superadmin:')) {
+    const [{ data: authRes }, { data: profile }] = await Promise.all([
+      admin.auth.admin.getUserById(realUid),
+      admin.from('profiles').select('role').eq('id', realUid).maybeSingle(),
+    ]);
+    const isAdmin = profile?.role === 'admin';
+    if (!isAdmin && authRes?.user) {
+      aiUserMeta = (authRes.user.user_metadata ?? {}) as Record<string, unknown>;
+      const status = resolveMembershipStatus(aiUserMeta);
+      aiDailyLimit = getDailyAiScanLimitForTier(status.effectiveTier);
+      const dailyRaw = aiUserMeta.ai_scan_daily as { date?: string; count?: number } | undefined;
+      aiUsedToday =
+        dailyRaw && dailyRaw.date === todayKey ? Number(dailyRaw.count) || 0 : 0;
+
+      if (aiDailyLimit !== null && aiUsedToday >= aiDailyLimit) {
+        return NextResponse.json(
+          {
+            error: `Batas AI Scan harian tercapai (${aiUsedToday}/${aiDailyLimit} scan hari ini). Coba lagi besok atau upgrade paket untuk kuota lebih besar.`,
+            code: 'AI_DAILY_LIMIT_EXCEEDED',
+            aiUsedToday,
+            aiDailyLimit,
+          },
+          { status: 429 }
+        );
+      }
+    }
   }
 
   try {
@@ -195,7 +242,27 @@ Ekstrak informasi berikut dalam format JSON:
     }
 
     const parsed = JSON.parse(text);
-    return NextResponse.json({ data: parsed }, { headers: rateLimitHeaders(limit) });
+
+    // Catat pemakaian AI harian setelah scan berhasil
+    if (admin && realUid && aiUserMeta !== null) {
+      const nextCount = aiUsedToday + 1;
+      await admin.auth.admin
+        .updateUserById(realUid, {
+          user_metadata: {
+            ...aiUserMeta,
+            ai_scan_daily: { date: todayKey, count: nextCount },
+          },
+        })
+        .catch(() => {
+          // Non-blocking
+        });
+      aiUsedToday = nextCount;
+    }
+
+    return NextResponse.json(
+      { data: parsed, aiUsedToday, aiDailyLimit },
+      { headers: rateLimitHeaders(limit) }
+    );
   } catch (error) {
     console.error('Scan receipt error:', error);
     return NextResponse.json(

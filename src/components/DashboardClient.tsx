@@ -58,10 +58,14 @@ import type { Debt, Transaction, TransactionType, UserRole } from '@/types/finan
 import type { MembershipTier } from '@/lib/membership';
 import {
   exportToCSV,
+  exportToExcel,
   exportToPDF,
   exportToWord,
   parseCSVTransactions,
+  type ExportReportOptions,
 } from '@/lib/exportUtils';
+import { useReceipts } from '@/hooks/useReceipts';
+import { compressReceiptImage, formatFileBytes } from '@/lib/imageCompress';
 import { budgetStatuses } from '@/lib/budget';
 import {
   nextDebtScheduleDate,
@@ -275,9 +279,10 @@ export default function DashboardClient({
   const [quickAdd, setQuickAdd] = useState<QuickAddState>(initialQuickAddState);
   const [txLoading, setTxLoading] = useState(false);
 
-  // Pindai struk AI
+  // Pindai struk AI & simpan struk terkompresi
   const [scanning, setScanning] = useState(false);
   const [scanMsg, setScanMsg] = useState<string | null>(null);
+  const [pendingReceiptId, setPendingReceiptId] = useState<string | null>(null);
 
   // Form pinjaman
   const [showDebtForm, setShowDebtForm] = useState(false);
@@ -287,6 +292,7 @@ export default function DashboardClient({
   const kolega = useKolega();
   const connections = useConnections();
   const assets = useAssets({ isDemoMode, isSuperadmin });
+  const receipts = useReceipts(isDemoMode);
   const notifications = useNotifications();
 
   useEffect(() => {
@@ -783,6 +789,7 @@ export default function DashboardClient({
       account_id: realAccountId,
     };
 
+    let createdTxId: string | null = null;
     try {
       if (!isDemoMode && isSuperadmin) {
         const res = await fetch('/api/superadmin/finance', {
@@ -804,6 +811,7 @@ export default function DashboardClient({
         });
         const json = await res.json();
         if (res.ok && json.data?.[0]) {
+          createdTxId = json.data[0].id;
           setTransactions((prev) => [json.data[0], ...prev]);
         } else {
           toast.error(json.error || t('quickAdd.failed'));
@@ -832,10 +840,24 @@ export default function DashboardClient({
             toast.error(error.message);
             return;
           }
-          if (data) setTransactions((prev) => [data, ...prev]);
+          if (data) {
+            createdTxId = data.id;
+            setTransactions((prev) => [data, ...prev]);
+          }
         }
       } else {
+        createdTxId = newTx.id;
         setTransactions((prev) => [newTx, ...prev]);
+      }
+
+      // Tautkan struk yang otomatis tersimpan dari Upload (AI) ke transaksi baru ini
+      if (pendingReceiptId && createdTxId && !isDemoMode) {
+        await receipts.linkToTransaction(
+          pendingReceiptId,
+          createdTxId,
+          newTx.description || newTx.category
+        );
+        setPendingReceiptId(null);
       }
 
       // Sinkronkan saldo dompet spesifik jika pengguna memilih salah satu akun aset
@@ -945,11 +967,14 @@ export default function DashboardClient({
 
     setScanning(true);
     setScanMsg(null);
+    setPendingReceiptId(null);
     setShowQuickAdd(true);
 
     try {
+      // Kompresi maksimal di browser sebelum dikirim ke AI & disimpan ke Storage
+      const compressed = await compressReceiptImage(file);
       const formData = new FormData();
-      formData.append('image', file);
+      formData.append('image', compressed.file);
 
       const res = await fetch('/api/scan-receipt', {
         method: 'POST',
@@ -969,7 +994,26 @@ export default function DashboardClient({
           description: d.description || '',
           date: d.transaction_date || prev.date,
         }));
-        setScanMsg(t('tools.scanSuccess'));
+
+        // Otomatis simpan struk terkompresi ke Storage sesuai kuota tier
+        let msg = t('tools.scanSuccess');
+        if (!isDemoMode) {
+          const uploaded = await receipts.uploadReceipt(compressed.file, {
+            label: d.description || d.category || 'Struk AI',
+          });
+          if (uploaded.receipt) {
+            setPendingReceiptId(uploaded.receipt.id);
+            msg = `Struk dipindai & disimpan terkompresi (${formatFileBytes(uploaded.receipt.sizeBytes)}).`;
+          } else if (uploaded.quotaExceeded) {
+            toast.warning(
+              uploaded.error ||
+                'Kuota storage struk penuh. Transaksi tetap dapat disimpan tanpa lampiran struk.'
+            );
+            msg = 'Struk dipindai (kuota penyimpanan penuh — transaksi tetap siap disimpan).';
+          }
+          void receipts.refresh();
+        }
+        setScanMsg(msg);
       }
     } catch {
       setScanMsg(t('tools.scanFailed'));
@@ -1982,21 +2026,73 @@ export default function DashboardClient({
   };
 
   // ------------------------------------------------------------------
-  // Ekspor
+  // Ekspor (Gaya E-Statement Bank + Logo StashinMe)
   // ------------------------------------------------------------------
 
-  const handleExportCsv = () => {
-    exportToCSV(transactions, debts, profileClient || clientName);
+  const buildExportOptions = (periodLabel?: string): ExportReportOptions => {
+    const activeGroup = kolega.groups.find((g) => g.id === activeScope);
+    const scopeLabel =
+      activeScope === 'all'
+        ? isEn
+          ? 'All Spaces'
+          : 'Semua Ruang'
+        : activeScope === 'personal'
+          ? isEn
+            ? 'Personal'
+            : 'Pribadi'
+          : activeGroup
+            ? `Grup: ${activeGroup.name}`
+            : 'Semua Ruang';
+    const walletMap: Record<string, string> = {};
+    for (const acc of assets.accounts) {
+      walletMap[acc.id] = acc.name;
+    }
+    return {
+      periodLabel: periodLabel || (isEn ? 'All Periods' : 'Semua Periode'),
+      scopeLabel,
+      walletMap,
+      totalBalance: computedTotals.total,
+      budgets: budgets.budgets,
+    };
+  };
+
+  const handleExportCsv = (rows?: Transaction[], periodLabel?: string) => {
+    exportToCSV(
+      rows ?? scopedTransactions,
+      scopedDebts,
+      profileClient || clientName,
+      buildExportOptions(periodLabel)
+    );
     toast.success(t('tools.exported'));
   };
 
-  const handleExportPdf = () => {
-    exportToPDF(transactions, debts, profileClient || clientName);
+  const handleExportPdf = (rows?: Transaction[], periodLabel?: string) => {
+    void exportToPDF(
+      rows ?? scopedTransactions,
+      scopedDebts,
+      profileClient || clientName,
+      buildExportOptions(periodLabel)
+    );
     toast.success(t('tools.exported'));
   };
 
-  const handleExportWord = () => {
-    void exportToWord(transactions, debts, profileClient || clientName);
+  const handleExportExcel = (rows?: Transaction[], periodLabel?: string) => {
+    exportToExcel(
+      rows ?? scopedTransactions,
+      scopedDebts,
+      profileClient || clientName,
+      buildExportOptions(periodLabel)
+    );
+    toast.success(t('tools.exported'));
+  };
+
+  const handleExportWord = (rows?: Transaction[], periodLabel?: string) => {
+    void exportToWord(
+      rows ?? scopedTransactions,
+      scopedDebts,
+      profileClient || clientName,
+      buildExportOptions(periodLabel)
+    );
     toast.success(t('tools.exported'));
   };
 
@@ -2491,6 +2587,7 @@ export default function DashboardClient({
               {activeTab === 'saldo' && (
                 <SaldoTab
                   assets={assets}
+                  receipts={receipts}
                   computedTotals={computedTotals}
                   sub={saldoSub}
                   onSubChange={setSaldoSub}
@@ -2523,6 +2620,9 @@ export default function DashboardClient({
                     setShowQuickAdd(true);
                   }}
                   onExportCsv={handleExportCsv}
+                  onExportPdf={handleExportPdf}
+                  onExportExcel={handleExportExcel}
+                  onExportWord={handleExportWord}
                 />
               )}
 

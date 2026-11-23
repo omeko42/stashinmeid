@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
@@ -9,13 +9,19 @@ import {
   ArrowUp,
   ArrowUpRight,
   Download,
+  FileSpreadsheet,
+  FileText,
   Pencil,
   Plus,
+  Receipt,
   Search,
   Trash2,
   X,
 } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types/finance';
+import type { ReceiptsApi } from '@/hooks/useReceipts';
+import type { StoredReceiptMeta } from '@/app/api/receipts/route';
+import { formatFileBytes } from '@/lib/imageCompress';
 import { formatFullDate, formatRp } from '@/lib/format';
 import { getCategory } from '@/lib/categories';
 import {
@@ -28,6 +34,7 @@ import {
 import { Amount, Label } from '@/components/ui/Surface';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Modal } from '@/components/ui/Modal';
 import { Segmented } from '@/components/ui/Segmented';
 import { PeriodFilterPopover } from '@/components/ui/PeriodFilterPopover';
 
@@ -42,12 +49,16 @@ interface CashflowTabProps {
   canEdit: boolean;
   accounts?: { id: string; name: string; kind: string; currency: string }[];
   sharedGroups?: { id: string; name: string }[];
+  receipts?: ReceiptsApi;
   onFilterTypeChange: (value: 'all' | TransactionType) => void;
   onSearchChange: (value: string) => void;
   onEdit?: (tx: Transaction) => void;
   onDelete: (id: string) => void;
   onQuickAdd: () => void;
-  onExportCsv: () => void;
+  onExportCsv: (rows?: Transaction[], periodLabel?: string) => void;
+  onExportPdf?: (rows?: Transaction[], periodLabel?: string) => void;
+  onExportExcel?: (rows?: Transaction[], periodLabel?: string) => void;
+  onExportWord?: (rows?: Transaction[], periodLabel?: string) => void;
 }
 
 const TONE_BADGE: Record<string, string> = {
@@ -72,15 +83,50 @@ export function CashflowTab({
   canEdit,
   accounts = [],
   sharedGroups = [],
+  receipts,
   onFilterTypeChange,
   onSearchChange,
   onEdit,
   onDelete,
   onQuickAdd,
   onExportCsv,
+  onExportPdf,
+  onExportExcel,
+  onExportWord,
 }: CashflowTabProps) {
   const locale = useLocale();
   const isEn = locale === 'en';
+  const [exportOpen, setExportOpen] = useState(false);
+  const exportRef = useRef<HTMLDivElement>(null);
+  const [previewReceipt, setPreviewReceipt] = useState<{
+    meta: StoredReceiptMeta;
+    url: string | null;
+    loading: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    if (!exportOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (exportRef.current && !exportRef.current.contains(e.target as Node)) {
+        setExportOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setExportOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [exportOpen]);
+
+  const openReceiptPreview = async (meta: StoredReceiptMeta) => {
+    setPreviewReceipt({ meta, url: null, loading: true });
+    const url = (await receipts?.getSignedUrl(meta.id)) ?? null;
+    setPreviewReceipt({ meta, url, loading: false });
+  };
   const accountById = useMemo(
     () => new Map(accounts.map((a) => [a.id, a])),
     [accounts]
@@ -235,6 +281,17 @@ export function CashflowTab({
             <span className="tnum font-medium text-[var(--text)]">
               {tCashflow('count', { count: refined.length })}
             </span>
+            {receipts && (
+              <span className="tnum ml-1.5 text-[11px] text-[var(--text-faint)]">
+                · Struk:{' '}
+                {receipts.unlimited
+                  ? `${formatFileBytes(receipts.usedBytes)} / Unlimited`
+                  : `${formatFileBytes(receipts.usedBytes)} / ${receipts.quotaMb ?? 5} MB`}
+                {receipts.aiDailyLimit !== null
+                  ? ` · AI: ${receipts.aiUsedToday}/${receipts.aiDailyLimit}/hr`
+                  : ''}
+              </span>
+            )}
           </p>
         </div>
 
@@ -341,15 +398,125 @@ export function CashflowTab({
               }
             />
 
-            <IconButton
-              label={t('settings.data.exportCsv')}
-              variant="secondary"
-              size="sm"
-              onClick={onExportCsv}
-              disabled={!hasAnyTransaction}
-            >
-              <Download className="size-4" />
-            </IconButton>
+            {/* Popover Ekspor 4 Format (PDF E-Statement, Excel .xlsx, Word .docx, CSV) */}
+            <div ref={exportRef} className="relative">
+              <IconButton
+                label={isEn ? 'Export Report' : 'Ekspor Laporan'}
+                variant="secondary"
+                size="sm"
+                onClick={() => setExportOpen((v) => !v)}
+                disabled={!hasAnyTransaction}
+              >
+                <Download className="size-4" />
+              </IconButton>
+
+              <AnimatePresence>
+                {exportOpen && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -4, scale: 0.97 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.97 }}
+                    transition={{ duration: 0.14, ease: 'easeOut' }}
+                    className="absolute right-0 top-full z-40 mt-2 w-60 overflow-hidden rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)] p-1.5 shadow-[var(--shadow-lg)]"
+                  >
+                    <div className="border-b border-[var(--line)] px-2.5 py-1.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                        {isEn ? 'Export E-Statement' : 'Ekspor E-Statement'}
+                      </p>
+                      <p className="tnum text-[10px] text-[var(--text-faint)]">
+                        {formatPeriodLabel(periodFilter, isEn)} ·{' '}
+                        {sorted.length.toLocaleString('id-ID')}{' '}
+                        {isEn ? 'rows' : 'baris'}
+                      </p>
+                    </div>
+
+                    <div className="mt-1 space-y-0.5">
+                      {onExportPdf && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExportOpen(false);
+                            onExportPdf(sorted, formatPeriodLabel(periodFilter, isEn));
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12px] font-medium text-[var(--text)] transition hover:bg-[var(--surface-2)]"
+                        >
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[var(--out-soft)] text-[var(--out)]">
+                            <FileText className="size-3.5" aria-hidden />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block font-semibold">PDF (E-Statement)</span>
+                            <span className="block text-[10px] text-[var(--text-faint)]">
+                              Gaya rekening koran bank + logo
+                            </span>
+                          </span>
+                        </button>
+                      )}
+
+                      {onExportExcel && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExportOpen(false);
+                            onExportExcel(sorted, formatPeriodLabel(periodFilter, isEn));
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12px] font-medium text-[var(--text)] transition hover:bg-[var(--surface-2)]"
+                        >
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[var(--brand-soft)] text-[var(--brand)]">
+                            <FileSpreadsheet className="size-3.5" aria-hidden />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block font-semibold">Excel (.xlsx)</span>
+                            <span className="block text-[10px] text-[var(--text-faint)]">
+                              Multi-sheet (Ringkasan, Kas, Pinjaman)
+                            </span>
+                          </span>
+                        </button>
+                      )}
+
+                      {onExportWord && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setExportOpen(false);
+                            onExportWord(sorted, formatPeriodLabel(periodFilter, isEn));
+                          }}
+                          className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12px] font-medium text-[var(--text)] transition hover:bg-[var(--surface-2)]"
+                        >
+                          <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[var(--info-soft)] text-[var(--info)]">
+                            <FileText className="size-3.5" aria-hidden />
+                          </span>
+                          <span className="min-w-0">
+                            <span className="block font-semibold">Word (.docx)</span>
+                            <span className="block text-[10px] text-[var(--text-faint)]">
+                              Laporan resmi siap edit
+                            </span>
+                          </span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExportOpen(false);
+                          onExportCsv(sorted, formatPeriodLabel(periodFilter, isEn));
+                        }}
+                        className="flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left text-[12px] font-medium text-[var(--text)] transition hover:bg-[var(--surface-2)]"
+                      >
+                        <span className="flex size-7 shrink-0 items-center justify-center rounded-md bg-[var(--surface-2)] text-[var(--text-muted)]">
+                          <Download className="size-3.5" aria-hidden />
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block font-semibold">CSV (.csv)</span>
+                          <span className="block text-[10px] text-[var(--text-faint)]">
+                            Data mentah & impor balik
+                          </span>
+                        </span>
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
 
             {canEdit && (
               <Button size="sm" icon={<Plus className="size-4" />} onClick={onQuickAdd}>
@@ -704,6 +871,19 @@ export function CashflowTab({
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="inline-flex items-center gap-0.5 opacity-80 transition-opacity group-hover:opacity-100">
+                          {(() => {
+                            const rec = receipts?.byTransactionId.get(tx.id);
+                            return rec ? (
+                              <IconButton
+                                label={isEn ? 'View receipt' : 'Lihat struk'}
+                                size="sm"
+                                onClick={() => void openReceiptPreview(rec)}
+                                className="text-[var(--brand)] hover:text-[var(--brand)]"
+                              >
+                                <Receipt className="size-3.5" />
+                              </IconButton>
+                            ) : null;
+                          })()}
                           {onEdit && (
                             <IconButton
                               label="Edit"
@@ -766,6 +946,72 @@ export function CashflowTab({
           )}
         </div>
       )}
+
+      {/* Modal Pratinjau Struk Terlampir */}
+      <Modal
+        open={Boolean(previewReceipt)}
+        onClose={() => setPreviewReceipt(null)}
+        title={previewReceipt?.meta.label || 'Struk Transaksi'}
+        description={
+          previewReceipt
+            ? `Ukuran terkompresi: ${formatFileBytes(previewReceipt.meta.sizeBytes)}`
+            : undefined
+        }
+        size="md"
+      >
+        {previewReceipt && (
+          <div className="space-y-3">
+            {previewReceipt.loading ? (
+              <div className="flex h-64 items-center justify-center text-[12px] text-[var(--text-muted)]">
+                Memuat gambar struk...
+              </div>
+            ) : previewReceipt.url ? (
+              <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-2)]">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={previewReceipt.url}
+                  alt={previewReceipt.meta.label}
+                  className="max-h-[60vh] w-full object-contain"
+                />
+              </div>
+            ) : (
+              <p className="py-8 text-center text-[12px] text-[var(--out)]">
+                Gagal memuat gambar struk.
+              </p>
+            )}
+
+            <div className="flex items-center justify-between gap-2 border-t border-[var(--line)] pt-3">
+              {canEdit && receipts ? (
+                <Button
+                  size="sm"
+                  variant="danger"
+                  icon={<Trash2 className="size-3.5" />}
+                  onClick={async () => {
+                    const ok = await receipts.deleteReceipt(previewReceipt.meta.id);
+                    if (ok) setPreviewReceipt(null);
+                  }}
+                >
+                  Hapus Struk
+                </Button>
+              ) : (
+                <span />
+              )}
+
+              {previewReceipt.url && (
+                <a
+                  href={previewReceipt.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] font-semibold text-[var(--text)] transition hover:border-[var(--brand)]"
+                >
+                  <Download className="size-3.5" aria-hidden />
+                  Unduh Asli
+                </a>
+              )}
+            </div>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
