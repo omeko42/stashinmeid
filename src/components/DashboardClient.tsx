@@ -1421,7 +1421,6 @@ export default function DashboardClient({
           institution: sourceAcc.institution,
           currency: sourceAcc.currency,
           balance: nextBal,
-          notes: sourceAcc.notes,
         });
       } catch {
         // Biarkan transaksi cicilan tetap tersimpan
