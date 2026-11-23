@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
         .from('finance_group_members')
         .select('group_id, created_at')
         .eq('user_id', userId)
-        .eq('status', 'pending')
+        .in('status', ['invited', 'pending'])
         .limit(20),
     ]);
 

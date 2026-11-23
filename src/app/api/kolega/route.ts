@@ -30,14 +30,14 @@ export async function GET() {
     .from('finance_group_members')
     .select('group_id, role, status')
     .eq('user_id', userId)
-    .in('status', ['active', 'pending']);
+    .in('status', ['active', 'invited', 'pending']);
   if (memberships.error) return NextResponse.json({ error: memberships.error.message }, { status: 400 });
 
   const activeGroupIds = memberships.data
     .filter((m) => m.status === 'active')
     .map((m) => m.group_id);
   const pendingGroupIds = memberships.data
-    .filter((m) => m.status === 'pending')
+    .filter((m) => m.status === 'invited' || m.status === 'pending')
     .map((m) => m.group_id);
 
   // Undangan grup masuk (menunggu konfirmasi 2-arah dari penerima)
@@ -146,7 +146,7 @@ export async function GET() {
                 ? titlesForGroup[m.user_id].trim()
                 : null,
             isSelf: m.user_id === userId,
-            status: m.status,
+            status: m.status === 'invited' ? 'pending' : m.status,
             profile: profileById.get(m.user_id) ?? null,
           })),
         totals: totalsByGroup.get(g.id) ?? { inflow: 0, outflow: 0 },
@@ -238,15 +238,30 @@ export async function POST(req: NextRequest) {
     }
     if (member.data.id === userId) return NextResponse.json({ error: 'Kamu sudah jadi pemilik grup ini' }, { status: 400 });
 
-    // Undangan 2-arah: status awal 'pending' supaya penerima bisa terima/tolak
-    // dan pengundang tetap bisa membatalkan bila salah undang.
+    // Cek apakah kolega sudah menjadi anggota aktif grup ini
+    const { data: existingMember } = await admin
+      .from('finance_group_members')
+      .select('status')
+      .eq('group_id', groupId)
+      .eq('user_id', member.data.id)
+      .maybeSingle();
+    if (existingMember?.status === 'active') {
+      return NextResponse.json(
+        { error: 'Kolega ini sudah menjadi anggota grup ini' },
+        { status: 400 }
+      );
+    }
+
+    // Undangan 2-arah: status DB adalah 'invited' (sesuai check constraint
+    // finance_group_members_status_check: 'active' | 'invited'), supaya penerima
+    // bisa terima/tolak dan pengundang bisa membatalkan bila salah undang.
     const { error: errIns } = await admin
       .from('finance_group_members')
       .upsert({
         group_id: groupId,
         user_id: member.data.id,
         role: 'editor',
-        status: 'pending',
+        status: 'invited',
       });
     if (errIns) return NextResponse.json({ error: errIns.message }, { status: 400 });
 
@@ -361,7 +376,7 @@ export async function PATCH(req: NextRequest) {
       .delete()
       .eq('group_id', groupId)
       .eq('user_id', targetUserId)
-      .eq('status', 'pending');
+      .in('status', ['invited', 'pending']);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
     return NextResponse.json({ ok: true });
   }
@@ -373,7 +388,7 @@ export async function PATCH(req: NextRequest) {
       .update({ status: 'active' })
       .eq('group_id', groupId)
       .eq('user_id', userId)
-      .eq('status', 'pending');
+      .in('status', ['invited', 'pending']);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
     const joinerName = await getDisplayName(admin, userId);
@@ -395,7 +410,7 @@ export async function PATCH(req: NextRequest) {
       .delete()
       .eq('group_id', groupId)
       .eq('user_id', userId)
-      .eq('status', 'pending');
+      .in('status', ['invited', 'pending']);
     if (error) return NextResponse.json({ error: error.message }, { status: 400 });
 
     const actorName = await getDisplayName(admin, userId);
