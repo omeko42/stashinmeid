@@ -170,9 +170,9 @@ function drawPdfSaldoIcon(
   }
 
   if (kind === 'cash') {
-    // Ikon Uang Kertas (Banknote) hijau
-    doc.setDrawColor(22, 163, 74);
-    doc.setFillColor(22, 163, 74);
+    // Ikon Uang Kertas (Banknote) kuning amber agar kontras dari Total (emerald) & Non-Tunai (biru)
+    doc.setDrawColor(217, 119, 6);
+    doc.setFillColor(217, 119, 6);
     doc.rect(x, y, w, h, 'S');
     doc.circle(x + w / 2, y + h / 2, 0.45, 'F');
     return;
@@ -475,8 +475,17 @@ export async function exportToPDF(
       4: { cellWidth: 26, halign: 'right', textColor: [14, 145, 100], fontStyle: 'bold' },
       5: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: [24, 32, 30] },
     },
+    willDrawCell: (data) => {
+      // Kolom angka 3-baris (Keluar, Masuk, Saldo Akhir) kita gambar manual di didDrawCell
+      // agar baris 1 (Total) tegas 100% bold, sedangkan baris 2 & 3 (Tunai/Non-Tunai) lebih pudar (~78%).
+      if (data.section === 'body' && data.column.index >= 3 && data.column.index <= 5) {
+        data.cell.text = [];
+      }
+    },
     didDrawCell: (data) => {
-      if (data.section === 'body' && data.column.index === 2) {
+      if (data.section !== 'body') return;
+
+      if (data.column.index === 2) {
         const cx = data.cell.x + (data.cell.width - 3.2) / 2;
         const innerH = data.cell.height - 4.4;
         const step = innerH / 3;
@@ -484,6 +493,39 @@ export async function exportToPDF(
         drawPdfSaldoIcon(doc, 'total', cx, baseY);
         drawPdfSaldoIcon(doc, 'cash', cx, baseY + step);
         drawPdfSaldoIcon(doc, 'noncash', cx, baseY + step * 2);
+        return;
+      }
+
+      if (data.column.index >= 3 && data.column.index <= 5) {
+        const raw = typeof data.cell.raw === 'string' ? data.cell.raw : '';
+        const lines = raw.split('\n');
+        const rightX = data.cell.x + data.cell.width - 2.2;
+        const innerH = data.cell.height - 4.4;
+        const step = innerH / 3;
+        const baseY = data.cell.y + 2.2 + step * 0.72;
+
+        // Warna primer (baris 1 Total: tegas 100%) vs sekunder (baris 2 & 3: pudar ~78%)
+        const primaryRgb: [number, number, number] =
+          data.column.index === 3
+            ? [200, 55, 68]
+            : data.column.index === 4
+              ? [14, 145, 100]
+              : [20, 28, 26];
+        const mutedRgb: [number, number, number] =
+          data.column.index === 3
+            ? [214, 134, 140]
+            : data.column.index === 4
+              ? [108, 178, 152]
+              : [120, 132, 128];
+
+        lines.slice(0, 3).forEach((line, idx) => {
+          const isPrimary = idx === 0;
+          doc.setFont('helvetica', isPrimary ? 'bold' : 'normal');
+          doc.setFontSize(isPrimary ? 7.1 : 6.4);
+          const rgb = isPrimary ? primaryRgb : mutedRgb;
+          doc.setTextColor(rgb[0], rgb[1], rgb[2]);
+          doc.text(line, rightX, baseY + idx * step, { align: 'right' });
+        });
       }
     },
   });
@@ -953,8 +995,8 @@ export async function exportToWord(
                             new TextRun({
                               text: val,
                               bold: idx === 0,
-                              color: idx === 0 ? primaryColor : '5E6B66',
-                              size: idx === 0 ? 15 : 14,
+                              color: idx === 0 ? primaryColor : '828E89',
+                              size: idx === 0 ? 15 : 13,
                             }),
                           ],
                         })
@@ -1013,7 +1055,7 @@ export async function exportToWord(
                         new Paragraph({
                           alignment: AlignmentType.CENTER,
                           children: [
-                            new TextRun({ text: 'Tunai', color: '16A34A', size: 13 }),
+                            new TextRun({ text: 'Tunai', color: 'D97706', size: 13 }),
                           ],
                         }),
                         new Paragraph({
