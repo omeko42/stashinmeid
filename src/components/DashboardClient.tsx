@@ -2634,6 +2634,7 @@ export default function DashboardClient({
               {activeTab === 'debts' && (
                 <DebtsTab
                   debts={scopedDebts}
+                  transactions={scopedTransactions}
                   accounts={assets.accounts}
                   sharedGroups={
                     !isDemoMode

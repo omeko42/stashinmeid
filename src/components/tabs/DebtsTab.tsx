@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import {
@@ -9,16 +9,20 @@ import {
   Calendar,
   CalendarClock,
   CheckCircle2,
+  Eye,
   Landmark,
+  LayoutGrid,
+  List,
   Pencil,
   Percent,
   Plus,
+  Search,
   Trash2,
   Users,
   Wallet,
   Zap,
 } from 'lucide-react';
-import type { Debt } from '@/types/finance';
+import type { Debt, Transaction } from '@/types/finance';
 import { appNow, daysUntil, formatFullDate, formatRp } from '@/lib/format';
 import {
   estimateMonthlyInterest,
@@ -29,6 +33,8 @@ import {
 import { Amount, Label, Progress, Rule } from '@/components/ui/Surface';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
+import { Modal } from '@/components/ui/Modal';
+import { Segmented } from '@/components/ui/Segmented';
 
 export interface DebtFormState {
   platform: string;
@@ -48,6 +54,7 @@ export interface DebtFormState {
 
 interface DebtsTabProps {
   debts: Debt[];
+  transactions?: Transaction[];
   showDebtForm: boolean;
   editingDebtId?: string | null;
   debtForm: DebtFormState;
@@ -69,6 +76,7 @@ interface DebtsTabProps {
 
 export function DebtsTab({
   debts,
+  transactions = [],
   showDebtForm,
   editingDebtId = null,
   debtForm,
@@ -91,6 +99,12 @@ export function DebtsTab({
   const isEn = locale === 'en';
   const tDebts = useTranslations('debts');
   const tCommon = useTranslations('common');
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'paid_off'>('all');
+  const [viewMode, setViewMode] = useState<'ledger' | 'cards'>('ledger');
+  const [detailDebt, setDetailDebt] = useState<Debt | null>(null);
+  const [detailTab, setDetailTab] = useState<'schedule' | 'history'>('schedule');
 
   const accountById = useMemo(
     () => new Map(accounts.map((a) => [a.id, a])),
@@ -122,9 +136,91 @@ export function DebtsTab({
 
   const today = appNow();
 
+  const filteredDebts = useMemo(() => {
+    const q = searchQuery.trim().toLowerCase();
+    return debts
+      .filter((d) => {
+        if (statusFilter === 'active' && d.status !== 'active') return false;
+        if (statusFilter === 'paid_off' && d.status !== 'paid_off') return false;
+        if (!q) return true;
+        return (
+          d.platform.toLowerCase().includes(q) ||
+          (d.contract_no || '').toLowerCase().includes(q) ||
+          (d.notes || '').toLowerCase().includes(q)
+        );
+      })
+      .sort((a, b) => {
+        // Aktif di atas, lalu urutkan dari jatuh tempo terdekat
+        if (a.status !== b.status) return a.status === 'active' ? -1 : 1;
+        const da = a.due_day ? nextDebtScheduleDate(a.due_day, a.notes, today).getTime() : Infinity;
+        const db = b.due_day ? nextDebtScheduleDate(b.due_day, b.notes, today).getTime() : Infinity;
+        return da - db;
+      });
+  }, [debts, searchQuery, statusFilter, today]);
+
+  // Helper generate jadwal pembayaran bulanan ke depan untuk 1 pinjaman
+  const buildScheduleForDebt = (d: Debt) => {
+    const { meta } = parseDebtNotes(d.notes);
+    const dueDay = d.due_day || meta.autoPayDay || 1;
+    const installment = Number(d.monthly_installment || 0);
+    let remBal = Number(d.remaining_balance || 0);
+    const remTenor = Math.max(
+      1,
+      d.remaining_tenor ?? (installment > 0 ? Math.ceil(remBal / installment) : 1)
+    );
+    const totalTenor = d.total_tenor ?? remTenor;
+    const paidSoFar = Math.max(0, totalTenor - remTenor);
+    const firstDate = nextDebtScheduleDate(dueDay, d.notes, today);
+    const rows: {
+      seq: number;
+      dateIso: string;
+      installment: number;
+      estInterest: number;
+      estBalanceAfter: number;
+      daysLeft: number;
+    }[] = [];
+
+    const maxRows = Math.min(remTenor, 24);
+    for (let i = 0; i < maxRows; i++) {
+      const targetYear = firstDate.getFullYear();
+      const targetMonth = firstDate.getMonth() + i;
+      const lastDom = new Date(targetYear, targetMonth + 1, 0).getDate();
+      const dt = new Date(targetYear, targetMonth, Math.min(dueDay, lastDom));
+      const iso = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+      const estInt = estimateMonthlyInterest(remBal, meta.interestRate);
+      const pay = Math.min(installment || remBal, remBal);
+      remBal = Math.max(0, remBal - pay);
+      rows.push({
+        seq: paidSoFar + i + 1,
+        dateIso: iso,
+        installment: pay,
+        estInterest: estInt,
+        estBalanceAfter: remBal,
+        daysLeft: daysUntil(iso),
+      });
+    }
+    return { rows, totalRemainingCount: remTenor };
+  };
+
+  // Riwayat pembayaran nyata di Arus Kas yang cocok dengan pinjaman ini
+  const getLinkedPayments = (d: Debt) => {
+    const rawKey = d.platform.split('(')[0].trim().toLowerCase();
+    const keywords = [rawKey, d.platform.toLowerCase(), (d.contract_no || '').toLowerCase()]
+      .map((s) => s.trim())
+      .filter((s) => s.length >= 3);
+    return transactions
+      .filter((tx) => {
+        if (tx.type !== 'outflow') return false;
+        const hay = `${tx.description || ''} ${tx.category}`.toLowerCase();
+        return keywords.some((kw) => hay.includes(kw));
+      })
+      .sort((a, b) => b.transaction_date.localeCompare(a.transaction_date))
+      .slice(0, 30);
+  };
+
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-[18px] font-semibold text-[var(--text)]">
             {tDebts('headerTitle')}
@@ -133,20 +229,80 @@ export function DebtsTab({
             {tDebts('subtitle')}
           </p>
         </div>
-        {canEdit && (
-          <Button
+
+        {/* Toolbar ringkas ala Arus Kas (semua h-9 seragam) */}
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="relative min-w-0 flex-1 sm:w-48 sm:flex-initial">
+            <Search
+              className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--text-faint)]"
+              aria-hidden
+            />
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder={isEn ? 'Search loan...' : 'Cari pinjaman...'}
+              aria-label={isEn ? 'Search loans' : 'Cari pinjaman'}
+              className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] pl-8 pr-2.5 text-[12px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+            />
+          </div>
+
+          <Segmented
             size="sm"
-            variant={showDebtForm ? 'secondary' : 'primary'}
-            icon={<Plus className="size-4" />}
-            onClick={onToggleForm}
-          >
-            {showDebtForm && editingDebtId
-              ? isEn
-                ? 'Close Edit'
-                : 'Tutup Edit'
-              : tDebts('add')}
-          </Button>
-        )}
+            value={statusFilter}
+            onChange={setStatusFilter}
+            ariaLabel={isEn ? 'Filter loan status' : 'Filter status pinjaman'}
+            options={[
+              { value: 'all', label: isEn ? 'All' : 'Semua' },
+              { value: 'active', label: isEn ? 'Active' : 'Aktif' },
+              { value: 'paid_off', label: isEn ? 'Paid' : 'Lunas' },
+            ]}
+          />
+
+          <div className="inline-flex h-9 items-center rounded-lg border border-[var(--line)] bg-[var(--surface-2)] p-0.5">
+            <button
+              type="button"
+              onClick={() => setViewMode('ledger')}
+              aria-label="Tampilan Tabel"
+              title="Tampilan Tabel Ledger"
+              className={`inline-flex size-8 items-center justify-center rounded-md transition ${
+                viewMode === 'ledger'
+                  ? 'bg-[var(--surface-1)] text-[var(--brand)] shadow-xs'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+              }`}
+            >
+              <List className="size-3.5" aria-hidden />
+            </button>
+            <button
+              type="button"
+              onClick={() => setViewMode('cards')}
+              aria-label="Tampilan Kartu"
+              title="Tampilan Kartu"
+              className={`inline-flex size-8 items-center justify-center rounded-md transition ${
+                viewMode === 'cards'
+                  ? 'bg-[var(--surface-1)] text-[var(--brand)] shadow-xs'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+              }`}
+            >
+              <LayoutGrid className="size-3.5" aria-hidden />
+            </button>
+          </div>
+
+          {canEdit && (
+            <Button
+              size="sm"
+              variant={showDebtForm ? 'secondary' : 'primary'}
+              icon={<Plus className="size-4" />}
+              onClick={onToggleForm}
+            >
+              {showDebtForm && editingDebtId
+                ? isEn
+                  ? 'Close Edit'
+                  : 'Tutup Edit'
+                : tDebts('add')}
+            </Button>
+          )}
+        </div>
       </div>
 
       {/* Ringkasan Pinjaman KPI */}
@@ -582,9 +738,246 @@ export function DebtsTab({
             }
           />
         </div>
+      ) : filteredDebts.length === 0 ? (
+        <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-8 text-center text-[12px] text-[var(--text-muted)]">
+          Tidak ada pinjaman yang cocok dengan filter pencarian.
+        </div>
+      ) : viewMode === 'ledger' ? (
+        /* Tampilan Ledger Tabel Pinjaman (seperti Arus Kas: lengkap jadwal bayar & klik -> detail) */
+        <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)]">
+          {/* Mobile list */}
+          <div className="divide-y divide-[var(--line)] sm:hidden">
+            {filteredDebts.map((debt) => {
+              const settled = debt.status === 'paid_off';
+              const { meta } = parseDebtNotes(debt.notes);
+              const dueDay = debt.due_day || meta.autoPayDay;
+              const nextDue = !settled && dueDay ? nextDebtScheduleDate(dueDay, debt.notes, today) : null;
+              const nextDueIso = nextDue
+                ? `${nextDue.getFullYear()}-${String(nextDue.getMonth() + 1).padStart(2, '0')}-${String(nextDue.getDate()).padStart(2, '0')}`
+                : null;
+              const dLeft = nextDueIso ? daysUntil(nextDueIso) : null;
+
+              return (
+                <div
+                  key={debt.id}
+                  onClick={() => {
+                    setDetailTab('schedule');
+                    setDetailDebt(debt);
+                  }}
+                  className="cursor-pointer px-4 py-3 transition hover:bg-[var(--surface-2)]/60"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="truncate text-[13px] font-semibold text-[var(--text)]">
+                        {debt.platform}
+                      </p>
+                      <p className="tnum mt-0.5 text-[11px] text-[var(--text-muted)]">
+                        {settled
+                          ? 'Lunas'
+                          : nextDueIso
+                            ? `Bayar ${formatFullDate(nextDueIso)}${dLeft !== null && dLeft >= 0 ? ` (${dLeft === 0 ? 'Hari ini' : `H-${dLeft}`})` : ''}`
+                            : 'Jadwal belum diatur'}
+                      </p>
+                    </div>
+                    <div className="shrink-0 text-right">
+                      <Amount value={formatRp(debt.remaining_balance)} tone="due" size="sm" />
+                      <p className="tnum text-[10px] text-[var(--text-faint)]">
+                        {formatRp(debt.monthly_installment)}/bln
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Desktop ledger table */}
+          <table className="hidden w-full table-fixed border-collapse text-left sm:table">
+            <thead className="bg-[var(--surface-2)]">
+              <tr className="border-b border-[var(--line)]">
+                {canEdit && <th className="w-[36px] px-3 py-2.5" />}
+                <th className="w-[156px] px-3 py-2.5">
+                  <Label>{isEn ? 'Next Due' : 'Jatuh Tempo'}</Label>
+                </th>
+                <th className="px-3 py-2.5">
+                  <Label>{isEn ? 'Loan & Details' : 'Pinjaman & Detail'}</Label>
+                </th>
+                <th className="hidden w-[112px] px-3 py-2.5 lg:table-cell">
+                  <Label>Tenor</Label>
+                </th>
+                <th className="w-[126px] px-3 py-2.5 text-right">
+                  <Label>{isEn ? 'Installment' : 'Cicilan / Bln'}</Label>
+                </th>
+                <th className="w-[138px] px-3 py-2.5 text-right">
+                  <Label>{isEn ? 'Remaining' : 'Sisa Pinjaman'}</Label>
+                </th>
+                <th className="w-[116px] px-3 py-2.5 text-right">
+                  <Label>{isEn ? 'Actions' : 'Aksi'}</Label>
+                </th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--line)] text-[12px]">
+              {filteredDebts.map((debt) => {
+                const isSimSelected = simSelectedIds.includes(debt.id);
+                const settled = debt.status === 'paid_off';
+                const { meta } = parseDebtNotes(debt.notes);
+                const dueDay = debt.due_day || meta.autoPayDay;
+                const nextDue =
+                  !settled && dueDay
+                    ? nextDebtScheduleDate(dueDay, debt.notes, today)
+                    : null;
+                const nextDueIso = nextDue
+                  ? `${nextDue.getFullYear()}-${String(nextDue.getMonth() + 1).padStart(2, '0')}-${String(nextDue.getDate()).padStart(2, '0')}`
+                  : null;
+                const dLeft = nextDueIso ? daysUntil(nextDueIso) : null;
+                const urgent = dLeft !== null && dLeft >= 0 && dLeft <= 3;
+
+                return (
+                  <tr
+                    key={debt.id}
+                    onClick={() => {
+                      setDetailTab('schedule');
+                      setDetailDebt(debt);
+                    }}
+                    className={`group cursor-pointer transition-colors hover:bg-[var(--surface-2)]/60 ${
+                      isSimSelected ? 'bg-[var(--info-soft)]/30' : ''
+                    }`}
+                  >
+                    {canEdit && (
+                      <td
+                        className="px-3 py-2.5 align-middle"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        {!settled && (
+                          <input
+                            type="checkbox"
+                            checked={isSimSelected}
+                            onChange={() => onToggleSim(debt.id)}
+                            aria-label={tDebts('simulator.hint')}
+                            className="size-4 cursor-pointer accent-[var(--info)]"
+                          />
+                        )}
+                      </td>
+                    )}
+                    <td className="px-3 py-2.5 align-middle">
+                      {settled ? (
+                        <span className="inline-flex items-center gap-1 rounded-md bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                          <CheckCircle2 className="size-3" aria-hidden />
+                          Lunas
+                        </span>
+                      ) : nextDueIso ? (
+                        <div>
+                          <p className="tnum font-semibold text-[var(--text)]">
+                            {formatFullDate(nextDueIso)}
+                          </p>
+                          <div className="mt-0.5 flex items-center gap-1.5">
+                            {dLeft !== null && dLeft >= 0 && (
+                              <span
+                                className={`tnum rounded px-1.5 py-0.2 text-[10px] font-semibold ${
+                                  urgent
+                                    ? 'bg-[var(--out-soft)] text-[var(--out)]'
+                                    : 'bg-[var(--due-soft)] text-[var(--due)]'
+                                }`}
+                              >
+                                {dLeft === 0 ? 'Hari ini' : `H-${dLeft}`}
+                              </span>
+                            )}
+                            {meta.autoPay && (
+                              <span
+                                title={`Auto-Pay tgl ${meta.autoPayDay || debt.due_day} · ${walletName(meta.autoPayAccountId)}`}
+                                className="inline-flex items-center gap-0.5 rounded bg-[var(--brand-soft)] px-1.5 py-0.2 text-[10px] font-semibold text-[var(--brand)]"
+                              >
+                                <Zap className="size-2.5" aria-hidden />
+                                Auto
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="text-[11px] text-[var(--text-faint)]">-</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2.5 align-middle">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="truncate text-[13px] font-semibold text-[var(--text)] group-hover:text-[var(--brand)]">
+                            {debt.platform}
+                          </p>
+                          {debt.group_id && groupNameById[debt.group_id] && (
+                            <span className="shrink-0 rounded bg-[var(--info-soft)] px-1.5 py-0.2 text-[9.5px] font-semibold text-[var(--info)]">
+                              {groupNameById[debt.group_id]}
+                            </span>
+                          )}
+                        </div>
+                        <p className="tnum mt-0.5 truncate text-[11px] text-[var(--text-faint)]">
+                          {debt.contract_no ? `No. ${debt.contract_no}` : 'Pribadi'}
+                          {meta.interestRate
+                            ? ` · Bunga ${meta.interestRate}% (${meta.interestType === 'floating' ? 'Floating' : 'Flat'})`
+                            : ''}
+                        </p>
+                      </div>
+                    </td>
+                    <td className="tnum hidden px-3 py-2.5 align-middle text-[var(--text-muted)] lg:table-cell">
+                      {debt.remaining_tenor ?? '-'}
+                      {debt.total_tenor ? ` / ${debt.total_tenor}` : ''} bln
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right align-middle">
+                      <Amount value={formatRp(debt.monthly_installment)} size="sm" />
+                    </td>
+                    <td className="whitespace-nowrap px-3 py-2.5 text-right align-middle">
+                      <Amount
+                        value={formatRp(debt.remaining_balance)}
+                        tone={settled ? 'brand' : 'due'}
+                        size="sm"
+                      />
+                    </td>
+                    <td
+                      className="px-3 py-2.5 text-right align-middle"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="inline-flex items-center gap-0.5">
+                        <IconButton
+                          size="sm"
+                          label={isEn ? 'Schedule & details' : 'Jadwal & detail'}
+                          onClick={() => {
+                            setDetailTab('schedule');
+                            setDetailDebt(debt);
+                          }}
+                          className="text-[var(--text-faint)] hover:text-[var(--brand)]"
+                        >
+                          <Eye className="size-3.5" />
+                        </IconButton>
+                        {canEdit && onEdit && (
+                          <IconButton
+                            size="sm"
+                            label={tCommon('edit')}
+                            onClick={() => onEdit(debt)}
+                            className="text-[var(--text-faint)] hover:text-[var(--brand)]"
+                          >
+                            <Pencil className="size-3.5" />
+                          </IconButton>
+                        )}
+                        {canEdit && (
+                          <IconButton
+                            size="sm"
+                            label={tCommon('delete')}
+                            onClick={() => onDelete(debt.id)}
+                            className="text-[var(--text-faint)] hover:text-[var(--out)]"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </IconButton>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
       ) : (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-          {debts.map((debt, idx) => {
+          {filteredDebts.map((debt, idx) => {
             const isSimSelected = simSelectedIds.includes(debt.id);
             const paidPct =
               debt.total_tenor && debt.remaining_tenor !== null
@@ -883,23 +1276,248 @@ export function DebtsTab({
                     </div>
                   </div>
 
-                  {!settled && canEdit && (
+                  <div className="mt-3 flex items-center gap-2">
                     <Button
                       size="sm"
-                      variant="secondary"
-                      fullWidth
-                      className="mt-3"
-                      onClick={() => onPay(debt)}
+                      variant="ghost"
+                      className="flex-1"
+                      icon={<CalendarClock className="size-3.5" />}
+                      onClick={() => {
+                        setDetailTab('schedule');
+                        setDetailDebt(debt);
+                      }}
                     >
-                      {tDebts('card.pay')}
+                      {isEn ? 'Schedule' : 'Jadwal'}
                     </Button>
-                  )}
+                    {!settled && canEdit && (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="flex-1"
+                        onClick={() => onPay(debt)}
+                      >
+                        {tDebts('card.pay')}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </motion.article>
             );
           })}
         </div>
       )}
+
+      {/* Pop-up Detail Pinjaman + Jadwal Pembayaran Mendatang + Riwayat Arus Kas */}
+      <Modal
+        open={Boolean(detailDebt)}
+        onClose={() => setDetailDebt(null)}
+        title={detailDebt ? detailDebt.platform : 'Detail Pinjaman'}
+        description={
+          detailDebt
+            ? [
+                detailDebt.contract_no ? `No. Kontrak: ${detailDebt.contract_no}` : null,
+                detailDebt.due_day ? `Jatuh tempo tgl ${detailDebt.due_day} tiap bulan` : null,
+              ]
+                .filter(Boolean)
+                .join(' · ') || 'Detail pinjaman & jadwal angsuran'
+            : undefined
+        }
+        size="lg"
+      >
+        {detailDebt && (() => {
+          const { meta, text: cleanNotes } = parseDebtNotes(detailDebt.notes);
+          const settled = detailDebt.status === 'paid_off';
+          const { rows: scheduleRows, totalRemainingCount } = buildScheduleForDebt(detailDebt);
+          const linkedPayments = getLinkedPayments(detailDebt);
+
+          return (
+            <div className="space-y-4">
+              {/* Ringkasan KPI 4-kolom */}
+              <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
+                <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
+                  <Label className="text-[10px]">Sisa Pinjaman</Label>
+                  <div className="mt-1">
+                    <Amount
+                      value={formatRp(detailDebt.remaining_balance)}
+                      tone={settled ? 'brand' : 'due'}
+                      size="sm"
+                    />
+                  </div>
+                </div>
+                <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
+                  <Label className="text-[10px]">Cicilan / Bln</Label>
+                  <div className="mt-1">
+                    <Amount value={formatRp(detailDebt.monthly_installment)} size="sm" />
+                  </div>
+                </div>
+                <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
+                  <Label className="text-[10px]">Sisa Tenor</Label>
+                  <p className="tnum mt-1 text-[13px] font-semibold text-[var(--text)]">
+                    {detailDebt.remaining_tenor ?? '-'}
+                    {detailDebt.total_tenor ? ` / ${detailDebt.total_tenor}` : ''} bln
+                  </p>
+                </div>
+                <div className="rounded-xl border border-[var(--line)] bg-[var(--surface-2)] p-3">
+                  <Label className="text-[10px]">Bunga / Auto-Pay</Label>
+                  <p className="tnum mt-1 truncate text-[12px] font-semibold text-[var(--text)]">
+                    {meta.interestRate
+                      ? `${meta.interestRate}% (${meta.interestType === 'floating' ? 'Float' : 'Flat'})`
+                      : meta.autoPay
+                        ? `Auto tgl ${meta.autoPayDay || detailDebt.due_day}`
+                        : '-'}
+                  </p>
+                </div>
+              </div>
+
+              {meta.autoPay && (
+                <div className="flex items-center justify-between gap-2 rounded-lg border border-[var(--brand)]/30 bg-[var(--brand-soft)] px-3 py-2 text-[12px] text-[var(--brand)]">
+                  <span className="inline-flex items-center gap-1.5 font-semibold">
+                    <Zap className="size-3.5" aria-hidden />
+                    Auto-Payment aktif setiap tanggal {meta.autoPayDay || detailDebt.due_day || 1}
+                  </span>
+                  <span className="text-[11px] opacity-90">
+                    Sumber: {walletName(meta.autoPayAccountId)}
+                  </span>
+                </div>
+              )}
+
+              {cleanNotes && (
+                <p className="rounded-lg border border-[var(--line)] bg-[var(--surface-2)]/60 px-3 py-2 text-[12px] text-[var(--text-muted)]">
+                  {cleanNotes}
+                </p>
+              )}
+
+              {/* Switcher Tab: Jadwal Mendatang vs Riwayat Pembayaran */}
+              <div className="flex items-center justify-between gap-2">
+                <Segmented
+                  size="sm"
+                  value={detailTab}
+                  onChange={setDetailTab}
+                  ariaLabel="Tab detail pinjaman"
+                  options={[
+                    {
+                      value: 'schedule',
+                      label: `Jadwal Bayar (${totalRemainingCount})`,
+                    },
+                    {
+                      value: 'history',
+                      label: `Riwayat Terbayar (${linkedPayments.length})`,
+                    },
+                  ]}
+                />
+
+                {!settled && canEdit && (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      const d = detailDebt;
+                      setDetailDebt(null);
+                      onPay(d);
+                    }}
+                  >
+                    Bayar Cicilan
+                  </Button>
+                )}
+              </div>
+
+              {detailTab === 'schedule' ? (
+                settled ? (
+                  <p className="py-6 text-center text-[12px] text-[var(--brand)]">
+                    Pinjaman ini sudah lunas seluruhnya.
+                  </p>
+                ) : (
+                  <div className="max-h-72 overflow-y-auto rounded-xl border border-[var(--line)]">
+                    <table className="w-full table-fixed border-collapse text-left text-[12px]">
+                      <thead className="sticky top-0 bg-[var(--surface-2)]">
+                        <tr className="border-b border-[var(--line)] text-[10px] font-semibold uppercase tracking-wider text-[var(--text-faint)]">
+                          <th className="w-16 px-3 py-2">Ke-</th>
+                          <th className="px-3 py-2">Tanggal Bayar</th>
+                          <th className="w-28 px-3 py-2 text-right">Cicilan</th>
+                          <th className="hidden w-28 px-3 py-2 text-right sm:table-cell">
+                            Est. Bunga
+                          </th>
+                          <th className="w-32 px-3 py-2 text-right">Est. Sisa</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--line)]">
+                        {scheduleRows.map((row, i) => (
+                          <tr
+                            key={row.seq}
+                            className={i === 0 ? 'bg-[var(--brand-soft)]/35' : ''}
+                          >
+                            <td className="tnum px-3 py-2 font-semibold text-[var(--text-muted)]">
+                              #{row.seq}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className="tnum font-medium text-[var(--text)]">
+                                {formatFullDate(row.dateIso)}
+                              </span>
+                              {i === 0 && (
+                                <span className="ml-1.5 rounded bg-[var(--brand-soft)] px-1.5 py-0.2 text-[9.5px] font-semibold text-[var(--brand)]">
+                                  {row.daysLeft === 0
+                                    ? 'Hari ini'
+                                    : row.daysLeft > 0
+                                      ? `H-${row.daysLeft}`
+                                      : 'Berikutnya'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="tnum px-3 py-2 text-right font-semibold text-[var(--text)]">
+                              {formatRp(row.installment)}
+                            </td>
+                            <td className="tnum hidden px-3 py-2 text-right text-[var(--text-muted)] sm:table-cell">
+                              {row.estInterest > 0 ? formatRp(row.estInterest) : '-'}
+                            </td>
+                            <td className="tnum px-3 py-2 text-right text-[var(--due)]">
+                              {formatRp(row.estBalanceAfter)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                    {totalRemainingCount > scheduleRows.length && (
+                      <p className="border-t border-[var(--line)] bg-[var(--surface-2)]/60 px-3 py-2 text-center text-[11px] text-[var(--text-faint)]">
+                        Menampilkan 24 jadwal terdekat dari total {totalRemainingCount} sisa tenor.
+                      </p>
+                    )}
+                  </div>
+                )
+              ) : linkedPayments.length === 0 ? (
+                <p className="py-6 text-center text-[12px] text-[var(--text-muted)]">
+                  Belum ada transaksi pembayaran yang cocok di Arus Kas untuk pinjaman ini.
+                </p>
+              ) : (
+                <div className="max-h-72 overflow-y-auto rounded-xl border border-[var(--line)]">
+                  <table className="w-full table-fixed border-collapse text-left text-[12px]">
+                    <thead className="sticky top-0 bg-[var(--surface-2)]">
+                      <tr className="border-b border-[var(--line)] text-[10px] font-semibold uppercase tracking-wider text-[var(--text-faint)]">
+                        <th className="w-28 px-3 py-2">Tanggal</th>
+                        <th className="px-3 py-2">Keterangan</th>
+                        <th className="w-32 px-3 py-2 text-right">Nominal</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--line)]">
+                      {linkedPayments.map((tx) => (
+                        <tr key={tx.id}>
+                          <td className="tnum px-3 py-2 text-[var(--text-muted)]">
+                            {formatFullDate(tx.transaction_date)}
+                          </td>
+                          <td className="truncate px-3 py-2 text-[var(--text)]">
+                            {tx.description || tx.category}
+                          </td>
+                          <td className="tnum px-3 py-2 text-right font-semibold text-[var(--out)]">
+                            -{formatRp(tx.amount)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          );
+        })()}
+      </Modal>
     </div>
   );
 }

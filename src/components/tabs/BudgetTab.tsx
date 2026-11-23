@@ -1,8 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
-import { Calculator, Calendar, Layers, Trash2, Wallet } from 'lucide-react';
+import { Calendar, Check, ChevronDown, Trash2, Wallet } from 'lucide-react';
 import type { Budget, BudgetPeriod, Transaction } from '@/types/finance';
 import { formatDate, formatRp, todayIso } from '@/lib/format';
 import { CATEGORIES, getCategory } from '@/lib/categories';
@@ -72,6 +72,8 @@ export function BudgetTab({
   const [unitPrice, setUnitPrice] = useState('');
   const [amount, setAmount] = useState('');
   const [customUnits, setCustomUnits] = useState<string[]>([]);
+  const [unitOpen, setUnitOpen] = useState(false);
+  const unitRef = useRef<HTMLDivElement>(null);
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(addDaysIso(today, 1));
   const [saving, setSaving] = useState(false);
@@ -79,6 +81,24 @@ export function BudgetTab({
   useEffect(() => {
     setCustomUnits(loadCustomBudgetUnits());
   }, []);
+
+  useEffect(() => {
+    if (!unitOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (unitRef.current && !unitRef.current.contains(e.target as Node)) {
+        setUnitOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setUnitOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [unitOpen]);
 
   // Daftar kategori outflow yang ada agar mudah disambungkan 100% ke Arus Kas
   const outflowCategories = useMemo(() => {
@@ -234,9 +254,9 @@ export function BudgetTab({
           onSubmit={handleSave}
           className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4"
         >
-          {/* Baris 1: Kategori (nyambung Outflow) + Qty + Satuan (SBM / Custom) */}
-          <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-12">
-            <div className="sm:col-span-5">
+          {/* 1 Baris Ringkas: Kategori | Qty | Satuan (Dropdown ∨) | Harga/Satuan | Total Pagu | Atur pagu */}
+          <div className="flex flex-col gap-2.5 lg:flex-row lg:items-end">
+            <div className="min-w-0 flex-[1.6]">
               <label
                 htmlFor="budget-category"
                 className="mb-1 flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]"
@@ -272,8 +292,8 @@ export function BudgetTab({
               </datalist>
             </div>
 
-            <div className="grid grid-cols-2 gap-2 sm:col-span-3">
-              <div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 lg:flex lg:items-end lg:gap-2">
+              <div className="lg:w-20">
                 <label
                   htmlFor="budget-qty"
                   className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
@@ -288,126 +308,138 @@ export function BudgetTab({
                   step="any"
                   value={qty}
                   onChange={(e) => handleQtyChange(e.target.value)}
-                  placeholder="30"
+                  placeholder="1"
                   className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
                 />
               </div>
 
-              <div>
+              {/* Combobox Satuan: ketik bebas ATAU klik ∨ buka list satuan SBM & custom */}
+              <div ref={unitRef} className="relative lg:w-28">
                 <label
                   htmlFor="budget-unit"
                   className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
                 >
                   {isEn ? 'Unit' : 'Satuan'}
                 </label>
-                <input
-                  id="budget-unit"
-                  name="unit"
-                  type="text"
-                  list="budget-unit-memory"
-                  maxLength={24}
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  placeholder="OH / OT / ..."
-                  className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-                />
-                <datalist id="budget-unit-memory">
-                  {allUnitOptions.map((u) => {
-                    const def = DEFAULT_BUDGET_UNITS.find((d) => d.value === u);
-                    return (
-                      <option
-                        key={u}
-                        value={u}
-                        label={def ? (isEn ? def.hintEn : def.hintId) : 'Custom'}
-                      />
-                    );
-                  })}
-                </datalist>
-              </div>
-            </div>
-
-            <div className="sm:col-span-4">
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label
-                    htmlFor="budget-unit-price"
-                    className="mb-1 block truncate text-[11px] font-semibold text-[var(--text-muted)]"
-                  >
-                    {isEn ? 'Unit Price' : 'Harga / Satuan'}
-                  </label>
+                <div className="relative">
                   <input
-                    id="budget-unit-price"
-                    name="unitPrice"
-                    type="number"
-                    min="0"
-                    value={unitPrice}
-                    onChange={(e) => handleUnitPriceChange(e.target.value)}
-                    placeholder="50000"
-                    className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+                    id="budget-unit"
+                    name="unit"
+                    type="text"
+                    maxLength={24}
+                    value={unit}
+                    onChange={(e) => setUnit(e.target.value)}
+                    onFocus={() => setUnitOpen(true)}
+                    placeholder="OH / ..."
+                    className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] pl-2.5 pr-7 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
                   />
-                </div>
-                <div>
-                  <label
-                    htmlFor="budget-amount"
-                    className="mb-1 block truncate text-[11px] font-semibold text-[var(--text-muted)]"
-                  >
-                    {isEn ? 'Total Limit' : 'Total Pagu'}
-                  </label>
-                  <input
-                    id="budget-amount"
-                    name="amount"
-                    type="number"
-                    required
-                    min="1"
-                    value={amount}
-                    onChange={(e) => handleTotalChange(e.target.value)}
-                    placeholder="1500000"
-                    className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[13px] font-semibold text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Baris 2: Quick chips satuan SBM 2025 + memori custom + tombol Simpan */}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t border-[var(--line)] pt-2.5">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-faint)]">
-                <Layers className="size-3" aria-hidden />
-                Satuan:
-              </span>
-              {allUnitOptions.slice(0, 10).map((u) => {
-                const active = unit.trim().toLowerCase() === u.toLowerCase();
-                return (
                   <button
-                    key={u}
                     type="button"
-                    onClick={() => setUnit(u)}
-                    className={`rounded-md border px-2 py-0.5 text-[11px] font-medium transition ${
-                      active
-                        ? 'border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]'
-                        : 'border-[var(--line)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text)]'
-                    }`}
+                    onClick={() => setUnitOpen((v) => !v)}
+                    aria-label={isEn ? 'Toggle unit list' : 'Buka daftar satuan'}
+                    aria-expanded={unitOpen}
+                    className="absolute right-1 top-1/2 flex size-7 -translate-y-1/2 items-center justify-center rounded-md text-[var(--text-muted)] transition hover:bg-[var(--surface-1)] hover:text-[var(--text)]"
                   >
-                    {u}
+                    <ChevronDown
+                      className={`size-3.5 transition-transform duration-150 ${
+                        unitOpen ? 'rotate-180' : ''
+                      }`}
+                      aria-hidden
+                    />
                   </button>
-                );
-              })}
+                </div>
+
+                {unitOpen && (
+                  <div className="absolute right-0 top-full z-40 mt-1.5 w-56 overflow-hidden rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)] p-1 shadow-[var(--shadow-lg)]">
+                    <div className="border-b border-[var(--line)] px-2.5 py-1.5">
+                      <p className="text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                        Satuan SBM &amp; Custom
+                      </p>
+                      <p className="text-[10px] text-[var(--text-faint)]">
+                        Ketik bebas untuk simpan satuan baru
+                      </p>
+                    </div>
+                    <div className="max-h-52 overflow-y-auto py-1">
+                      {allUnitOptions.map((u) => {
+                        const def = DEFAULT_BUDGET_UNITS.find((d) => d.value === u);
+                        const active = unit.trim().toLowerCase() === u.toLowerCase();
+                        return (
+                          <button
+                            key={u}
+                            type="button"
+                            onClick={() => {
+                              setUnit(u);
+                              setUnitOpen(false);
+                            }}
+                            className={`flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-1.5 text-left text-[12px] transition ${
+                              active
+                                ? 'bg-[var(--brand-soft)] font-semibold text-[var(--brand)]'
+                                : 'text-[var(--text)] hover:bg-[var(--surface-2)]'
+                            }`}
+                          >
+                            <span className="min-w-0 truncate">
+                              <span>{u}</span>
+                              <span className="ml-1.5 text-[10px] font-normal text-[var(--text-faint)]">
+                                {def ? (isEn ? def.hintEn : def.hintId) : 'Custom'}
+                              </span>
+                            </span>
+                            {active && <Check className="size-3.5 shrink-0" aria-hidden />}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="lg:w-32">
+                <label
+                  htmlFor="budget-unit-price"
+                  className="mb-1 block truncate text-[11px] font-semibold text-[var(--text-muted)]"
+                >
+                  {isEn ? 'Unit Price' : 'Harga / Satuan'}
+                </label>
+                <input
+                  id="budget-unit-price"
+                  name="unitPrice"
+                  type="number"
+                  min="0"
+                  value={unitPrice}
+                  onChange={(e) => handleUnitPriceChange(e.target.value)}
+                  placeholder="50000"
+                  className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+                />
+              </div>
+
+              <div className="lg:w-36">
+                <label
+                  htmlFor="budget-amount"
+                  className="mb-1 block truncate text-[11px] font-semibold text-[var(--text-muted)]"
+                >
+                  {isEn ? 'Total Limit' : 'Total Pagu'}
+                </label>
+                <input
+                  id="budget-amount"
+                  name="amount"
+                  type="number"
+                  required
+                  min="1"
+                  value={amount}
+                  onChange={(e) => handleTotalChange(e.target.value)}
+                  placeholder="1500000"
+                  className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[13px] font-semibold text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+                />
+              </div>
             </div>
 
-            <div className="flex items-center gap-2.5">
-              {Number(qty) > 0 && Number(amount) > 0 && (
-                <span className="tnum hidden items-center gap-1 text-[11px] text-[var(--text-muted)] sm:inline-flex">
-                  <Calculator className="size-3 text-[var(--brand)]" aria-hidden />
-                  {formatQtyNum(Number(qty))} {unit.trim() || 'unit'} ×{' '}
-                  {formatRp(Math.round(Number(amount) / Number(qty)))} ={' '}
-                  <strong className="text-[var(--text)]">{formatRp(Number(amount))}</strong>
-                </span>
-              )}
-              <Button type="submit" size="sm" loading={saving} className="whitespace-nowrap">
-                {tBudget('set')}
-              </Button>
-            </div>
+            <Button
+              type="submit"
+              size="sm"
+              loading={saving}
+              className="shrink-0 whitespace-nowrap"
+            >
+              {tBudget('set')}
+            </Button>
           </div>
 
           {period === 'custom' && (
