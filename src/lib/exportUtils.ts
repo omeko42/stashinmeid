@@ -22,7 +22,10 @@ export interface ExportReportOptions {
   periodLabel?: string;
   scopeLabel?: string;
   walletMap?: Record<string, string>;
+  walletKindMap?: Record<string, string>;
   totalBalance?: number;
+  cashBalance?: number;
+  nonCashBalance?: number;
   budgets?: Budget[];
 }
 
@@ -47,6 +50,94 @@ function formatShortDateId(iso: string): string {
   ];
   const mIdx = Math.max(0, Math.min(11, Number(parts[1]) - 1));
   return `${parts[2]} ${months[mIdx]} ${parts[0]}`;
+}
+
+function formatTimeHms(isoTimestamp?: string | null): string {
+  if (!isoTimestamp) return '00:00:00';
+  const d = new Date(isoTimestamp);
+  if (Number.isNaN(d.getTime())) return '00:00:00';
+  return d.toLocaleTimeString('id-ID', {
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).replace(/\./g, ':');
+}
+
+function formatPrintedDateTime(): string {
+  const now = new Date();
+  const datePart = formatShortDateId(now.toISOString().slice(0, 10));
+  const timePart = formatTimeHms(now.toISOString());
+  return `${datePart}, ${timePart} WIB`;
+}
+
+function isNonCashTx(tx: Transaction, walletKindMap?: Record<string, string>): boolean {
+  if (tx.account_id) {
+    const kind = walletKindMap?.[tx.account_id];
+    if (kind === 'cash' || kind === 'other') return false;
+    return true;
+  }
+  return tx.source === 'manual_non_physical';
+}
+
+interface EnrichedStatementRow {
+  tx: Transaction;
+  dateLabel: string;
+  timeLabel: string;
+  walletName: string;
+  runningTotal: number;
+  runningCash: number;
+  runningNonCash: number;
+}
+
+/**
+ * Urutkan transaksi terbaru -> terlama dan hitung saldo akhir per baris
+ * (Total, Tunai, Non-Tunai) mundur dari saldo aktual saat ini agar 100% klop.
+ */
+function buildEnrichedRows(
+  transactions: Transaction[],
+  options?: ExportReportOptions
+): EnrichedStatementRow[] {
+  const sorted = [...transactions].sort((a, b) => {
+    const dCmp = b.transaction_date.localeCompare(a.transaction_date);
+    if (dCmp !== 0) return dCmp;
+    return (b.created_at || '').localeCompare(a.created_at || '');
+  });
+
+  const fallbackNet = sorted.reduce(
+    (s, t) => s + (t.type === 'inflow' ? Number(t.amount) : -Number(t.amount)),
+    0
+  );
+  let curCash =
+    typeof options?.cashBalance === 'number' ? options.cashBalance : 0;
+  let curNonCash =
+    typeof options?.nonCashBalance === 'number'
+      ? options.nonCashBalance
+      : typeof options?.totalBalance === 'number'
+        ? options.totalBalance - curCash
+        : fallbackNet;
+
+  return sorted.map((tx) => {
+    const row: EnrichedStatementRow = {
+      tx,
+      dateLabel: formatShortDateId(tx.transaction_date),
+      timeLabel: formatTimeHms(tx.created_at),
+      walletName: resolveWalletName(tx, options?.walletMap),
+      runningTotal: curCash + curNonCash,
+      runningCash: curCash,
+      runningNonCash: curNonCash,
+    };
+
+    // Mundurkan saldo ke posisi sebelum transaksi ini terjadi
+    const amt = Number(tx.amount);
+    const delta = tx.type === 'inflow' ? -amt : amt;
+    if (isNonCashTx(tx, options?.walletKindMap)) {
+      curNonCash += delta;
+    } else {
+      curCash += delta;
+    }
+    return row;
+  });
 }
 
 function makeDocRef(): string {
@@ -113,11 +204,10 @@ export async function exportToPDF(
 
   const { dataUrl: logoDataUrl } = await loadBrandLogo();
   const docRef = makeDocRef();
-  const printedDate = formatShortDateId(new Date().toISOString().slice(0, 10));
+  const printedDate = formatPrintedDateTime();
 
-  const sortedTxs = [...transactions].sort((a, b) =>
-    b.transaction_date.localeCompare(a.transaction_date)
-  );
+  const enrichedRows = buildEnrichedRows(transactions, options);
+  const sortedTxs = enrichedRows.map((r) => r.tx);
   const totalInflow = sortedTxs
     .filter((t) => t.type === 'inflow')
     .reduce((s, t) => s + Number(t.amount), 0);
@@ -263,18 +353,26 @@ export async function exportToPDF(
   autoTable(doc, {
     startY: cursorY + 3,
     margin: { left: margin, right: margin, bottom: 18 },
-    head: [['TANGGAL', 'URAIAN TRANSAKSI', 'KATEGORI & DOMPET', 'KELUAR (IDR)', 'MASUK (IDR)']],
-    body: sortedTxs.map((t) => [
-      formatShortDateId(t.transaction_date),
-      (t.description || t.category || '-').slice(0, 72),
-      `${t.category}\n${resolveWalletName(t, options?.walletMap)}`,
-      t.type === 'outflow' ? formatNum(Number(t.amount)) : '-',
-      t.type === 'inflow' ? formatNum(Number(t.amount)) : '-',
+    head: [
+      [
+        'TANGGAL & WAKTU',
+        'URAIAN TRANSAKSI',
+        'KELUAR (IDR)',
+        'MASUK (IDR)',
+        'SALDO AKHIR (IDR)',
+      ],
+    ],
+    body: enrichedRows.map((r) => [
+      `${r.dateLabel}\n${r.timeLabel}`,
+      `${(r.tx.description || r.tx.category || '-').slice(0, 72)}\n${r.tx.category} · ${r.walletName}`,
+      r.tx.type === 'outflow' ? formatNum(Number(r.tx.amount)) : '-',
+      r.tx.type === 'inflow' ? formatNum(Number(r.tx.amount)) : '-',
+      `Total: ${formatNum(r.runningTotal)}\nTunai: ${formatNum(r.runningCash)}\nNon-Tunai: ${formatNum(r.runningNonCash)}`,
     ]),
     theme: 'grid',
     styles: {
-      fontSize: 7.5,
-      cellPadding: 2.3,
+      fontSize: 7.2,
+      cellPadding: 2.2,
       lineColor: [226, 232, 230],
       lineWidth: 0.2,
       textColor: [24, 32, 30],
@@ -284,17 +382,17 @@ export async function exportToPDF(
       fillColor: [18, 25, 30],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 7.5,
+      fontSize: 7.2,
     },
     alternateRowStyles: {
       fillColor: [249, 251, 250],
     },
     columnStyles: {
-      0: { cellWidth: 23, fontStyle: 'bold', textColor: [75, 85, 82] },
-      1: { cellWidth: 68 },
-      2: { cellWidth: 39, fontSize: 7, textColor: [90, 102, 98] },
-      3: { cellWidth: 26, halign: 'right', textColor: [200, 55, 68] },
-      4: { cellWidth: 26, halign: 'right', textColor: [14, 145, 100] },
+      0: { cellWidth: 24, fontStyle: 'bold', textColor: [75, 85, 82], fontSize: 6.8 },
+      1: { cellWidth: 70 },
+      2: { cellWidth: 24, halign: 'right', textColor: [200, 55, 68], fontStyle: 'bold' },
+      3: { cellWidth: 24, halign: 'right', textColor: [14, 145, 100], fontStyle: 'bold' },
+      4: { cellWidth: 40, halign: 'right', fontSize: 6.7, textColor: [42, 52, 48] },
     },
   });
 
@@ -435,9 +533,8 @@ export function exportToExcel(
   options?: ExportReportOptions
 ) {
   const wb = XLSX.utils.book_new();
-  const sortedTxs = [...transactions].sort((a, b) =>
-    b.transaction_date.localeCompare(a.transaction_date)
-  );
+  const enrichedRows = buildEnrichedRows(transactions, options);
+  const sortedTxs = enrichedRows.map((r) => r.tx);
   const totalInflow = sortedTxs
     .filter((t) => t.type === 'inflow')
     .reduce((s, t) => s + Number(t.amount), 0);
@@ -454,7 +551,7 @@ export function exportToExcel(
     ['Pemilik Akun', clientName || 'Pengguna StashinMe'],
     ['Ruang Keuangan', options?.scopeLabel || 'Semua Ruang'],
     ['Periode Laporan', options?.periodLabel || 'Semua Periode'],
-    ['Tanggal Cetak', new Date().toISOString().slice(0, 10)],
+    ['Tanggal & Waktu Cetak', formatPrintedDateTime()],
     ['Nomor Referensi', makeDocRef()],
     [],
     ['RINGKASAN REKENING', 'NOMINAL (IDR)'],
@@ -462,7 +559,13 @@ export function exportToExcel(
     ['Total Transaksi Keluar', totalOutflow],
     ['Arus Bersih (Net)', totalInflow - totalOutflow],
     ...(typeof options?.totalBalance === 'number'
-      ? [['Total Saldo Dompet', options.totalBalance]]
+      ? [['Total Saldo Akhir', options.totalBalance]]
+      : []),
+    ...(typeof options?.cashBalance === 'number'
+      ? [['Saldo Akhir Tunai', options.cashBalance]]
+      : []),
+    ...(typeof options?.nonCashBalance === 'number'
+      ? [['Saldo Akhir Non-Tunai', options.nonCashBalance]]
       : []),
     ['Total Sisa Pinjaman Aktif', totalDebt],
   ];
@@ -470,28 +573,39 @@ export function exportToExcel(
   wsSummary['!cols'] = [{ wch: 28 }, { wch: 28 }];
   XLSX.utils.book_append_sheet(wb, wsSummary, 'Ringkasan');
 
-  // Sheet 2: Arus Kas
+  // Sheet 2: Arus Kas (dengan waktu HH:mm:ss & saldo akhir Total/Tunai/Non-Tunai)
   const txSheetRows = [
-    ['Tanggal', 'Keterangan', 'Kategori', 'Dompet', 'Tipe', 'Keluar (IDR)', 'Masuk (IDR)'],
-    ...sortedTxs.map((t) => [
-      t.transaction_date,
-      t.description || t.category,
-      t.category,
-      resolveWalletName(t, options?.walletMap),
-      t.type === 'inflow' ? 'Masuk' : 'Keluar',
-      t.type === 'outflow' ? Number(t.amount) : 0,
-      t.type === 'inflow' ? Number(t.amount) : 0,
+    [
+      'Tanggal',
+      'Waktu (WIB)',
+      'Uraian Transaksi & Kategori · Dompet',
+      'Keluar (IDR)',
+      'Masuk (IDR)',
+      'Saldo Akhir Total (IDR)',
+      'Saldo Akhir Tunai (IDR)',
+      'Saldo Akhir Non-Tunai (IDR)',
+    ],
+    ...enrichedRows.map((r) => [
+      r.tx.transaction_date,
+      r.timeLabel,
+      `${r.tx.description || r.tx.category} (${r.tx.category} · ${r.walletName})`,
+      r.tx.type === 'outflow' ? Number(r.tx.amount) : 0,
+      r.tx.type === 'inflow' ? Number(r.tx.amount) : 0,
+      r.runningTotal,
+      r.runningCash,
+      r.runningNonCash,
     ]),
   ];
   const wsTx = XLSX.utils.aoa_to_sheet(txSheetRows);
   wsTx['!cols'] = [
     { wch: 13 },
-    { wch: 42 },
+    { wch: 12 },
+    { wch: 48 },
+    { wch: 16 },
+    { wch: 16 },
     { wch: 20 },
-    { wch: 18 },
-    { wch: 10 },
-    { wch: 16 },
-    { wch: 16 },
+    { wch: 20 },
+    { wch: 22 },
   ];
   XLSX.utils.book_append_sheet(wb, wsTx, 'Arus Kas');
 
@@ -570,11 +684,10 @@ export async function exportToWord(
 ) {
   const { bytes: logoBytes } = await loadBrandLogo();
   const docRef = makeDocRef();
-  const printedDate = formatShortDateId(new Date().toISOString().slice(0, 10));
+  const printedDate = formatPrintedDateTime();
 
-  const sortedTxs = [...transactions].sort((a, b) =>
-    b.transaction_date.localeCompare(a.transaction_date)
-  );
+  const enrichedRows = buildEnrichedRows(transactions, options);
+  const sortedTxs = enrichedRows.map((r) => r.tx);
   const totalInflow = sortedTxs
     .filter((t) => t.type === 'inflow')
     .reduce((s, t) => s + Number(t.amount), 0);
@@ -713,34 +826,100 @@ export async function exportToWord(
               new TableRow({
                 tableHeader: true,
                 children: [
-                  makeHeaderCell('TANGGAL'),
-                  makeHeaderCell('URAIAN'),
-                  makeHeaderCell('KATEGORI & DOMPET'),
+                  makeHeaderCell('TANGGAL & WAKTU'),
+                  makeHeaderCell('URAIAN TRANSAKSI'),
                   makeHeaderCell('KELUAR (IDR)', AlignmentType.RIGHT),
                   makeHeaderCell('MASUK (IDR)', AlignmentType.RIGHT),
+                  makeHeaderCell('SALDO AKHIR (IDR)', AlignmentType.RIGHT),
                 ],
               }),
-              ...sortedTxs.map(
-                (t) =>
+              ...enrichedRows.map(
+                (r) =>
                   new TableRow({
                     children: [
-                      makeCell(formatShortDateId(t.transaction_date)),
-                      makeCell((t.description || t.category).slice(0, 70)),
+                      new TableCell({
+                        borders: cellBorder,
+                        children: [
+                          new Paragraph({
+                            children: [
+                              new TextRun({ text: r.dateLabel, bold: true, size: 16 }),
+                            ],
+                          }),
+                          new Paragraph({
+                            children: [
+                              new TextRun({ text: r.timeLabel, color: '5E6B66', size: 15 }),
+                            ],
+                          }),
+                        ],
+                      }),
+                      new TableCell({
+                        borders: cellBorder,
+                        children: [
+                          new Paragraph({
+                            children: [
+                              new TextRun({
+                                text: (r.tx.description || r.tx.category).slice(0, 72),
+                                bold: true,
+                                size: 16,
+                              }),
+                            ],
+                          }),
+                          new Paragraph({
+                            children: [
+                              new TextRun({
+                                text: `${r.tx.category} · ${r.walletName}`,
+                                color: '5E6B66',
+                                size: 15,
+                              }),
+                            ],
+                          }),
+                        ],
+                      }),
                       makeCell(
-                        `${t.category} · ${resolveWalletName(t, options?.walletMap)}`,
-                        AlignmentType.LEFT,
-                        '5E6B66'
-                      ),
-                      makeCell(
-                        t.type === 'outflow' ? formatNum(Number(t.amount)) : '-',
+                        r.tx.type === 'outflow' ? formatNum(Number(r.tx.amount)) : '-',
                         AlignmentType.RIGHT,
                         'D64550'
                       ),
                       makeCell(
-                        t.type === 'inflow' ? formatNum(Number(t.amount)) : '-',
+                        r.tx.type === 'inflow' ? formatNum(Number(r.tx.amount)) : '-',
                         AlignmentType.RIGHT,
                         '0E9F6E'
                       ),
+                      new TableCell({
+                        borders: cellBorder,
+                        children: [
+                          new Paragraph({
+                            alignment: AlignmentType.RIGHT,
+                            children: [
+                              new TextRun({
+                                text: `Total: ${formatNum(r.runningTotal)}`,
+                                bold: true,
+                                size: 15,
+                              }),
+                            ],
+                          }),
+                          new Paragraph({
+                            alignment: AlignmentType.RIGHT,
+                            children: [
+                              new TextRun({
+                                text: `Tunai: ${formatNum(r.runningCash)}`,
+                                color: '5E6B66',
+                                size: 14,
+                              }),
+                            ],
+                          }),
+                          new Paragraph({
+                            alignment: AlignmentType.RIGHT,
+                            children: [
+                              new TextRun({
+                                text: `Non-Tunai: ${formatNum(r.runningNonCash)}`,
+                                color: '5E6B66',
+                                size: 14,
+                              }),
+                            ],
+                          }),
+                        ],
+                      }),
                     ],
                   })
               ),

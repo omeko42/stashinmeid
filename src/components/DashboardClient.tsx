@@ -2044,14 +2044,19 @@ export default function DashboardClient({
             ? `Grup: ${activeGroup.name}`
             : 'Semua Ruang';
     const walletMap: Record<string, string> = {};
+    const walletKindMap: Record<string, string> = {};
     for (const acc of assets.accounts) {
       walletMap[acc.id] = acc.name;
+      walletKindMap[acc.id] = acc.kind;
     }
     return {
       periodLabel: periodLabel || (isEn ? 'All Periods' : 'Semua Periode'),
       scopeLabel,
       walletMap,
+      walletKindMap,
       totalBalance: computedTotals.total,
+      cashBalance: computedTotals.physical,
+      nonCashBalance: computedTotals.nonPhysical,
       budgets: budgets.budgets,
     };
   };
