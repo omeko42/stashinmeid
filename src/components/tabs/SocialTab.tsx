@@ -214,30 +214,13 @@ export function SocialTab({
   const [draftMemberTitle, setDraftMemberTitle] = useState('');
   const [savingMemberTitle, setSavingMemberTitle] = useState(false);
 
-  // State popover daftar grup (nav tool ∨), modal detail list anggota, & modal cepat cari kolega
+  // State list tabel grup (collapsible via ∨ + search), modal buat grup, modal detail anggota, & modal cepat cari kolega
   const [groupListOpen, setGroupListOpen] = useState(false);
-  const groupListRef = useRef<HTMLDivElement>(null);
+  const [groupSearch, setGroupSearch] = useState('');
+  const [createGroupModalOpen, setCreateGroupModalOpen] = useState(false);
   const [membersModalOpen, setMembersModalOpen] = useState(false);
   const [memberSearch, setMemberSearch] = useState('');
   const [findModalOpen, setFindModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (!groupListOpen) return;
-    const onDown = (e: MouseEvent) => {
-      if (groupListRef.current && !groupListRef.current.contains(e.target as Node)) {
-        setGroupListOpen(false);
-      }
-    };
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') setGroupListOpen(false);
-    };
-    document.addEventListener('mousedown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [groupListOpen]);
 
   // State Berita & Pasar Live (Gratis: CNBC ID, Antara, CoinTelegraph, CoinGecko, ECB)
   const [newsFilter, setNewsFilter] = useState<'all' | FinanceNewsItem['region']>('all');
@@ -375,6 +358,7 @@ export function SocialTab({
     try {
       await kolega.createGroup(newGroupName.trim());
       setNewGroupName('');
+      setCreateGroupModalOpen(false);
       toast.success(tKolega('created'));
     } catch (e) {
       toast.error(e instanceof Error ? e.message : tKolega('failed'));
@@ -630,69 +614,47 @@ export function SocialTab({
             </section>
           )}
 
-          {/* Bar Pemilih Grup Kolega (Ringkas + Popover Nav ∨) + Buat Grup Baru */}
-          <section
-            ref={groupListRef}
-            className="relative rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-4"
-          >
-            <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-              <div className="flex min-w-0 flex-col gap-1.5">
-                <div className="flex items-center gap-2">
-                  <Label>Grup Kolega</Label>
-                  {kolega.groups.length > 0 && (
-                    <span className="tnum text-[10px] font-medium text-[var(--text-faint)]">
-                      ({kolega.groups.length} grup)
-                    </span>
-                  )}
-                </div>
-
-                {kolega.groups.length === 0 ? (
-                  <span className="text-[12px] text-[var(--text-muted)]">
-                    Belum ada grup. Buat grup baru di kanan.
-                  </span>
-                ) : selectedGroup ? (
-                  <button
-                    type="button"
-                    onClick={() => setGroupListOpen((v) => !v)}
-                    aria-expanded={groupListOpen}
-                    aria-haspopup="listbox"
-                    className="inline-flex h-9 w-fit max-w-full items-center gap-2 rounded-lg border border-[var(--brand)] bg-[var(--brand-soft)] px-3 text-[12px] font-semibold text-[var(--brand)] transition hover:brightness-105"
-                  >
-                    <Building2 className="size-3.5 shrink-0" aria-hidden />
-                    <span className="truncate">{selectedGroup.name}</span>
-                    <span className="shrink-0 rounded-full bg-[var(--surface-1)] px-1.5 py-0.5 text-[10px] leading-none">
-                      {selectedGroup.members.length > 99
-                        ? '99+'
-                        : selectedGroup.members.length}{' '}
-                      anggota
-                    </span>
-                  </button>
-                ) : null}
+          {/* Bar Grup Kolega: Label + Search Box + Buat Grup + Toggle ∨ List Tabel */}
+          <section className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)]">
+            <div className="flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex shrink-0 items-center gap-2">
+                <Label>Grup Kolega</Label>
+                <span className="tnum rounded-full border border-[var(--line)] bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-semibold text-[var(--text-muted)]">
+                  {kolega.groups.length}
+                </span>
               </div>
 
-              {/* Form Buat Grup Baru + Nav Tool ∨ Buka List Grup */}
-              <div className="flex items-center gap-2">
-                <input
-                  id="social-new-group-name"
-                  name="newGroupName"
-                  type="text"
-                  value={newGroupName}
-                  onChange={(e) => setNewGroupName(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && newGroupName.trim()) {
-                      e.preventDefault();
-                      void handleCreateGroup();
-                    }
-                  }}
-                  placeholder="Nama grup baru (mis. PT Maju / Keluarga)"
-                  aria-label="Nama grup keuangan baru"
-                  maxLength={80}
-                  className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none sm:w-64"
-                />
+              {/* Search Box Grup + Tombol + Grup + Toggle ∨ List Tabel */}
+              <div className="flex flex-1 items-center justify-end gap-2">
+                <div className="relative flex-1 sm:max-w-sm">
+                  <Search
+                    className="pointer-events-none absolute left-3 top-1/2 size-3.5 -translate-y-1/2 text-[var(--text-faint)]"
+                    aria-hidden
+                  />
+                  <input
+                    id="social-group-search"
+                    name="groupSearch"
+                    type="search"
+                    value={groupSearch}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setGroupSearch(val);
+                      if (val.trim() && !groupListOpen) {
+                        setGroupListOpen(true);
+                      }
+                    }}
+                    placeholder="Cari grup berdasarkan nama atau jabatan..."
+                    aria-label="Cari grup kolega"
+                    className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] pl-9 pr-3 text-[12px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+                  />
+                </div>
+
                 <Button
                   size="sm"
-                  onClick={handleCreateGroup}
-                  loading={creatingGroup}
+                  onClick={() => {
+                    setNewGroupName('');
+                    setCreateGroupModalOpen(true);
+                  }}
                   icon={<Plus className="size-3.5" />}
                   className="shrink-0 whitespace-nowrap"
                 >
@@ -700,106 +662,179 @@ export function SocialTab({
                 </Button>
 
                 {kolega.groups.length > 0 && (
-                  <div className="relative shrink-0">
-                    <button
-                      type="button"
-                      onClick={() => setGroupListOpen((v) => !v)}
-                      aria-label="Buka daftar grup"
-                      aria-expanded={groupListOpen}
-                      aria-haspopup="listbox"
-                      title="Daftar Grup Kolega"
-                      className={cn(
-                        'inline-flex size-9 items-center justify-center rounded-lg border transition',
-                        groupListOpen
-                          ? 'border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]'
-                          : 'border-[var(--line)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text)]'
-                      )}
-                    >
-                      <ChevronDown
-                        className={cn(
-                          'size-4 transition-transform duration-150',
-                          groupListOpen && 'rotate-180'
-                        )}
-                        aria-hidden
-                      />
-                    </button>
-
-                    {groupListOpen && (
-                      <div
-                        role="listbox"
-                        aria-label="Pilih Grup Kolega"
-                        className="absolute right-0 top-full z-40 mt-2 w-72 overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)] shadow-[var(--shadow-lg)]"
-                      >
-                        <div className="flex items-center justify-between border-b border-[var(--line)] px-3 py-2">
-                          <span className="text-[11px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
-                            Daftar Grup ({kolega.groups.length})
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => setGroupListOpen(false)}
-                            className="rounded p-0.5 text-[var(--text-faint)] transition hover:text-[var(--text)]"
-                            aria-label="Tutup daftar grup"
-                          >
-                            <X className="size-3.5" aria-hidden />
-                          </button>
-                        </div>
-
-                        <div className="max-h-64 divide-y divide-[var(--line)] overflow-y-auto p-1.5">
-                          {kolega.groups.map((g) => {
-                            const active = selectedGroup?.id === g.id;
-                            return (
-                              <button
-                                key={g.id}
-                                type="button"
-                                role="option"
-                                aria-selected={active}
-                                onClick={() => {
-                                  setActiveGroupId(g.id);
-                                  setGroupListOpen(false);
-                                }}
-                                className={cn(
-                                  'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left transition',
-                                  active
-                                    ? 'bg-[var(--brand-soft)] text-[var(--brand)]'
-                                    : 'text-[var(--text)] hover:bg-[var(--surface-2)]'
-                                )}
-                              >
-                                <div className="flex min-w-0 items-center gap-2">
-                                  <Building2
-                                    className={cn(
-                                      'size-3.5 shrink-0',
-                                      active
-                                        ? 'text-[var(--brand)]'
-                                        : 'text-[var(--text-muted)]'
-                                    )}
-                                    aria-hidden
-                                  />
-                                  <div className="min-w-0">
-                                    <p className="truncate text-[12px] font-semibold">
-                                      {g.name}
-                                    </p>
-                                    <p className="tnum text-[10px] text-[var(--text-muted)]">
-                                      {g.members.length} anggota
-                                      {g.isOwner ? ' · Pemilik' : ''}
-                                    </p>
-                                  </div>
-                                </div>
-                                {active && (
-                                  <Check
-                                    className="size-3.5 shrink-0 text-[var(--brand)]"
-                                    aria-hidden
-                                  />
-                                )}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
+                  <button
+                    type="button"
+                    onClick={() => setGroupListOpen((v) => !v)}
+                    aria-label={
+                      groupListOpen
+                        ? 'Tutup tabel daftar grup'
+                        : 'Buka tabel daftar grup'
+                    }
+                    aria-expanded={groupListOpen}
+                    title="Lihat Tabel Daftar Grup"
+                    className={cn(
+                      'inline-flex size-9 shrink-0 items-center justify-center rounded-lg border transition',
+                      groupListOpen
+                        ? 'border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]'
+                        : 'border-[var(--line)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text)]'
                     )}
-                  </div>
+                  >
+                    <ChevronDown
+                      className={cn(
+                        'size-4 transition-transform duration-150',
+                        groupListOpen && 'rotate-180'
+                      )}
+                      aria-hidden
+                    />
+                  </button>
                 )}
               </div>
             </div>
+
+            {/* List Tabel Grup (Collapsible Accordion, bukan popover) */}
+            <AnimatePresence initial={false}>
+              {groupListOpen && kolega.groups.length > 0 && (
+                <motion.div
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="overflow-hidden border-t border-[var(--line)]"
+                >
+                  {(() => {
+                    const q = groupSearch.trim().toLowerCase();
+                    const filteredGroups = kolega.groups.filter((g) => {
+                      if (!q) return true;
+                      if (g.name.toLowerCase().includes(q)) return true;
+                      return g.members.some(
+                        (m) =>
+                          (m.title || '').toLowerCase().includes(q) ||
+                          (m.profile?.client_name || '').toLowerCase().includes(q)
+                      );
+                    });
+
+                    if (filteredGroups.length === 0) {
+                      return (
+                        <div className="flex flex-col items-center justify-center gap-2.5 px-4 py-6 text-center">
+                          <p className="text-[12px] text-[var(--text-muted)]">
+                            Tidak ada grup yang cocok dengan &ldquo;{groupSearch.trim()}&rdquo;.
+                          </p>
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            icon={<Plus className="size-3.5" />}
+                            onClick={() => {
+                              setNewGroupName(groupSearch.trim());
+                              setCreateGroupModalOpen(true);
+                            }}
+                          >
+                            Buat grup &ldquo;{groupSearch.trim()}&rdquo;
+                          </Button>
+                        </div>
+                      );
+                    }
+
+                    return (
+                      <div className="max-h-72 overflow-y-auto">
+                        <table className="w-full table-fixed border-collapse text-left">
+                          <thead className="sticky top-0 z-10 bg-[var(--surface-2)]/95 backdrop-blur-sm">
+                            <tr className="border-b border-[var(--line)] text-[10px] font-semibold uppercase tracking-wider text-[var(--text-faint)]">
+                              <th className="px-4 py-2.5">Nama Grup</th>
+                              <th className="hidden w-36 px-3 py-2.5 sm:table-cell">
+                                Jabatan
+                              </th>
+                              <th className="w-28 px-3 py-2.5">Anggota</th>
+                              <th className="hidden w-36 px-3 py-2.5 text-right md:table-cell">
+                                Saldo Bersih
+                              </th>
+                              <th className="w-24 px-4 py-2.5 text-right">Status</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-[var(--line)] text-[12px]">
+                            {filteredGroups.map((g) => {
+                              const active = selectedGroup?.id === g.id;
+                              const selfOrOwner =
+                                g.members.find((m) => m.isSelf) ??
+                                g.members.find((m) => m.user_id === g.owner_id);
+                              const roleBadge =
+                                selfOrOwner?.title ||
+                                (g.isOwner ? tKolega('owner') : 'Anggota');
+                              const netBalance =
+                                (g.totals?.inflow ?? 0) - (g.totals?.outflow ?? 0);
+
+                              return (
+                                <tr
+                                  key={g.id}
+                                  onClick={() => {
+                                    setActiveGroupId(g.id);
+                                    setGroupListOpen(false);
+                                  }}
+                                  className={cn(
+                                    'cursor-pointer transition',
+                                    active
+                                      ? 'bg-[var(--brand-soft)]/50'
+                                      : 'hover:bg-[var(--surface-2)]/80'
+                                  )}
+                                >
+                                  <td className="px-4 py-2.5">
+                                    <div className="flex min-w-0 items-center gap-2.5">
+                                      <span
+                                        className={cn(
+                                          'flex size-7 shrink-0 items-center justify-center rounded-lg border',
+                                          active
+                                            ? 'border-[var(--brand)]/40 bg-[var(--brand-soft)] text-[var(--brand)]'
+                                            : 'border-[var(--line)] bg-[var(--surface-2)] text-[var(--text-muted)]'
+                                        )}
+                                      >
+                                        <Building2 className="size-3.5" aria-hidden />
+                                      </span>
+                                      <span
+                                        className={cn(
+                                          'truncate font-semibold',
+                                          active
+                                            ? 'text-[var(--brand)]'
+                                            : 'text-[var(--text)]'
+                                        )}
+                                      >
+                                        {g.name}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className="hidden px-3 py-2.5 sm:table-cell">
+                                    <span className="inline-block max-w-full truncate rounded-md border border-[var(--line)] bg-[var(--surface-2)] px-2 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+                                      {roleBadge}
+                                    </span>
+                                  </td>
+                                  <td className="tnum px-3 py-2.5 text-[var(--text-muted)]">
+                                    {g.members.length > 99 ? '99+' : g.members.length}{' '}
+                                    anggota
+                                  </td>
+                                  <td className="hidden px-3 py-2.5 text-right md:table-cell">
+                                    <Amount value={formatRp(netBalance)} size="sm" />
+                                  </td>
+                                  <td className="px-4 py-2.5 text-right">
+                                    {active ? (
+                                      <span className="inline-flex items-center gap-1 rounded-full bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                                        <Check className="size-3" aria-hidden />
+                                        Aktif
+                                      </span>
+                                    ) : (
+                                      <span className="text-[11px] font-medium text-[var(--text-muted)]">
+                                        Pilih →
+                                      </span>
+                                    )}
+                                  </td>
+                                </tr>
+                              );
+                            })}
+                          </tbody>
+                        </table>
+                      </div>
+                    );
+                  })()}
+                </motion.div>
+              )}
+            </AnimatePresence>
           </section>
 
           {/* Ringkasan Detail Grup yang Sedang Dipilih */}
@@ -2294,6 +2329,64 @@ export function SocialTab({
             </Button>
           </div>
         </div>
+      </Modal>
+
+      {/* Pop-up Buat Grup Keuangan Baru */}
+      <Modal
+        open={createGroupModalOpen}
+        onClose={() => setCreateGroupModalOpen(false)}
+        title="Buat Grup Baru"
+        description="Buat ruang keuangan bersama untuk keluarga, tim, atau usaha."
+        size="sm"
+      >
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (newGroupName.trim()) {
+              void handleCreateGroup();
+            }
+          }}
+          className="space-y-4"
+        >
+          <div>
+            <label
+              htmlFor="social-create-group-name"
+              className="mb-1.5 block text-[12px] font-medium text-[var(--text-muted)]"
+            >
+              Nama Grup
+            </label>
+            <input
+              id="social-create-group-name"
+              name="newGroupName"
+              type="text"
+              autoFocus
+              value={newGroupName}
+              onChange={(e) => setNewGroupName(e.target.value)}
+              placeholder="Mis. Keluarga, PT Maju, Arisan RT"
+              maxLength={80}
+              className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2">
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setCreateGroupModalOpen(false)}
+            >
+              Batal
+            </Button>
+            <Button
+              type="submit"
+              size="sm"
+              loading={creatingGroup}
+              disabled={!newGroupName.trim()}
+              icon={<Plus className="size-3.5" />}
+            >
+              Buat Grup
+            </Button>
+          </div>
+        </form>
       </Modal>
 
       {/* Pop-up Detail List Anggota Grup */}
