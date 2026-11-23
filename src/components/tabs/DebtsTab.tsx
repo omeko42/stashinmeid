@@ -1358,23 +1358,23 @@ export function DebtsTab({
           <table className="hidden w-full table-fixed border-collapse text-left sm:table">
             <thead className="bg-[var(--surface-2)]">
               <tr className="border-b border-[var(--line)]">
-                {canEdit && <th className="w-[36px] px-3 py-2.5" />}
-                <th className="w-[156px] px-3 py-2.5">
+                {canEdit && <th className="w-[36px] pl-3 pr-1 py-2.5" />}
+                <th className="w-[136px] px-2.5 py-2.5">
                   <Label>{isEn ? 'Next Due' : 'Jatuh Tempo'}</Label>
                 </th>
-                <th className="px-3 py-2.5">
+                <th className="px-2.5 py-2.5">
                   <Label>{isEn ? 'Loan & Details' : 'Pinjaman & Detail'}</Label>
                 </th>
-                <th className="hidden w-[112px] px-3 py-2.5 lg:table-cell">
+                <th className="hidden w-[96px] px-2.5 py-2.5 lg:table-cell">
                   <Label>Tenor</Label>
                 </th>
-                <th className="w-[126px] px-3 py-2.5 text-right">
+                <th className="w-[124px] px-2.5 py-2.5 text-right">
                   <Label>{isEn ? 'Installment' : 'Cicilan / Bln'}</Label>
                 </th>
-                <th className="w-[138px] px-3 py-2.5 text-right">
+                <th className="w-[136px] px-2.5 py-2.5 text-right">
                   <Label>{isEn ? 'Remaining' : 'Sisa Pinjaman'}</Label>
                 </th>
-                <th className="w-[116px] px-3 py-2.5 text-right">
+                <th className="w-[118px] pl-2 pr-3 py-2.5 text-right">
                   <Label>{isEn ? 'Actions' : 'Aksi'}</Label>
                 </th>
               </tr>
@@ -1501,10 +1501,10 @@ export function DebtsTab({
                       />
                     </td>
                     <td
-                      className="px-3 py-2.5 text-right align-middle"
+                      className="pl-2 pr-3 py-2.5 text-right align-middle"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <div className="inline-flex items-center gap-0.5">
+                      <div className="inline-flex items-center justify-end gap-0.5">
                         <IconButton
                           size="sm"
                           label={isEn ? 'Schedule & details' : 'Jadwal & detail'}
@@ -1512,7 +1512,7 @@ export function DebtsTab({
                             setDetailTab('schedule');
                             setDetailDebt(debt);
                           }}
-                          className="text-[var(--text-faint)] hover:text-[var(--brand)]"
+                          className="!size-7 text-[var(--text-faint)] hover:text-[var(--brand)]"
                         >
                           <Eye className="size-3.5" />
                         </IconButton>
@@ -1524,7 +1524,7 @@ export function DebtsTab({
                               setFormTab('info');
                               onEdit(debt);
                             }}
-                            className="text-[var(--text-faint)] hover:text-[var(--brand)]"
+                            className="!size-7 text-[var(--text-faint)] hover:text-[var(--brand)]"
                           >
                             <Pencil className="size-3.5" />
                           </IconButton>
@@ -1534,7 +1534,7 @@ export function DebtsTab({
                             size="sm"
                             label={tCommon('delete')}
                             onClick={() => onDelete(debt.id)}
-                            className="text-[var(--text-faint)] hover:text-[var(--out)]"
+                            className="!size-7 text-[var(--text-faint)] hover:text-[var(--out)]"
                           >
                             <Trash2 className="size-3.5" />
                           </IconButton>
