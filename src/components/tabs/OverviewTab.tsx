@@ -6,10 +6,9 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowDownRight,
   ArrowUpRight,
-  Calendar,
   CalendarClock,
   Check,
-  SlidersHorizontal,
+  Filter,
 } from 'lucide-react';
 import type { Debt, Transaction } from '@/types/finance';
 import { daysUntil, formatDate, formatFullDate, formatRp } from '@/lib/format';
@@ -282,7 +281,7 @@ export function OverviewTab({
             title={isEn ? 'Change period filter' : 'Ubah filter periode'}
             className="inline-flex w-fit items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)]/80 px-2.5 py-1.5 text-[11px] font-semibold text-[var(--text-muted)] transition hover:border-[var(--brand)] hover:text-[var(--text)]"
           >
-            <Calendar className="size-3.5 text-[var(--brand)]" aria-hidden />
+            <Filter className="size-3.5 text-[var(--brand)]" aria-hidden />
             <span>{activePeriodLabel}</span>
             <span className="tnum text-[10px] text-[var(--text-faint)]">
               ({periodTransactions.length.toLocaleString('id-ID')})
@@ -338,7 +337,7 @@ export function OverviewTab({
               </p>
             </div>
 
-            {/* Ikon Filter Periode + Popover (Hari / Minggu / Bulan / YTD / Tahun / Semua / Custom) */}
+            {/* Ikon Filter Corong (icon-only) + Popover Periode */}
             <div ref={filterPopoverRef} className="relative shrink-0">
               <button
                 type="button"
@@ -346,15 +345,14 @@ export function OverviewTab({
                 aria-haspopup="dialog"
                 aria-expanded={filterOpen}
                 aria-label={isEn ? 'Filter period' : 'Filter periode'}
-                title={isEn ? `Period: ${activePeriodLabel}` : `Periode: ${activePeriodLabel}`}
-                className={`inline-flex h-9 items-center gap-2 rounded-lg border px-2.5 text-[12px] font-semibold transition ${
+                title={isEn ? `Filter period: ${activePeriodLabel}` : `Filter periode: ${activePeriodLabel}`}
+                className={`inline-flex size-9 items-center justify-center rounded-lg border transition ${
                   filterOpen
                     ? 'border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]'
-                    : 'border-[var(--line)] bg-[var(--surface-2)] text-[var(--text)] hover:border-[var(--line-strong)]'
+                    : 'border-[var(--line)] bg-[var(--surface-2)] text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text)]'
                 }`}
               >
-                <SlidersHorizontal className="size-3.5 shrink-0" aria-hidden />
-                <span className="hidden sm:inline">{activePeriodLabel}</span>
+                <Filter className="size-4" aria-hidden />
               </button>
 
               <AnimatePresence>
