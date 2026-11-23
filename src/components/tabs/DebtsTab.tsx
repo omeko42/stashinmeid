@@ -16,7 +16,6 @@ import {
   Pencil,
   Percent,
   Plus,
-  RefreshCw,
   RotateCcw,
   Search,
   Trash2,
@@ -27,9 +26,11 @@ import {
 import type { Debt, Transaction } from '@/types/finance';
 import { appNow, daysUntil, formatFullDate, formatRp } from '@/lib/format';
 import {
+  computeInstallmentFromInterest,
   estimateMonthlyInterest,
   nextDebtScheduleDate,
   parseDebtNotes,
+  type InstallmentMode,
   type InterestType,
 } from '@/lib/debtMeta';
 import { Amount, Label, Progress, Rule } from '@/components/ui/Surface';
@@ -39,6 +40,7 @@ import { Modal } from '@/components/ui/Modal';
 import { Segmented } from '@/components/ui/Segmented';
 
 export interface DebtFormState {
+  installmentMode: InstallmentMode;
   platform: string;
   contract: string;
   balance: string;
@@ -242,8 +244,9 @@ export function DebtsTab({
     return { rows, totalRemainingCount: remTenor };
   };
 
-  // Baris jadwal yang bisa diedit per-bulan di dalam modal Edit/Tambah Pinjaman
+  // Baris jadwal yang bisa diedit/dipratinjau di dalam modal Edit/Tambah Pinjaman
   const editableSchedule = useMemo(() => {
+    const mode: InstallmentMode = debtForm.installmentMode || 'fixed';
     const editingDebtObj = editingDebtId
       ? debts.find((d) => d.id === editingDebtId) ?? null
       : null;
@@ -251,20 +254,43 @@ export function DebtsTab({
       31,
       Math.max(1, Number(debtForm.dueDay || debtForm.autoPayDay) || 1)
     );
-    const defaultInst = Math.max(0, Number(debtForm.installment) || 0);
-    let remBal = Math.max(0, Number(debtForm.balance) || 0);
+    const parsedBal = Math.max(0, Number(debtForm.balance) || 0);
     const parsedTenor = Number(debtForm.tenor);
-    const count = Math.min(
-      24,
-      Math.max(
-        1,
-        Number.isFinite(parsedTenor) && parsedTenor > 0
-          ? Math.floor(parsedTenor)
-          : defaultInst > 0 && remBal > 0
-            ? Math.ceil(remBal / defaultInst)
-            : 6
-      )
+    const parsedRate =
+      debtForm.interestRate.trim() !== '' && Number.isFinite(Number(debtForm.interestRate))
+        ? Math.max(0, Number(debtForm.interestRate))
+        : null;
+
+    const count =
+      mode === 'lumpsum'
+        ? 1
+        : Math.min(
+            24,
+            Math.max(
+              1,
+              Number.isFinite(parsedTenor) && parsedTenor > 0
+                ? Math.floor(parsedTenor)
+                : Number(debtForm.installment) > 0 && parsedBal > 0
+                  ? Math.ceil(parsedBal / Number(debtForm.installment))
+                  : 6
+            )
+          );
+
+    const computedInterestInst = computeInstallmentFromInterest(
+      parsedBal,
+      count,
+      parsedRate,
+      debtForm.interestType
     );
+
+    const defaultInst =
+      mode === 'lumpsum'
+        ? parsedBal
+        : mode === 'interest'
+          ? computedInterestInst
+          : Math.max(0, Number(debtForm.installment) || 0);
+
+    let remBal = parsedBal;
     const totalTenor = editingDebtObj?.total_tenor ?? count;
     const paidSoFar = Math.max(0, totalTenor - count);
     const firstDate = nextDebtScheduleDate(
@@ -290,10 +316,9 @@ export function DebtsTab({
       const dt = new Date(targetYear, targetMonth, Math.min(dueDay, lastDom));
       const ym = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`;
       const iso = `${ym}-${String(dt.getDate()).padStart(2, '0')}`;
-      const isCustom = Object.prototype.hasOwnProperty.call(
-        debtForm.scheduleOverrides,
-        ym
-      );
+      const isCustom =
+        mode === 'custom' &&
+        Object.prototype.hasOwnProperty.call(debtForm.scheduleOverrides, ym);
       const amount = isCustom ? debtForm.scheduleOverrides[ym] : defaultInst;
       totalScheduled += amount;
       remBal = Math.max(0, remBal - amount);
@@ -309,16 +334,21 @@ export function DebtsTab({
     return {
       rows,
       totalScheduled,
+      computedInterestInst,
+      firstAmount: rows[0]?.amount ?? defaultInst,
       overrideCount: Object.keys(debtForm.scheduleOverrides).length,
     };
   }, [
     debts,
     editingDebtId,
+    debtForm.installmentMode,
     debtForm.dueDay,
     debtForm.autoPayDay,
     debtForm.installment,
     debtForm.balance,
     debtForm.tenor,
+    debtForm.interestRate,
+    debtForm.interestType,
     debtForm.scheduleOverrides,
   ]);
 
@@ -489,7 +519,7 @@ export function DebtsTab({
         </div>
       )}
 
-      {/* Pop-up Modal Tambah / Edit Pinjaman + Jadwal Cicilan per Bulan */}
+      {/* Pop-up Modal Tambah / Edit Pinjaman + Mode Perhitungan & Jadwal per Bulan */}
       <Modal
         open={showDebtForm && canEdit}
         onClose={() => {
@@ -507,582 +537,751 @@ export function DebtsTab({
         }
         description={
           isEn
-            ? 'Configure loan details, auto-payment, and custom monthly installment amounts.'
-            : 'Atur detail pinjaman, auto-payment, dan nominal cicilan berbeda tiap bulan (PayLater / cicilan variabel).'
+            ? 'Pick one calculation mode so only relevant fields stay active.'
+            : 'Pilih 1 mode perhitungan cicilan agar hanya kolom yang relevan saja yang aktif.'
         }
         size="lg"
       >
-        <form onSubmit={onSubmitForm} className="space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <Segmented
-              size="sm"
-              value={formTab}
-              onChange={setFormTab}
-              ariaLabel={isEn ? 'Loan form tabs' : 'Tab form pinjaman'}
-              options={[
-                {
-                  value: 'info',
-                  label: isEn ? 'Info & Settings' : 'Info & Pengaturan',
-                },
-                {
-                  value: 'schedule',
-                  label: isEn
-                    ? `Monthly Schedule (${editableSchedule.overrideCount > 0 ? `${editableSchedule.overrideCount} custom` : `${editableSchedule.rows.length} mo`})`
-                    : `Jadwal per Bulan (${editableSchedule.overrideCount > 0 ? `${editableSchedule.overrideCount} custom` : `${editableSchedule.rows.length} bln`})`,
-                },
-              ]}
-            />
-            {editingDebtId && debtForm.platform && (
-              <span className="rounded-md bg-[var(--brand-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--brand)]">
-                {debtForm.platform}
-              </span>
-            )}
-          </div>
+        {(() => {
+          const mode: InstallmentMode = debtForm.installmentMode || 'fixed';
+          const isCustomMode = mode === 'custom';
+          const isInterestMode = mode === 'interest';
+          const isLumpsumMode = mode === 'lumpsum';
 
-          {formTab === 'info' ? (
-            <div className="space-y-4">
-              {/* Informasi pokok pinjaman */}
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <div>
-                  <label
-                    htmlFor="debt-platform"
-                    className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-                  >
-                    {tDebts('form.platform')}
-                  </label>
-                  <input
-                    id="debt-platform"
-                    name="platform"
-                    type="text"
-                    required
-                    value={debtForm.platform}
-                    onChange={(e) => set('platform')(e.target.value)}
-                    placeholder="BRIguna, SPinjam, GoPay Later"
-                    className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="debt-contract"
-                    className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-                  >
-                    {tDebts('form.contract')}
-                  </label>
-                  <input
-                    id="debt-contract"
-                    name="contract"
-                    type="text"
-                    value={debtForm.contract}
-                    onChange={(e) => set('contract')(e.target.value)}
-                    className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="debt-balance"
-                    className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-                  >
-                    {tDebts('form.balance')}
-                  </label>
-                  <input
-                    id="debt-balance"
-                    name="balance"
-                    type="number"
-                    required
-                    min="1"
-                    value={debtForm.balance}
-                    onChange={(e) => set('balance')(e.target.value)}
-                    placeholder="4000000"
-                    className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="debt-installment"
-                    className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-                  >
-                    {isEn ? 'Default Installment / mo' : 'Cicilan Default / Bln'}
-                  </label>
-                  <input
-                    id="debt-installment"
-                    name="installment"
-                    type="number"
-                    min="0"
-                    value={debtForm.installment}
-                    onChange={(e) => set('installment')(e.target.value)}
-                    placeholder="500000"
-                    className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="debt-tenor"
-                    className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-                  >
-                    {tDebts('form.tenor')}
-                  </label>
-                  <input
-                    id="debt-tenor"
-                    name="tenor"
-                    type="number"
-                    min="1"
-                    value={debtForm.tenor}
-                    onChange={(e) => set('tenor')(e.target.value)}
-                    placeholder="12"
-                    className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label
-                    htmlFor="debt-due-day"
-                    className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-                  >
-                    {tDebts('form.dueDay')}
-                  </label>
-                  <input
-                    id="debt-due-day"
-                    name="dueDay"
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={debtForm.dueDay}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      onFormChange({
-                        ...debtForm,
-                        dueDay: val,
-                        autoPayDay: debtForm.autoPayDay || val,
-                      });
-                    }}
-                    placeholder="24"
-                    className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-                  />
+          const handleModeChange = (nextMode: InstallmentMode) => {
+            if (nextMode === mode) return;
+            if (nextMode === 'custom') {
+              // Pre-seed per-month entries from current schedule if overrides are still empty
+              const nextOverrides = { ...debtForm.scheduleOverrides };
+              if (Object.keys(nextOverrides).length === 0) {
+                for (const r of editableSchedule.rows) {
+                  nextOverrides[r.ym] = r.amount;
+                }
+              }
+              const sum = Object.values(nextOverrides).reduce((s, v) => s + v, 0);
+              const firstAmt = editableSchedule.rows[0]
+                ? nextOverrides[editableSchedule.rows[0].ym] ?? editableSchedule.firstAmount
+                : editableSchedule.firstAmount;
+              onFormChange({
+                ...debtForm,
+                installmentMode: 'custom',
+                scheduleOverrides: nextOverrides,
+                balance: sum > 0 ? String(sum) : debtForm.balance,
+                installment: firstAmt > 0 ? String(firstAmt) : debtForm.installment,
+              });
+              return;
+            }
+            if (nextMode === 'lumpsum') {
+              onFormChange({
+                ...debtForm,
+                installmentMode: 'lumpsum',
+                tenor: '1',
+                installment: debtForm.balance,
+              });
+              return;
+            }
+            if (nextMode === 'interest') {
+              const calc = computeInstallmentFromInterest(
+                Number(debtForm.balance) || 0,
+                Math.max(1, Number(debtForm.tenor) || 1),
+                debtForm.interestRate ? Number(debtForm.interestRate) : null,
+                debtForm.interestType
+              );
+              onFormChange({
+                ...debtForm,
+                installmentMode: 'interest',
+                installment: calc > 0 ? String(calc) : debtForm.installment,
+              });
+              return;
+            }
+            onFormChange({
+              ...debtForm,
+              installmentMode: 'fixed',
+            });
+          };
+
+          const updateCustomMonth = (ym: string, rawVal: string) => {
+            const nextOverrides = { ...debtForm.scheduleOverrides };
+            if (rawVal === '') {
+              nextOverrides[ym] = 0;
+            } else {
+              const num = Math.max(0, Math.round(Number(rawVal)));
+              if (Number.isFinite(num)) {
+                nextOverrides[ym] = num;
+              }
+            }
+            // Hitung ulang total & cicilan bulan pertama secara real-time
+            let total = 0;
+            let firstAmt = 0;
+            editableSchedule.rows.forEach((r, i) => {
+              const v = Object.prototype.hasOwnProperty.call(nextOverrides, r.ym)
+                ? nextOverrides[r.ym]
+                : r.amount;
+              total += v;
+              if (i === 0) firstAmt = v;
+            });
+            onFormChange({
+              ...debtForm,
+              scheduleOverrides: nextOverrides,
+              balance: total > 0 ? String(total) : debtForm.balance,
+              installment: String(firstAmt),
+            });
+          };
+
+          const modeOptions: {
+            id: InstallmentMode;
+            title: string;
+            hint: string;
+          }[] = [
+            {
+              id: 'fixed',
+              title: isEn ? 'Fixed Monthly' : 'Cicilan Tetap',
+              hint: isEn ? 'Same amount / mo' : 'Nominal sama tiap bln',
+            },
+            {
+              id: 'custom',
+              title: isEn ? 'Per-Month Custom' : 'Rincian per Bulan',
+              hint: isEn ? 'PayLater / variable' : 'Beda tiap bln (PayLater)',
+            },
+            {
+              id: 'interest',
+              title: isEn ? 'Interest Calc' : 'Hitung Bunga',
+              hint: isEn ? 'Auto Flat / Floating' : 'Otomatis % Flat / Float',
+            },
+            {
+              id: 'lumpsum',
+              title: isEn ? 'One-Time Pay' : 'Bayar Sekaligus',
+              hint: isEn ? '1× due payment' : '1× lunas jatuh tempo',
+            },
+          ];
+
+          const effectiveInstallmentDisplay = isCustomMode
+            ? String(editableSchedule.firstAmount)
+            : isInterestMode
+              ? String(editableSchedule.computedInterestInst)
+              : isLumpsumMode
+                ? debtForm.balance
+                : debtForm.installment;
+
+          const effectiveBalanceDisplay = isCustomMode
+            ? String(editableSchedule.totalScheduled || Number(debtForm.balance) || 0)
+            : debtForm.balance;
+
+          return (
+            <form onSubmit={onSubmitForm} className="space-y-4">
+              {/* Pilihan Mode Perhitungan Cicilan (hanya 1 mode aktif) */}
+              <div>
+                <span className="mb-1.5 block text-[11px] font-semibold text-[var(--text-muted)]">
+                  {isEn ? 'Calculation Mode' : 'Mode Perhitungan Cicilan'}
+                </span>
+                <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+                  {modeOptions.map((opt) => {
+                    const active = mode === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => handleModeChange(opt.id)}
+                        className={`flex flex-col items-start rounded-lg border px-2.5 py-2 text-left transition ${
+                          active
+                            ? 'border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)] ring-1 ring-[var(--brand)]/30'
+                            : 'border-[var(--line)] bg-[var(--surface-2)]/60 text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text)]'
+                        }`}
+                      >
+                        <span className="text-[11.5px] font-semibold leading-tight">
+                          {opt.title}
+                        </span>
+                        <span className="mt-0.5 text-[10px] opacity-75 leading-tight">
+                          {opt.hint}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 
-              {/* Suku Bunga & Skema Flat / Floating */}
-              <div className="grid grid-cols-1 gap-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)]/50 p-3 sm:grid-cols-2">
-                <div>
-                  <label
-                    htmlFor="debt-interest-rate"
-                    className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-muted)]"
-                  >
-                    <Percent className="size-3.5 text-[var(--due)]" aria-hidden />
-                    {isEn ? 'Interest Rate (% / year)' : 'Suku Bunga (% / tahun)'}
-                  </label>
-                  <input
-                    id="debt-interest-rate"
-                    name="interestRate"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    max="200"
-                    value={debtForm.interestRate}
-                    onChange={(e) => set('interestRate')(e.target.value)}
-                    placeholder={isEn ? 'e.g. 11.5' : 'mis. 11.5'}
-                    className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-                  />
-                </div>
-
-                <div>
-                  <span className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]">
-                    {isEn ? 'Interest Scheme' : 'Skema Bunga'}
-                  </span>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {(
-                      [
-                        {
-                          id: 'flat' as const,
-                          label: 'Flat',
-                          desc: isEn ? 'Fixed rate' : 'Tetap',
-                        },
-                        {
-                          id: 'floating' as const,
-                          label: 'Floating',
-                          desc: isEn ? 'Market rate' : 'Mengambang',
-                        },
-                      ] as const
-                    ).map((opt) => {
-                      const active = debtForm.interestType === opt.id;
-                      return (
-                        <button
-                          key={opt.id}
-                          type="button"
-                          onClick={() => set('interestType')(opt.id)}
-                          className={`flex h-9 items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-semibold transition ${
-                            active
-                              ? 'border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]'
-                              : 'border-[var(--line)] bg-[var(--surface-1)] text-[var(--text-muted)] hover:text-[var(--text)]'
-                          }`}
-                        >
-                          <span>{opt.label}</span>
-                          <span className="text-[10px] font-normal opacity-75">
-                            ({opt.desc})
-                          </span>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* Auto-Payment: Tanggal & Dompet/Rekening Sumber */}
-              <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)]/50 p-3">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2">
-                    <span
-                      className={`flex size-7 items-center justify-center rounded-lg ${
-                        debtForm.autoPay
-                          ? 'bg-[var(--brand-soft)] text-[var(--brand)]'
-                          : 'bg-[var(--surface-1)] text-[var(--text-faint)]'
-                      }`}
-                    >
-                      <Zap className="size-3.5" aria-hidden />
-                    </span>
-                    <div>
-                      <p className="text-[12px] font-semibold text-[var(--text)]">
-                        {isEn ? 'Auto-Payment Schedule' : 'Auto-Payment Otomatis'}
-                      </p>
-                      <p className="text-[11px] text-[var(--text-muted)]">
-                        {isEn
-                          ? 'Automatically deducts installment every month from the chosen wallet'
-                          : 'Otomatis mencatat cicilan keluar tiap bulan dari dompet/rekening pilihan'}
-                      </p>
-                    </div>
-                  </div>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <Segmented
+                  size="sm"
+                  value={formTab}
+                  onChange={setFormTab}
+                  ariaLabel={isEn ? 'Loan form tabs' : 'Tab form pinjaman'}
+                  options={[
+                    {
+                      value: 'info',
+                      label: isEn ? 'Info & Settings' : 'Info & Pengaturan',
+                    },
+                    {
+                      value: 'schedule',
+                      label: isCustomMode
+                        ? isEn
+                          ? `Edit Per Month (${editableSchedule.rows.length} mo)`
+                          : `Rincian per Bulan (${editableSchedule.rows.length} bln)`
+                        : isEn
+                          ? `Schedule Preview (${editableSchedule.rows.length} mo)`
+                          : `Pratinjau Jadwal (${editableSchedule.rows.length} bln)`,
+                    },
+                  ]}
+                />
+                {isCustomMode && formTab === 'info' && (
                   <button
                     type="button"
-                    role="switch"
-                    aria-checked={debtForm.autoPay}
-                    onClick={() =>
-                      onFormChange({
-                        ...debtForm,
-                        autoPay: !debtForm.autoPay,
-                        autoPayDay: debtForm.autoPayDay || debtForm.dueDay || '1',
-                        autoPayAccountId:
-                          debtForm.autoPayAccountId ||
-                          accounts[0]?.id ||
-                          '__cash__',
-                      })
-                    }
-                    className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
-                      debtForm.autoPay ? 'bg-[var(--brand)]' : 'bg-[var(--line-strong)]'
-                    }`}
+                    onClick={() => setFormTab('schedule')}
+                    className="rounded-md bg-[var(--brand-soft)] px-2.5 py-1 text-[11px] font-semibold text-[var(--brand)] transition hover:opacity-90"
                   >
-                    <span
-                      className={`inline-block size-4 transform rounded-full bg-white shadow transition-transform ${
-                        debtForm.autoPay ? 'translate-x-6' : 'translate-x-1'
-                      }`}
-                    />
+                    {isEn ? 'Edit monthly amounts →' : 'Isi nominal tiap bulan →'}
                   </button>
-                </div>
+                )}
+              </div>
 
-                {debtForm.autoPay && (
-                  <div className="grid grid-cols-1 gap-3 border-t border-[var(--line)] pt-3 sm:grid-cols-2">
+              {formTab === 'info' ? (
+                <div className="space-y-4">
+                  {/* Informasi pokok pinjaman */}
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div>
                       <label
-                        htmlFor="debt-autopay-day"
+                        htmlFor="debt-platform"
                         className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
                       >
-                        {isEn ? 'Auto-Pay Every Day of Month (1-31)' : 'Auto-Bayar Setiap Tanggal (1-31)'}
+                        {tDebts('form.platform')}
                       </label>
                       <input
-                        id="debt-autopay-day"
-                        name="autoPayDay"
-                        type="number"
-                        min="1"
-                        max="31"
-                        required={debtForm.autoPay}
-                        value={debtForm.autoPayDay}
-                        onChange={(e) => set('autoPayDay')(e.target.value)}
-                        placeholder="24"
-                        className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                        id="debt-platform"
+                        name="platform"
+                        type="text"
+                        required
+                        value={debtForm.platform}
+                        onChange={(e) => set('platform')(e.target.value)}
+                        placeholder="BRIguna, SPinjam, GoPay Later"
+                        className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
                       />
                     </div>
                     <div>
                       <label
-                        htmlFor="debt-autopay-account"
-                        className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-muted)]"
+                        htmlFor="debt-contract"
+                        className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
                       >
-                        <Wallet className="size-3.5 text-[var(--brand)]" aria-hidden />
-                        {isEn ? 'Source Wallet / Bank Account' : 'Dompet / Rekening Sumber'}
+                        {tDebts('form.contract')}
                       </label>
-                      <select
-                        id="debt-autopay-account"
-                        name="autoPayAccountId"
-                        value={debtForm.autoPayAccountId || '__cash__'}
-                        onChange={(e) => set('autoPayAccountId')(e.target.value)}
-                        className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                      <input
+                        id="debt-contract"
+                        name="contract"
+                        type="text"
+                        value={debtForm.contract}
+                        onChange={(e) => set('contract')(e.target.value)}
+                        className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="debt-balance"
+                        className="mb-1 flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]"
                       >
-                        <option value="__cash__">
-                          {isEn ? 'Cash Wallet (Tunai)' : 'Kas Tunai'}
-                        </option>
-                        {accounts.map((acc) => (
-                          <option key={acc.id} value={acc.id}>
-                            {acc.name} ({acc.kind.toUpperCase()})
-                          </option>
-                        ))}
-                      </select>
+                        <span>{tDebts('form.balance')}</span>
+                        {isCustomMode && (
+                          <span className="text-[9.5px] font-medium text-[var(--brand)]">
+                            Auto (total bln)
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        id="debt-balance"
+                        name="balance"
+                        type="number"
+                        required
+                        min="1"
+                        disabled={isCustomMode}
+                        value={effectiveBalanceDisplay}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          onFormChange({
+                            ...debtForm,
+                            balance: val,
+                            ...(isLumpsumMode ? { installment: val } : {}),
+                          });
+                        }}
+                        placeholder="4000000"
+                        className={`tnum h-9 w-full rounded-lg border border-[var(--line)] px-3 text-[13px] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none ${
+                          isCustomMode
+                            ? 'cursor-not-allowed bg-[var(--surface-2)]/40 text-[var(--text-muted)] opacity-70'
+                            : 'bg-[var(--surface-2)] text-[var(--text)]'
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="debt-installment"
+                        className="mb-1 flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]"
+                      >
+                        <span>
+                          {isEn ? 'Installment / mo' : 'Cicilan / Bln'}
+                        </span>
+                        {mode !== 'fixed' && (
+                          <span className="text-[9.5px] font-medium text-[var(--brand)]">
+                            {isCustomMode
+                              ? 'Auto (bln terdekat)'
+                              : isInterestMode
+                                ? 'Auto (bunga)'
+                                : 'Auto (1× bayar)'}
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        id="debt-installment"
+                        name="installment"
+                        type="number"
+                        min="0"
+                        disabled={mode !== 'fixed'}
+                        value={effectiveInstallmentDisplay}
+                        onChange={(e) => set('installment')(e.target.value)}
+                        placeholder="500000"
+                        className={`tnum h-9 w-full rounded-lg border border-[var(--line)] px-3 text-[13px] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none ${
+                          mode !== 'fixed'
+                            ? 'cursor-not-allowed bg-[var(--surface-2)]/40 text-[var(--text-muted)] opacity-70'
+                            : 'bg-[var(--surface-2)] text-[var(--text)]'
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="debt-tenor"
+                        className="mb-1 flex items-center justify-between text-[11px] font-semibold text-[var(--text-muted)]"
+                      >
+                        <span>{tDebts('form.tenor')}</span>
+                        {isLumpsumMode && (
+                          <span className="text-[9.5px] font-medium text-[var(--brand)]">
+                            Terkunci 1 bln
+                          </span>
+                        )}
+                      </label>
+                      <input
+                        id="debt-tenor"
+                        name="tenor"
+                        type="number"
+                        min="1"
+                        disabled={isLumpsumMode}
+                        value={isLumpsumMode ? '1' : debtForm.tenor}
+                        onChange={(e) => set('tenor')(e.target.value)}
+                        placeholder="12"
+                        className={`tnum h-9 w-full rounded-lg border border-[var(--line)] px-3 text-[13px] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none ${
+                          isLumpsumMode
+                            ? 'cursor-not-allowed bg-[var(--surface-2)]/40 text-[var(--text-muted)] opacity-70'
+                            : 'bg-[var(--surface-2)] text-[var(--text)]'
+                        }`}
+                      />
+                    </div>
+                    <div>
+                      <label
+                        htmlFor="debt-due-day"
+                        className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+                      >
+                        {tDebts('form.dueDay')}
+                      </label>
+                      <input
+                        id="debt-due-day"
+                        name="dueDay"
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={debtForm.dueDay}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          onFormChange({
+                            ...debtForm,
+                            dueDay: val,
+                            autoPayDay: debtForm.autoPayDay || val,
+                          });
+                        }}
+                        placeholder="24"
+                        className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+                      />
                     </div>
                   </div>
-                )}
-              </div>
 
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                {sharedGroups.length > 0 && (
-                  <div>
-                    <label
-                      htmlFor="debt-group-id"
-                      className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-                    >
-                      {isEn ? 'Finance Space' : 'Ruang Keuangan'}
-                    </label>
-                    <select
-                      id="debt-group-id"
-                      name="groupId"
-                      value={debtForm.groupId}
-                      onChange={(e) => set('groupId')(e.target.value)}
-                      className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
-                    >
-                      <option value="">Pribadi (Tidak masuk grup kolega)</option>
-                      {sharedGroups.map((g) => (
-                        <option key={g.id} value={g.id}>
-                          Grup Kolega: {g.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                )}
+                  {/* Suku Bunga & Skema Flat / Floating — HANYA tampil di mode 'interest' */}
+                  {isInterestMode && (
+                    <div className="grid grid-cols-1 gap-3 rounded-xl border border-[var(--brand)]/30 bg-[var(--brand-soft)]/15 p-3 sm:grid-cols-2">
+                      <div>
+                        <label
+                          htmlFor="debt-interest-rate"
+                          className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-muted)]"
+                        >
+                          <Percent className="size-3.5 text-[var(--due)]" aria-hidden />
+                          {isEn ? 'Interest Rate (% / year)' : 'Suku Bunga (% / tahun)'}
+                        </label>
+                        <input
+                          id="debt-interest-rate"
+                          name="interestRate"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="200"
+                          value={debtForm.interestRate}
+                          onChange={(e) => set('interestRate')(e.target.value)}
+                          placeholder={isEn ? 'e.g. 11.5' : 'mis. 11.5'}
+                          className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+                        />
+                      </div>
 
-                <div className={sharedGroups.length > 0 ? '' : 'sm:col-span-2'}>
-                  <label
-                    htmlFor="debt-notes"
-                    className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
-                  >
-                    {isEn ? 'Notes (optional)' : 'Catatan (opsional)'}
-                  </label>
-                  <input
-                    id="debt-notes"
-                    name="notes"
-                    type="text"
-                    value={debtForm.notes}
-                    onChange={(e) => set('notes')(e.target.value)}
-                    placeholder={
-                      isEn
-                        ? 'e.g. PayLater installments vary per month'
-                        : 'mis. Cicilan PayLater beda nominal tiap bulan'
-                    }
-                    className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
-                  />
-                </div>
-              </div>
-            </div>
-          ) : (
-            /* Tab 2: Jadwal Cicilan per Bulan (Custom per YYYY-MM) */
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-2)]/60 px-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="text-[11px] font-semibold text-[var(--text)]">
-                    {isEn
-                      ? 'Customize installment amount per month'
-                      : 'Ubah nominal tagihan spesifik per bulan'}
-                  </p>
-                  <p className="tnum text-[11px] text-[var(--text-muted)]">
-                    {isEn ? 'Scheduled total:' : 'Total jadwal:'}{' '}
-                    <span className="font-semibold text-[var(--due)]">
-                      {formatRp(editableSchedule.totalScheduled)}
-                    </span>
-                    {Number(debtForm.balance) > 0 &&
-                      editableSchedule.totalScheduled !== Number(debtForm.balance) && (
-                        <span className="ml-1.5 text-[10px] text-[var(--text-faint)]">
-                          ({isEn ? 'Current balance' : 'Sisa tercatat'}:{' '}
-                          {formatRp(Number(debtForm.balance))})
+                      <div>
+                        <span className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]">
+                          {isEn ? 'Interest Scheme' : 'Skema Bunga'}
                         </span>
-                      )}
-                  </p>
-                </div>
+                        <div className="grid grid-cols-2 gap-1.5">
+                          {(
+                            [
+                              {
+                                id: 'flat' as const,
+                                label: 'Flat',
+                                desc: isEn ? 'Fixed rate' : 'Tetap',
+                              },
+                              {
+                                id: 'floating' as const,
+                                label: 'Floating',
+                                desc: isEn ? 'Annuity' : 'Efektif',
+                              },
+                            ] as const
+                          ).map((opt) => {
+                            const active = debtForm.interestType === opt.id;
+                            return (
+                              <button
+                                key={opt.id}
+                                type="button"
+                                onClick={() => set('interestType')(opt.id)}
+                                className={`flex h-9 items-center justify-center gap-1.5 rounded-lg border px-3 text-[12px] font-semibold transition ${
+                                  active
+                                    ? 'border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]'
+                                    : 'border-[var(--line)] bg-[var(--surface-1)] text-[var(--text-muted)] hover:text-[var(--text)]'
+                                }`}
+                              >
+                                <span>{opt.label}</span>
+                                <span className="text-[10px] font-normal opacity-75">
+                                  ({opt.desc})
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
-                <div className="flex flex-wrap items-center gap-1.5">
+                  {/* Auto-Payment: Tanggal & Dompet/Rekening Sumber */}
+                  <div className="space-y-3 rounded-xl border border-[var(--line)] bg-[var(--surface-2)]/50 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={`flex size-7 items-center justify-center rounded-lg ${
+                            debtForm.autoPay
+                              ? 'bg-[var(--brand-soft)] text-[var(--brand)]'
+                              : 'bg-[var(--surface-1)] text-[var(--text-faint)]'
+                          }`}
+                        >
+                          <Zap className="size-3.5" aria-hidden />
+                        </span>
+                        <div>
+                          <p className="text-[12px] font-semibold text-[var(--text)]">
+                            {isEn ? 'Auto-Payment Schedule' : 'Auto-Payment Otomatis'}
+                          </p>
+                          <p className="text-[11px] text-[var(--text-muted)]">
+                            {isEn
+                              ? 'Automatically deducts installment every month from the chosen wallet'
+                              : 'Otomatis mencatat cicilan keluar tiap bulan dari dompet/rekening pilihan'}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-checked={debtForm.autoPay}
+                        onClick={() =>
+                          onFormChange({
+                            ...debtForm,
+                            autoPay: !debtForm.autoPay,
+                            autoPayDay: debtForm.autoPayDay || debtForm.dueDay || '1',
+                            autoPayAccountId:
+                              debtForm.autoPayAccountId ||
+                              accounts[0]?.id ||
+                              '__cash__',
+                          })
+                        }
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer items-center rounded-full transition-colors ${
+                          debtForm.autoPay ? 'bg-[var(--brand)]' : 'bg-[var(--line-strong)]'
+                        }`}
+                      >
+                        <span
+                          className={`inline-block size-4 transform rounded-full bg-white shadow transition-transform ${
+                            debtForm.autoPay ? 'translate-x-6' : 'translate-x-1'
+                          }`}
+                        />
+                      </button>
+                    </div>
+
+                    {debtForm.autoPay && (
+                      <div className="grid grid-cols-1 gap-3 border-t border-[var(--line)] pt-3 sm:grid-cols-2">
+                        <div>
+                          <label
+                            htmlFor="debt-autopay-day"
+                            className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+                          >
+                            {isEn ? 'Auto-Pay Every Day of Month (1-31)' : 'Auto-Bayar Setiap Tanggal (1-31)'}
+                          </label>
+                          <input
+                            id="debt-autopay-day"
+                            name="autoPayDay"
+                            type="number"
+                            min="1"
+                            max="31"
+                            required={debtForm.autoPay}
+                            value={debtForm.autoPayDay}
+                            onChange={(e) => set('autoPayDay')(e.target.value)}
+                            placeholder="24"
+                            className="tnum h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label
+                            htmlFor="debt-autopay-account"
+                            className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold text-[var(--text-muted)]"
+                          >
+                            <Wallet className="size-3.5 text-[var(--brand)]" aria-hidden />
+                            {isEn ? 'Source Wallet / Bank Account' : 'Dompet / Rekening Sumber'}
+                          </label>
+                          <select
+                            id="debt-autopay-account"
+                            name="autoPayAccountId"
+                            value={debtForm.autoPayAccountId || '__cash__'}
+                            onChange={(e) => set('autoPayAccountId')(e.target.value)}
+                            className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-1)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                          >
+                            <option value="__cash__">
+                              {isEn ? 'Cash Wallet (Tunai)' : 'Kas Tunai'}
+                            </option>
+                            {accounts.map((acc) => (
+                              <option key={acc.id} value={acc.id}>
+                                {acc.name} ({acc.kind.toUpperCase()})
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {sharedGroups.length > 0 && (
+                      <div>
+                        <label
+                          htmlFor="debt-group-id"
+                          className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+                        >
+                          {isEn ? 'Finance Space' : 'Ruang Keuangan'}
+                        </label>
+                        <select
+                          id="debt-group-id"
+                          name="groupId"
+                          value={debtForm.groupId}
+                          onChange={(e) => set('groupId')(e.target.value)}
+                          className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                        >
+                          <option value="">Pribadi (Tidak masuk grup kolega)</option>
+                          {sharedGroups.map((g) => (
+                            <option key={g.id} value={g.id}>
+                              Grup Kolega: {g.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    <div className={sharedGroups.length > 0 ? '' : 'sm:col-span-2'}>
+                      <label
+                        htmlFor="debt-notes"
+                        className="mb-1 block text-[11px] font-semibold text-[var(--text-muted)]"
+                      >
+                        {isEn ? 'Notes (optional)' : 'Catatan (opsional)'}
+                      </label>
+                      <input
+                        id="debt-notes"
+                        name="notes"
+                        type="text"
+                        value={debtForm.notes}
+                        onChange={(e) => set('notes')(e.target.value)}
+                        placeholder={
+                          isEn
+                            ? 'e.g. PayLater installments vary per month'
+                            : 'mis. Cicilan PayLater beda nominal tiap bulan'
+                        }
+                        className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+                      />
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                /* Tab 2: Rincian / Pratinjau Jadwal per Bulan */
+                <div className="space-y-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-2)]/60 px-3 py-2.5">
+                    <div className="min-w-0">
+                      <p className="text-[11px] font-semibold text-[var(--text)]">
+                        {isCustomMode
+                          ? isEn
+                            ? 'Editable monthly breakdown (auto-syncs remaining balance)'
+                            : 'Mode Rincian per Bulan aktif (otomatis hitung total sisa tagihan)'
+                          : isEn
+                            ? `Read-only preview (${modeOptions.find((m) => m.id === mode)?.title})`
+                            : `Pratinjau jadwal (${modeOptions.find((m) => m.id === mode)?.title})`}
+                      </p>
+                      <p className="tnum text-[11px] text-[var(--text-muted)]">
+                        {isEn ? 'Total schedule:' : 'Total seluruh bulan:'}{' '}
+                        <span className="font-semibold text-[var(--due)]">
+                          {formatRp(editableSchedule.totalScheduled)}
+                        </span>
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {!isCustomMode ? (
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => handleModeChange('custom')}
+                        >
+                          {isEn ? 'Switch to Per-Month Edit' : 'Aktifkan Edit per Bulan'}
+                        </Button>
+                      ) : (
+                        editableSchedule.overrideCount > 0 && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            icon={<RotateCcw className="size-3.5" />}
+                            onClick={() => set('scheduleOverrides')({})}
+                          >
+                            {isEn ? 'Clear All' : 'Reset'}
+                          </Button>
+                        )
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="max-h-72 overflow-y-auto rounded-xl border border-[var(--line)]">
+                    <table className="w-full table-fixed border-collapse text-left text-[12px]">
+                      <thead className="sticky top-0 z-10 bg-[var(--surface-2)]">
+                        <tr className="border-b border-[var(--line)] text-[10px] font-semibold uppercase tracking-wider text-[var(--text-faint)]">
+                          <th className="w-12 px-2.5 py-2">Ke-</th>
+                          <th className="w-36 px-2.5 py-2">
+                            {isEn ? 'Due Date' : 'Bulan / Tgl'}
+                          </th>
+                          <th className="px-2.5 py-2">
+                            {isEn ? 'Installment (Rp)' : 'Nominal Cicilan (Rp)'}
+                          </th>
+                          <th className="hidden w-28 px-2.5 py-2 text-right sm:table-cell">
+                            {isEn ? 'Est. Left' : 'Est. Sisa'}
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--line)]">
+                        {editableSchedule.rows.map((row, idx) => (
+                          <tr
+                            key={row.ym}
+                            className={
+                              idx === 0
+                                ? 'bg-[var(--brand-soft)]/20'
+                                : ''
+                            }
+                          >
+                            <td className="tnum px-2.5 py-1.5 font-semibold text-[var(--text-muted)]">
+                              #{row.seq}
+                            </td>
+                            <td className="px-2.5 py-1.5">
+                              <p className="tnum font-medium text-[var(--text)]">
+                                {formatFullDate(row.dateIso)}
+                              </p>
+                              {idx === 0 && (
+                                <span className="inline-block rounded bg-[var(--brand-soft)] px-1.5 py-0.2 text-[9px] font-semibold text-[var(--brand)]">
+                                  {isEn ? 'Next due' : 'Terdekat'}
+                                </span>
+                              )}
+                            </td>
+                            <td className="px-2.5 py-1.5">
+                              {isCustomMode ? (
+                                <input
+                                  type="number"
+                                  min="0"
+                                  step="1"
+                                  aria-label={`Cicilan ${row.ym}`}
+                                  value={row.amount}
+                                  onChange={(e) => updateCustomMonth(row.ym, e.target.value)}
+                                  className="tnum h-8 w-full rounded-lg border border-[var(--brand)]/40 bg-[var(--surface-1)] px-2.5 text-[12px] font-semibold text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
+                                />
+                              ) : (
+                                <span className="tnum font-semibold text-[var(--text)]">
+                                  {formatRp(row.amount)}
+                                </span>
+                              )}
+                            </td>
+                            <td className="tnum hidden px-2.5 py-1.5 text-right text-[var(--due)] sm:table-cell">
+                              {formatRp(row.estBalanceAfter)}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-2 border-t border-[var(--line)] pt-3">
+                <div className="text-[11px] text-[var(--text-faint)]">
+                  {formTab === 'info' ? (
+                    <button
+                      type="button"
+                      onClick={() => setFormTab('schedule')}
+                      className="font-semibold text-[var(--brand)] hover:underline"
+                    >
+                      {isCustomMode
+                        ? isEn
+                          ? 'Open monthly breakdown →'
+                          : 'Buka rincian per bulan →'
+                        : isEn
+                          ? 'View schedule preview →'
+                          : 'Lihat pratinjau jadwal →'}
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setFormTab('info')}
+                      className="font-semibold text-[var(--text-muted)] hover:text-[var(--text)]"
+                    >
+                      ← {isEn ? 'Back to Info' : 'Kembali ke Info'}
+                    </button>
+                  )}
+                </div>
+                <div className="flex gap-2">
                   <Button
                     type="button"
                     size="sm"
                     variant="secondary"
-                    icon={<RefreshCw className="size-3.5" />}
                     onClick={() => {
-                      const firstAmt = editableSchedule.rows[0]?.amount ?? 0;
-                      onFormChange({
-                        ...debtForm,
-                        balance:
-                          editableSchedule.totalScheduled > 0
-                            ? String(editableSchedule.totalScheduled)
-                            : debtForm.balance,
-                        installment:
-                          firstAmt > 0 ? String(firstAmt) : debtForm.installment,
-                      });
+                      setFormTab('info');
+                      onToggleForm();
                     }}
                   >
-                    {isEn ? 'Sync → Remaining' : 'Sinkron → Sisa Pinjaman'}
+                    {tCommon('cancel')}
                   </Button>
-                  {editableSchedule.overrideCount > 0 && (
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="ghost"
-                      icon={<RotateCcw className="size-3.5" />}
-                      onClick={() => set('scheduleOverrides')({})}
-                    >
-                      {isEn ? 'Reset All' : 'Reset'}
-                    </Button>
-                  )}
+                  <Button type="submit" size="sm">
+                    {editingDebtId
+                      ? isEn
+                        ? 'Save Changes'
+                        : 'Simpan Perubahan'
+                      : tCommon('save')}
+                  </Button>
                 </div>
               </div>
-
-              <div className="max-h-72 overflow-y-auto rounded-xl border border-[var(--line)]">
-                <table className="w-full table-fixed border-collapse text-left text-[12px]">
-                  <thead className="sticky top-0 z-10 bg-[var(--surface-2)]">
-                    <tr className="border-b border-[var(--line)] text-[10px] font-semibold uppercase tracking-wider text-[var(--text-faint)]">
-                      <th className="w-12 px-2.5 py-2">Ke-</th>
-                      <th className="w-36 px-2.5 py-2">
-                        {isEn ? 'Due Date' : 'Bulan / Tgl'}
-                      </th>
-                      <th className="px-2.5 py-2">
-                        {isEn ? 'Installment (Rp)' : 'Nominal Cicilan (Rp)'}
-                      </th>
-                      <th className="hidden w-28 px-2.5 py-2 text-right sm:table-cell">
-                        {isEn ? 'Est. Left' : 'Est. Sisa'}
-                      </th>
-                      <th className="w-10 px-2 py-2 text-right" />
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--line)]">
-                    {editableSchedule.rows.map((row, idx) => (
-                      <tr
-                        key={row.ym}
-                        className={
-                          row.isCustom
-                            ? 'bg-[var(--brand-soft)]/25'
-                            : idx === 0
-                              ? 'bg-[var(--surface-2)]/30'
-                              : ''
-                        }
-                      >
-                        <td className="tnum px-2.5 py-1.5 font-semibold text-[var(--text-muted)]">
-                          #{row.seq}
-                        </td>
-                        <td className="px-2.5 py-1.5">
-                          <p className="tnum font-medium text-[var(--text)]">
-                            {formatFullDate(row.dateIso)}
-                          </p>
-                          {row.isCustom && (
-                            <span className="inline-block rounded bg-[var(--brand-soft)] px-1.5 py-0.2 text-[9px] font-semibold text-[var(--brand)]">
-                              Custom
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-2.5 py-1.5">
-                          <input
-                            type="number"
-                            min="0"
-                            step="1"
-                            aria-label={`Cicilan ${row.ym}`}
-                            value={row.amount === 0 && !row.isCustom ? '' : row.amount}
-                            onChange={(e) => {
-                              const raw = e.target.value;
-                              const nextOverrides = { ...debtForm.scheduleOverrides };
-                              if (raw === '') {
-                                delete nextOverrides[row.ym];
-                              } else {
-                                const num = Math.max(0, Math.round(Number(raw)));
-                                if (Number.isFinite(num)) {
-                                  nextOverrides[row.ym] = num;
-                                }
-                              }
-                              set('scheduleOverrides')(nextOverrides);
-                            }}
-                            placeholder={debtForm.installment || '0'}
-                            className={`tnum h-8 w-full rounded-lg border px-2.5 text-[12px] font-semibold text-[var(--text)] focus:border-[var(--brand)] focus:outline-none ${
-                              row.isCustom
-                                ? 'border-[var(--brand)]/50 bg-[var(--surface-1)]'
-                                : 'border-[var(--line)] bg-[var(--surface-2)]'
-                            }`}
-                          />
-                        </td>
-                        <td className="tnum hidden px-2.5 py-1.5 text-right text-[var(--due)] sm:table-cell">
-                          {formatRp(row.estBalanceAfter)}
-                        </td>
-                        <td className="px-2 py-1.5 text-right">
-                          {row.isCustom && (
-                            <button
-                              type="button"
-                              title={isEn ? 'Reset to default' : 'Kembalikan ke default'}
-                              onClick={() => {
-                                const nextOverrides = { ...debtForm.scheduleOverrides };
-                                delete nextOverrides[row.ym];
-                                set('scheduleOverrides')(nextOverrides);
-                              }}
-                              className="inline-flex size-7 items-center justify-center rounded-md text-[var(--text-faint)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
-                            >
-                              <RotateCcw className="size-3.5" aria-hidden />
-                            </button>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-              <p className="text-[11px] text-[var(--text-faint)]">
-                {isEn
-                  ? 'Tip: Edit any month that differs from the default, then click "Sync → Remaining" to update the total remaining balance automatically.'
-                  : 'Tip: Ubah nominal bulan yang berbeda (mis. GoPay Later / SPayLater), lalu klik "Sinkron → Sisa Pinjaman" agar total sisa tagihan langsung cocok.'}
-              </p>
-            </div>
-          )}
-
-          <div className="flex items-center justify-between gap-2 border-t border-[var(--line)] pt-3">
-            <div className="text-[11px] text-[var(--text-faint)]">
-              {formTab === 'info' ? (
-                <button
-                  type="button"
-                  onClick={() => setFormTab('schedule')}
-                  className="font-semibold text-[var(--brand)] hover:underline"
-                >
-                  {isEn
-                    ? 'Edit different amounts per month →'
-                    : 'Atur nominal beda tiap bulan →'}
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setFormTab('info')}
-                  className="font-semibold text-[var(--text-muted)] hover:text-[var(--text)]"
-                >
-                  ← {isEn ? 'Back to Info' : 'Kembali ke Info'}
-                </button>
-              )}
-            </div>
-            <div className="flex gap-2">
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  setFormTab('info');
-                  onToggleForm();
-                }}
-              >
-                {tCommon('cancel')}
-              </Button>
-              <Button type="submit" size="sm">
-                {editingDebtId
-                  ? isEn
-                    ? 'Save Changes'
-                    : 'Simpan Perubahan'
-                  : tCommon('save')}
-              </Button>
-            </div>
-          </div>
-        </form>
+            </form>
+          );
+        })()}
       </Modal>
 
       {debts.length === 0 ? (

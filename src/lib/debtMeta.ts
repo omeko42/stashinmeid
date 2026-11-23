@@ -8,8 +8,11 @@
  */
 
 export type InterestType = 'flat' | 'floating';
+export type InstallmentMode = 'fixed' | 'custom' | 'interest' | 'lumpsum';
 
 export interface DebtMeta {
+  /** Mode perhitungan cicilan: hanya 1 mode aktif agar form tidak membingungkan. */
+  installmentMode: InstallmentMode;
   /** Suku bunga dalam % per tahun (mis. 11.5). Null bila belum diatur. */
   interestRate: number | null;
   /** Skema bunga: 'flat' (tetap) atau 'floating' (mengambang). */
@@ -27,6 +30,7 @@ export interface DebtMeta {
 }
 
 export const DEFAULT_DEBT_META: DebtMeta = {
+  installmentMode: 'fixed',
   interestRate: null,
   interestType: 'flat',
   autoPay: false,
@@ -35,6 +39,8 @@ export const DEFAULT_DEBT_META: DebtMeta = {
   lastAutoPaidYm: null,
   scheduleOverrides: {},
 };
+
+const VALID_MODES = new Set<InstallmentMode>(['fixed', 'custom', 'interest', 'lumpsum']);
 
 const META_PREFIX = '[STASHINME_DEBT_META:';
 const META_REGEX = /\s*\[STASHINME_DEBT_META:(\{[\s\S]*\})\]\s*$/;
@@ -79,9 +85,19 @@ export function parseDebtNotes(notes: string | null | undefined): {
       raw.autoPayDay <= 31
         ? raw.autoPayDay
         : null;
+    const scheduleOverrides = sanitizeOverrides(raw.scheduleOverrides);
+    const inferredMode: InstallmentMode =
+      raw.installmentMode && VALID_MODES.has(raw.installmentMode)
+        ? raw.installmentMode
+        : Object.keys(scheduleOverrides).length > 0
+          ? 'custom'
+          : rate !== null && rate > 0
+            ? 'interest'
+            : 'fixed';
     return {
       text,
       meta: {
+        installmentMode: inferredMode,
         interestRate: rate,
         interestType: raw.interestType === 'floating' ? 'floating' : 'flat',
         autoPay: Boolean(raw.autoPay),
@@ -94,7 +110,7 @@ export function parseDebtNotes(notes: string | null | undefined): {
           typeof raw.lastAutoPaidYm === 'string' && /^\d{4}-\d{2}$/.test(raw.lastAutoPaidYm)
             ? raw.lastAutoPaidYm
             : null,
-        scheduleOverrides: sanitizeOverrides(raw.scheduleOverrides),
+        scheduleOverrides,
       },
     };
   } catch {
@@ -108,7 +124,17 @@ export function serializeDebtNotes(
 ): string | null {
   const cleanText = text.trim();
   const cleanOverrides = sanitizeOverrides(meta.scheduleOverrides);
+  const mode: InstallmentMode =
+    meta.installmentMode && VALID_MODES.has(meta.installmentMode)
+      ? meta.installmentMode
+      : Object.keys(cleanOverrides).length > 0
+        ? 'custom'
+        : typeof meta.interestRate === 'number' && meta.interestRate > 0
+          ? 'interest'
+          : 'fixed';
+
   const normalized: DebtMeta = {
+    installmentMode: mode,
     interestRate:
       typeof meta.interestRate === 'number' && Number.isFinite(meta.interestRate) && meta.interestRate >= 0
         ? Math.round(meta.interestRate * 100) / 100
@@ -124,16 +150,17 @@ export function serializeDebtNotes(
         : null,
     autoPayAccountId: meta.autoPayAccountId ? meta.autoPayAccountId.trim() : null,
     lastAutoPaidYm: meta.lastAutoPaidYm || null,
-    scheduleOverrides: cleanOverrides,
+    scheduleOverrides: mode === 'custom' ? cleanOverrides : {},
   };
 
   const hasMeta =
+    normalized.installmentMode !== 'fixed' ||
     normalized.interestRate !== null ||
     normalized.interestType === 'floating' ||
     normalized.autoPay ||
     normalized.autoPayAccountId !== null ||
     normalized.lastAutoPaidYm !== null ||
-    Object.keys(cleanOverrides).length > 0;
+    Object.keys(normalized.scheduleOverrides).length > 0;
 
   if (!hasMeta) {
     return cleanText || null;
@@ -144,6 +171,27 @@ export function serializeDebtNotes(
 }
 
 import { appNow, nextDueDate } from '@/lib/format';
+
+/**
+ * Hitung cicilan per bulan dari Pokok, Sisa Tenor, Suku Bunga (% / tahun), dan Skema (Flat / Floating).
+ * - Flat: (Pokok / Tenor) + (Pokok × r_bulanan)
+ * - Floating (Anuitas / Efektif): P × r × (1+r)^n / ((1+r)^n - 1)
+ */
+export function computeInstallmentFromInterest(
+  principal: number,
+  tenorMonths: number,
+  annualRatePct: number | null,
+  interestType: InterestType
+): number {
+  if (principal <= 0 || tenorMonths <= 0) return 0;
+  const r = annualRatePct && annualRatePct > 0 ? annualRatePct / 100 / 12 : 0;
+  if (r <= 0) return Math.round(principal / tenorMonths);
+  if (interestType === 'flat') {
+    return Math.round(principal / tenorMonths + principal * r);
+  }
+  const factor = Math.pow(1 + r, tenorMonths);
+  return Math.round((principal * r * factor) / (factor - 1));
+}
 
 /**
  * Estimasi porsi bunga per bulan dari sisa pokok & suku bunga tahunan (%).

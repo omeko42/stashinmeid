@@ -68,6 +68,7 @@ import { useReceipts } from '@/hooks/useReceipts';
 import { compressReceiptImage, formatFileBytes } from '@/lib/imageCompress';
 import { budgetStatuses } from '@/lib/budget';
 import {
+  computeInstallmentFromInterest,
   nextDebtScheduleDate,
   parseDebtNotes,
   serializeDebtNotes,
@@ -109,6 +110,7 @@ interface DashboardClientProps {
 }
 
 const EMPTY_DEBT_FORM: DebtFormState = {
+  installmentMode: 'fixed',
   platform: '',
   contract: '',
   balance: '',
@@ -1087,6 +1089,7 @@ export default function DashboardClient({
     const parsed = parseDebtNotes(debt.notes);
     setEditingDebtId(debt.id);
     setDebtForm({
+      installmentMode: parsed.meta.installmentMode,
       platform: debt.platform,
       contract: debt.contract_no || '',
       balance: String(debt.remaining_balance ?? ''),
@@ -1113,18 +1116,45 @@ export default function DashboardClient({
 
   const handleAddDebt = async (e: React.FormEvent) => {
     e.preventDefault();
-    const balanceNum = Number(debtForm.balance);
-    const installmentNum = Number(debtForm.installment) || 0;
-    const tenorNum = Number(debtForm.tenor) || null;
+    const mode = debtForm.installmentMode || 'fixed';
+    let balanceNum = Number(debtForm.balance) || 0;
+    let installmentNum = Number(debtForm.installment) || 0;
+    let tenorNum: number | null = Number(debtForm.tenor) || null;
     const dueNum = Number(debtForm.dueDay) || null;
     const targetGroupId = debtForm.groupId || null;
 
-    if (!debtForm.platform || !balanceNum) return;
-
-    const rateNum =
-      debtForm.interestRate.trim() !== '' && Number.isFinite(Number(debtForm.interestRate))
+    const rawRate =
+      mode === 'interest' &&
+      debtForm.interestRate.trim() !== '' &&
+      Number.isFinite(Number(debtForm.interestRate))
         ? Math.max(0, Number(debtForm.interestRate))
         : null;
+
+    if (mode === 'lumpsum') {
+      tenorNum = 1;
+      installmentNum = balanceNum;
+    } else if (mode === 'interest') {
+      installmentNum = computeInstallmentFromInterest(
+        balanceNum,
+        tenorNum ?? 1,
+        rawRate,
+        debtForm.interestType
+      );
+    } else if (mode === 'custom') {
+      const overrideEntries = Object.entries(debtForm.scheduleOverrides)
+        .filter(([, v]) => Number.isFinite(v) && v >= 0)
+        .sort(([a], [b]) => a.localeCompare(b));
+      if (overrideEntries.length > 0) {
+        const sumOverrides = overrideEntries.reduce((s, [, v]) => s + Math.round(v), 0);
+        if (sumOverrides > 0) balanceNum = sumOverrides;
+        installmentNum = Math.round(overrideEntries[0][1]);
+        if (!tenorNum) tenorNum = overrideEntries.length;
+      }
+    }
+
+    if (!debtForm.platform || !balanceNum) return;
+
+    const rateNum = mode === 'interest' ? rawRate : null;
     const autoDayNum = debtForm.autoPay
       ? Math.min(31, Math.max(1, Number(debtForm.autoPayDay || debtForm.dueDay) || 1))
       : null;
@@ -1149,6 +1179,7 @@ export default function DashboardClient({
     }
 
     const encodedNotes = serializeDebtNotes(debtForm.notes, {
+      installmentMode: mode,
       interestRate: rateNum,
       interestType: debtForm.interestType,
       autoPay: debtForm.autoPay,
@@ -1157,7 +1188,7 @@ export default function DashboardClient({
         ? debtForm.autoPayAccountId || '__cash__'
         : null,
       lastAutoPaidYm: nextLastAutoPaidYm,
-      scheduleOverrides: debtForm.scheduleOverrides,
+      scheduleOverrides: mode === 'custom' ? debtForm.scheduleOverrides : {},
     });
 
     // MODE EDIT PINJAMAN EKSISTING
