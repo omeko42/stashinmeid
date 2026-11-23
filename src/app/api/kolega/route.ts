@@ -218,13 +218,24 @@ export async function POST(req: NextRequest) {
     if (group.error || !group.data) return NextResponse.json({ error: 'Grup tidak ditemukan' }, { status: 404 });
     if (group.data.owner_id !== userId) return NextResponse.json({ error: 'Hanya pemilik grup' }, { status: 403 });
 
-    const member = await admin
-      .from('profiles')
-      .select('id, email')
-      .ilike('email', email)
-      .maybeSingle();
+    // Dukung undang lewat Email ATAU Username (hilangkan '@' di depan bila ada)
+    const rawIdentifier = email.replace(/^@+/, '').trim();
+    const isFullEmail = rawIdentifier.includes('@');
+    let memberQuery = admin.from('profiles').select('id, email, client_name');
+    if (isFullEmail) {
+      memberQuery = memberQuery.ilike('email', rawIdentifier);
+    } else {
+      const safe = rawIdentifier.replace(/[%_,()]/g, '');
+      memberQuery = memberQuery.or(`email.ilike.${safe}@%,client_name.ilike.${safe}`);
+    }
+    const member = await memberQuery.limit(1).maybeSingle();
     if (member.error) return NextResponse.json({ error: member.error.message }, { status: 400 });
-    if (!member.data) return NextResponse.json({ error: `User dengan email ${email} belum terdaftar` }, { status: 404 });
+    if (!member.data) {
+      return NextResponse.json(
+        { error: `User dengan email/username "${email}" belum terdaftar` },
+        { status: 404 }
+      );
+    }
     if (member.data.id === userId) return NextResponse.json({ error: 'Kamu sudah jadi pemilik grup ini' }, { status: 400 });
 
     // Undangan 2-arah: status awal 'pending' supaya penerima bisa terima/tolak
