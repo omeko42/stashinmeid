@@ -1245,7 +1245,11 @@ export default function DashboardClient({
    */
   const executeDebtInstallment = async (
     debt: Debt,
-    options: { isAutoPay?: boolean; stampYm?: string } = {}
+    options: {
+      isAutoPay?: boolean;
+      stampYm?: string;
+      balanceOverrides?: Map<string, number>;
+    } = {}
   ): Promise<boolean> => {
     const payAmount =
       debt.monthly_installment > 0
@@ -1405,6 +1409,10 @@ export default function DashboardClient({
 
     // Potong saldo dompet sumber bila pembayaran terkait rekening/dompet spesifik
     if (sourceAcc) {
+      const baseBal =
+        options.balanceOverrides?.get(sourceAcc.id) ?? Number(sourceAcc.balance);
+      const nextBal = Math.round((baseBal - payAmount) * 100) / 100;
+      options.balanceOverrides?.set(sourceAcc.id, nextBal);
       try {
         await assets.saveAccount({
           id: sourceAcc.id,
@@ -1412,7 +1420,8 @@ export default function DashboardClient({
           kind: sourceAcc.kind,
           institution: sourceAcc.institution,
           currency: sourceAcc.currency,
-          balance: Number(sourceAcc.balance) - payAmount,
+          balance: nextBal,
+          notes: sourceAcc.notes,
         });
       } catch {
         // Biarkan transaksi cicilan tetap tersimpan
@@ -1435,7 +1444,7 @@ export default function DashboardClient({
     return true;
   };
 
-  // Auto-Payment bulanan otomatis: jalan saat tanggal jatuh tempo tiba & belum dibayar bulan ini
+  // Auto-Payment bulanan otomatis: jalan berurutan saat tanggal tiba & belum dibayar bulan ini
   useEffect(() => {
     if (isDemoMode || !canEdit || assets.loading) return;
     const now = appNow();
@@ -1457,30 +1466,36 @@ export default function DashboardClient({
     if (dueForAutoPay.length === 0) return;
 
     for (const d of dueForAutoPay) {
-      const key = `${d.id}:${currentYm}`;
-      autoPayRanRef.current.add(key);
-      void executeDebtInstallment(d, { isAutoPay: true, stampYm: currentYm }).then(
-        (ok) => {
-          if (ok) {
-            const { meta } = parseDebtNotes(d.notes);
-            const accName =
-              meta.autoPayAccountId && meta.autoPayAccountId !== '__cash__'
-                ? assets.accounts.find((a) => a.id === meta.autoPayAccountId)?.name ??
-                  'Dompet'
-                : 'Kas Tunai';
-            const amt =
-              d.monthly_installment > 0
-                ? Math.min(d.monthly_installment, d.remaining_balance)
-                : d.remaining_balance;
-            toast.success(
-              isEn
-                ? `Auto-paid ${d.platform} (Rp ${amt.toLocaleString('id-ID')}) from ${accName}`
-                : `Auto-payment ${d.platform} (Rp ${amt.toLocaleString('id-ID')}) tercatat dari ${accName}`
-            );
-          }
-        }
-      );
+      autoPayRanRef.current.add(`${d.id}:${currentYm}`);
     }
+
+    void (async () => {
+      const balanceOverrides = new Map<string, number>();
+      for (const d of dueForAutoPay) {
+        const ok = await executeDebtInstallment(d, {
+          isAutoPay: true,
+          stampYm: currentYm,
+          balanceOverrides,
+        });
+        if (ok) {
+          const { meta } = parseDebtNotes(d.notes);
+          const accName =
+            meta.autoPayAccountId && meta.autoPayAccountId !== '__cash__'
+              ? assets.accounts.find((a) => a.id === meta.autoPayAccountId)?.name ??
+                'Dompet'
+              : 'Kas Tunai';
+          const amt =
+            d.monthly_installment > 0
+              ? Math.min(d.monthly_installment, d.remaining_balance)
+              : d.remaining_balance;
+          toast.success(
+            isEn
+              ? `Auto-paid ${d.platform} (Rp ${amt.toLocaleString('id-ID')}) from ${accName}`
+              : `Auto-payment ${d.platform} (Rp ${amt.toLocaleString('id-ID')}) tercatat dari ${accName}`
+          );
+        }
+      }
+    })();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debts, assets.loading, isDemoMode, canEdit]);
 
