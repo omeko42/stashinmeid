@@ -257,7 +257,7 @@ export default function DashboardClient({
   );
   const [profileClient, setProfileClient] = useState(clientName);
   const [profileBio, setProfileBio] = useState(
-    initialBio || 'Pengelola keuangan pribadi & pemantauan cashflow di stashinmeid.'
+    initialBio || 'Pengelola keuangan pribadi & pemantauan cashflow di StashinMe.'
   );
   const [profileAvatarUrl, setProfileAvatarUrl] = useState<string | null>(initialAvatarUrl);
   const [profileBannerUrl, setProfileBannerUrl] = useState<string | null>(initialBannerUrl);
@@ -338,7 +338,7 @@ export default function DashboardClient({
     setProfileEmail(userEmail && userEmail.includes('@') ? userEmail : '');
     setProfileClient(clientName);
     setProfileBio(
-      initialBio || 'Pengelola keuangan pribadi & pemantauan cashflow di stashinmeid.'
+      initialBio || 'Pengelola keuangan pribadi & pemantauan cashflow di StashinMe.'
     );
     setProfileAvatarUrl(initialAvatarUrl);
     setProfileBannerUrl(initialBannerUrl);
@@ -1716,7 +1716,7 @@ export default function DashboardClient({
     }
     const { data, error } = await supabase.auth.mfa.enroll({
       factorType: 'totp',
-      friendlyName: 'stashinmeid Authenticator',
+      friendlyName: 'StashinMe Authenticator',
     });
     if (error) {
       toast.error(error.message);
@@ -1751,7 +1751,7 @@ export default function DashboardClient({
 
   const handleLogout = async () => {
     const ok = await confirm({
-      title: isEn ? 'Sign out from stashinmeid?' : 'Keluar dari akun?',
+      title: isEn ? 'Sign out from StashinMe?' : 'Keluar dari akun?',
       description: isEn
         ? 'You will return to the landing page and can sign back in anytime.'
         : 'Anda akan kembali ke halaman utama dan bisa masuk kembali kapan saja.',

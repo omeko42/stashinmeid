@@ -52,8 +52,8 @@ export function MobileHeader({
         <div className="flex min-w-0 items-center gap-2">
           <BrandLogo size={28} />
           <div className="min-w-0">
-            <h1 className="text-[13px] font-bold leading-none lowercase">
-              stashinmeid
+            <h1 className="text-[13px] font-bold leading-none tracking-tight">
+              StashinMe
             </h1>
             <span className="mt-0.5 block truncate text-[10px] text-[var(--text-muted)]">
               {profileClient}

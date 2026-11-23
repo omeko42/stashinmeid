@@ -778,7 +778,7 @@ export function LandingPage({
           <div className="flex items-center gap-2.5">
             <BrandLogo size={32} />
             <span className="text-[16px] font-bold tracking-tight text-white">
-              stashinmeid
+              StashinMe
             </span>
           </div>
 
@@ -1496,7 +1496,7 @@ export function LandingPage({
                       <div className="mt-5 pt-4 text-[12px] text-zinc-400">
                         {isEn ? 'Prefer direct email?' : 'Lebih suka email langsung?'}{' '}
                         <a
-                          href="mailto:support@stashinme.biz.id?subject=Enterprise%20Custom%20stashinmeid"
+                          href="mailto:support@stashinme.biz.id?subject=Enterprise%20Custom%20StashinMe"
                           className="font-semibold text-emerald-400 hover:underline"
                         >
                           support@stashinme.biz.id
@@ -1695,7 +1695,7 @@ export function LandingPage({
               <div className="flex items-center gap-2.5">
                 <BrandLogo size={30} />
                 <span className="text-[15px] font-bold tracking-tight text-white">
-                  stashinmeid
+                  StashinMe
                 </span>
               </div>
               <p className="max-w-xs text-[12px] leading-relaxed text-zinc-400">
@@ -1763,7 +1763,7 @@ export function LandingPage({
                 </li>
                 <li>
                   <a
-                    href="mailto:support@stashinme.biz.id?subject=Partnership%20stashinmeid"
+                    href="mailto:support@stashinme.biz.id?subject=Partnership%20StashinMe"
                     className="inline-flex items-center gap-1 transition hover:text-white"
                   >
                     Become a Partner
@@ -1799,7 +1799,7 @@ export function LandingPage({
                 </li>
                 <li>
                   <a
-                    href="mailto:support@stashinme.biz.id?subject=Partnership%20stashinmeid"
+                    href="mailto:support@stashinme.biz.id?subject=Partnership%20StashinMe"
                     className="transition hover:text-white"
                   >
                     {isEn ? 'Partnerships' : 'Kemitraan & Media'}
@@ -1811,7 +1811,7 @@ export function LandingPage({
           </div>
 
           <div className="mt-10 flex flex-col items-center justify-between gap-3 border-t border-white/[0.06] pt-6 text-[12px] text-zinc-500 sm:flex-row">
-            <span>© 2026 stashinmeid. All rights reserved.</span>
+            <span>© 2026 StashinMe. All rights reserved.</span>
             <div className="flex flex-wrap items-center justify-center gap-4">
               <Link
                 href="/privacy"
@@ -1862,7 +1862,7 @@ export function LandingPage({
               <div className="mb-5 flex items-center gap-3">
                 <BrandLogo size={36} />
                 <span className="text-base font-bold tracking-tight text-white">
-                  stashinmeid
+                  StashinMe
                 </span>
               </div>
 

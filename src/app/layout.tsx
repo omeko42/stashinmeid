@@ -29,19 +29,19 @@ const SITE_URL = (() => {
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: 'stashinmeid - Aplikasi Manajemen Keuanganmu',
-    template: '%s - stashinmeid',
+    default: 'StashinMe - Aplikasi Manajemen Keuanganmu',
+    template: '%s - StashinMe',
   },
   description:
-    'Catat inflow, outflow, cicilan pinjaman, dan scan struk otomatis dengan AI. Kelola keuangan pribadi dengan rapi.',
-  applicationName: 'stashinmeid',
+    'Catat inflow, outflow, cicilan pinjaman, dan scan struk otomatis dengan AI. Kelola keuangan pribadi dan grup dengan rapi.',
+  applicationName: 'StashinMe',
   authors: [{ name: 'omeko42' }],
-  keywords: ['keuangan pribadi', 'cashflow', 'pinjaman', 'anggaran', 'stashinmeid'],
+  keywords: ['keuangan pribadi', 'cashflow', 'pinjaman', 'anggaran', 'StashinMe'],
   manifest: '/manifest.webmanifest',
   appleWebApp: {
     capable: true,
     statusBarStyle: 'black-translucent',
-    title: 'stashinmeid',
+    title: 'StashinMe',
   },
   formatDetection: {
     telephone: false,
@@ -51,8 +51,8 @@ export const metadata: Metadata = {
     locale: 'id_ID',
     alternateLocale: 'en_US',
     url: SITE_URL,
-    siteName: 'stashinmeid',
-    title: 'stashinmeid - Aplikasi Manajemen Keuanganmu',
+    siteName: 'StashinMe',
+    title: 'StashinMe - Aplikasi Manajemen Keuanganmu',
     description:
       'Catat inflow, outflow, cicilan pinjaman, dan scan struk otomatis dengan AI.',
     images: [
@@ -60,13 +60,13 @@ export const metadata: Metadata = {
         url: '/icon-192x192.png',
         width: 192,
         height: 192,
-        alt: 'stashinmeid',
+        alt: 'StashinMe',
       },
     ],
   },
   twitter: {
     card: 'summary',
-    title: 'stashinmeid - Aplikasi Manajemen Keuanganmu',
+    title: 'StashinMe - Aplikasi Manajemen Keuanganmu',
     description: 'Catat inflow, outflow, cicilan pinjaman, dan scan struk otomatis dengan AI.',
     images: ['/icon-192x192.png'],
   },

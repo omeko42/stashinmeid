@@ -818,7 +818,7 @@ export function UsersTab({
                 required
                 value={newEmail}
                 onChange={(e) => setNewEmail(e.target.value)}
-                placeholder="nama@stashinmeid.app"
+                placeholder="nama@stashinme.biz.id"
                 className="mt-1 h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none"
               />
             </div>

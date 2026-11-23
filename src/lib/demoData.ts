@@ -4,13 +4,13 @@ import type { AssetAccount } from '@/hooks/useAssets';
 export function getDemoUser(locale: 'id' | 'en' = 'id') {
   if (locale === 'en') {
     return {
-      email: 'demo@stashinmeid.app',
+      email: 'demo@stashinme.biz.id',
       clientName: 'Demo Workspace',
       bio: 'Interactive sandbox — changes reset automatically on reload.',
     };
   }
   return {
-    email: 'demo@stashinmeid.app',
+    email: 'demo@stashinme.biz.id',
     clientName: 'Akun Demo Sandbox',
     bio: 'Mode uji coba interaktif — data kembali ke awal saat dimuat ulang.',
   };

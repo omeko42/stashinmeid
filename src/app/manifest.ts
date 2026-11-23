@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'stashinmeid - Aplikasi Manajemen Keuanganmu',
-    short_name: 'stashinmeid',
+    name: 'StashinMe - Aplikasi Manajemen Keuanganmu',
+    short_name: 'StashinMe',
     description:
       'Catat inflow, outflow, cicilan pinjaman, dan scan struk otomatis dengan AI.',
     start_url: '/',

@@ -51,7 +51,7 @@ export default function ResetPasswordPage() {
         <div className="flex items-center gap-3">
           <BrandLogo size={42} />
           <div>
-            <h1 className="text-lg font-bold lowercase">stashinmeid</h1>
+            <h1 className="text-lg font-bold tracking-tight">StashinMe</h1>
             <p className="text-xs text-zinc-400">Buat Password Baru</p>
           </div>
         </div>

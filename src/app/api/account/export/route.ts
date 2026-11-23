@@ -36,7 +36,7 @@ export async function GET() {
 
   const payload: Record<string, unknown> = {
     exportedAt: new Date().toISOString(),
-    format: 'stashinmeid-export-v1',
+    format: 'stashinme-export-v1',
   };
 
   const { data: profileData, error: profileErr } = await admin
@@ -93,7 +93,7 @@ export async function GET() {
   // Transaksi milik anggota grup juga di luar boundary pribadi, jadi tidak
   // ikut. Yang di-export hanya milik user ini sendiri.
 
-  const filename = `stashinmeid-export-${new Date().toISOString().slice(0, 10)}.json`;
+  const filename = `stashinme-export-${new Date().toISOString().slice(0, 10)}.json`;
 
   return new NextResponse(JSON.stringify(payload, null, 2), {
     status: 200,

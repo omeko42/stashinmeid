@@ -57,7 +57,7 @@ export function DangerZone() {
       const blob = await res.blob();
       const disposition = res.headers.get('Content-Disposition') ?? '';
       const match = disposition.match(/filename="([^"]+)"/);
-      const filename = match?.[1] ?? 'stashinmeid-export.json';
+      const filename = match?.[1] ?? 'stashinme-export.json';
 
       const url = URL.createObjectURL(blob);
       const link = document.createElement('a');

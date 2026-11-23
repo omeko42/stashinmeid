@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "stashinmeid",
+    "name": "StashinMe",
     "tagline": "Your money, managed"
   },
   "nav": {
@@ -467,7 +467,7 @@
     "wordHint": "Download the full report as an editable Microsoft Word file."
   },
   "announcement": {
-    "text": "Announcement: stashinmeid v3 is live - permanent storage, auto FX rates, and shared kolega finance are ready",
+    "text": "Announcement: StashinMe v3 is live - permanent storage, auto FX rates, and shared kolega finance are ready",
     "dismiss": "Dismiss announcement"
   },
   "saldo": {

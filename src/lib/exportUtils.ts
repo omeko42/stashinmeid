@@ -37,7 +37,7 @@ export function exportToPDF(
     .reduce((s, d) => s + Number(d.remaining_balance), 0);
 
   doc.setFontSize(16);
-  doc.text(`Stashinme - Laporan Keuangan (${clientName})`, 14, 18);
+  doc.text(`StashinMe - Laporan Keuangan (${clientName})`, 14, 18);
 
   doc.setFontSize(10);
   doc.text(`Saldo: ${formatRp(totalInflow - totalOutflow)}`, 14, 28);
@@ -72,7 +72,7 @@ export function exportToPDF(
     ]),
   });
 
-  doc.save(`Stashinme-${clientName.replace(/\s+/g, '_')}.pdf`);
+  doc.save(`StashinMe-${clientName.replace(/\s+/g, '_')}.pdf`);
 }
 
 export async function exportToWord(
@@ -141,7 +141,7 @@ export async function exportToWord(
       {
         children: [
           new Paragraph({
-            text: `Stashinme - Laporan Keuangan (${clientName})`,
+            text: `StashinMe - Laporan Keuangan (${clientName})`,
             heading: HeadingLevel.HEADING_1,
           }),
           new Paragraph(`Saldo: ${formatRp(totalInflow - totalOutflow)}`),
@@ -161,7 +161,7 @@ export async function exportToWord(
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `Stashinme-${clientName.replace(/\s+/g, '_')}.docx`;
+  a.download = `StashinMe-${clientName.replace(/\s+/g, '_')}.docx`;
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -333,7 +333,7 @@ export function exportToCSV(
   );
 
   const lines = [
-    `# stashinmeid - ${clientName}`,
+    `# StashinMe - ${clientName}`,
     `# dibuat ${new Date().toISOString().slice(0, 10)}`,
     '',
     header.join(','),
@@ -352,7 +352,7 @@ export function exportToCSV(
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = `stashinmeid-${clientName.replace(/\s+/g, '_') || 'laporan'}.csv`;
+  a.download = `StashinMe-${clientName.replace(/\s+/g, '_') || 'laporan'}.csv`;
   a.click();
   URL.revokeObjectURL(url);
 }

@@ -173,8 +173,8 @@ export function Sidebar({
         <BrandLogo size={collapsed ? 28 : 32} />
         {!collapsed && (
           <div className="min-w-0 flex-1">
-            <h1 className="truncate text-[15px] font-bold leading-none tracking-tight lowercase">
-              stashinmeid
+            <h1 className="truncate text-[15px] font-bold leading-none tracking-tight">
+              StashinMe
             </h1>
             <span className="mt-0.5 block truncate text-[10px] text-[var(--text-muted)]">
               {t('app.tagline')}

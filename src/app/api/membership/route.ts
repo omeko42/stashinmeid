@@ -104,7 +104,7 @@ async function createThirdPartyCheckoutUrl(opts: {
               id: opts.planName.toLowerCase().replace(/\s+/g, '-'),
               price: opts.amountIdr,
               quantity: 1,
-              name: `stashinmeid ${opts.planName} Membership`,
+              name: `StashinMe ${opts.planName} Membership`,
             },
           ],
           customer_details: {
@@ -131,7 +131,7 @@ async function createThirdPartyCheckoutUrl(opts: {
           external_id: opts.invoiceNo,
           amount: opts.amountIdr,
           payer_email: opts.customerEmail,
-          description: `stashinmeid ${opts.planName} Membership`,
+          description: `StashinMe ${opts.planName} Membership`,
           currency: 'IDR',
         }),
       });
@@ -212,7 +212,7 @@ async function createThirdPartyCheckoutUrl(opts: {
       );
       params.set(
         'line_items[0][price_data][product_data][name]',
-        `stashinmeid ${opts.planName} Membership`
+        `StashinMe ${opts.planName} Membership`
       );
       const res = await fetch('https://api.stripe.com/v1/checkout/sessions', {
         method: 'POST',

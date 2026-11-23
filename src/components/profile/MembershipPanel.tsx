@@ -757,7 +757,7 @@ export function MembershipPanel({
               <p className="mt-4 text-[11px] text-[var(--text-muted)]">
                 Email:{' '}
                 <a
-                  href="mailto:support@stashinme.biz.id?subject=Enterprise%20Custom%20stashinmeid"
+                  href="mailto:support@stashinme.biz.id?subject=Enterprise%20Custom%20StashinMe"
                   className="font-semibold text-[var(--brand)] hover:underline"
                 >
                   support@stashinme.biz.id

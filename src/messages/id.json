@@ -1,6 +1,6 @@
 {
   "app": {
-    "name": "stashinmeid",
+    "name": "StashinMe",
     "tagline": "Manajemen keuanganmu"
   },
   "nav": {
@@ -467,7 +467,7 @@
     "wordHint": "Unduh laporan lengkap dalam format Microsoft Word yang bisa diedit."
   },
   "announcement": {
-    "text": "Pengumuman: stashinmeid v3 sekarang live - data tersimpan permanen, kurs otomatis, dan kolega siap dipakai",
+    "text": "Pengumuman: StashinMe v3 sekarang live - data tersimpan permanen, kurs otomatis, dan kolega siap dipakai",
     "dismiss": "Tutup pengumuman"
   },
   "saldo": {
