@@ -4,7 +4,9 @@ import { useMemo } from 'react';
 import { useLocale, useTranslations } from 'next-intl';
 import { motion } from 'framer-motion';
 import {
+  AlertTriangle,
   Calculator,
+  Calendar,
   CalendarClock,
   CheckCircle2,
   Landmark,
@@ -612,13 +614,15 @@ export function DebtsTab({
               if (Number.isFinite(dLeft) && dLeft >= 0) dueCountdown = dLeft;
             }
 
+            const currentYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
+
             return (
               <motion.article
                 key={debt.id}
                 initial={{ opacity: 0, y: 8 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.22, delay: Math.min(idx * 0.04, 0.24) }}
-                className={`card-interactive rounded-xl border bg-[var(--surface-1)] p-4 ${
+                className={`card-interactive flex flex-col justify-between rounded-xl border bg-[var(--surface-1)] p-4 ${
                   isSimSelected
                     ? 'border-[var(--info)] ring-1 ring-[var(--info)]/40'
                     : settled
@@ -626,172 +630,250 @@ export function DebtsTab({
                       : 'border-[var(--line)]'
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-start gap-2.5">
-                    {!settled && canEdit && (
-                      <input
-                        id={`debt-sim-${debt.id}`}
-                        name={`debt-sim-${debt.id}`}
-                        type="checkbox"
-                        checked={isSimSelected}
-                        onChange={() => onToggleSim(debt.id)}
-                        aria-label={tDebts('simulator.hint')}
-                        className="mt-1 size-4 shrink-0 cursor-pointer accent-[var(--info)]"
-                      />
-                    )}
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <h3 className="truncate text-[14px] font-semibold text-[var(--text)]">
-                          {debt.platform}
-                        </h3>
-                        {debt.group_id && groupNameById[debt.group_id] ? (
-                          <span className="inline-flex items-center gap-1 rounded bg-[var(--info-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--info)]">
-                            <Users className="size-3" aria-hidden />
-                            {groupNameById[debt.group_id]}
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
-                            Pribadi
-                          </span>
+                <div>
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex min-w-0 items-start gap-2.5">
+                      {!settled && canEdit && (
+                        <input
+                          id={`debt-sim-${debt.id}`}
+                          name={`debt-sim-${debt.id}`}
+                          type="checkbox"
+                          checked={isSimSelected}
+                          onChange={() => onToggleSim(debt.id)}
+                          aria-label={tDebts('simulator.hint')}
+                          className="mt-1 size-4 shrink-0 cursor-pointer accent-[var(--info)]"
+                        />
+                      )}
+                      <div className="min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <h3 className="truncate text-[14px] font-semibold text-[var(--text)]">
+                            {debt.platform}
+                          </h3>
+                          {debt.group_id && groupNameById[debt.group_id] ? (
+                            <span className="inline-flex items-center gap-1 rounded bg-[var(--info-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--info)]">
+                              <Users className="size-3" aria-hidden />
+                              {groupNameById[debt.group_id]}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center rounded bg-[var(--surface-2)] px-1.5 py-0.5 text-[10px] font-medium text-[var(--text-muted)]">
+                              Pribadi
+                            </span>
+                          )}
+                          {settled && (
+                            <span className="inline-flex items-center gap-1 rounded bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                              <CheckCircle2 className="size-3" aria-hidden />
+                              {tDebts('card.paidOff')}
+                            </span>
+                          )}
+                        </div>
+                        {debt.contract_no && (
+                          <p className="tnum mt-0.5 truncate text-[11px] text-[var(--text-faint)]">
+                            {debt.contract_no}
+                          </p>
                         )}
-                        {dueCountdown !== null && dueCountdown <= 7 && (
-                          <span
-                            className={`tnum inline-flex items-center rounded px-1.5 py-0.5 text-[10px] font-semibold ${
+                      </div>
+                    </div>
+
+                    {/* Baris ikon status & aksi rapi sejajar di pojok kanan atas */}
+                    <div className="flex shrink-0 items-center gap-1">
+                      {/* Ikon Warning Jatuh Tempo (hover -> detail jatuh tempo) */}
+                      {dueCountdown !== null && dueCountdown <= 7 && (
+                        <div className="group/due relative">
+                          <button
+                            type="button"
+                            aria-label={
+                              dueCountdown === 0
+                                ? isEn
+                                  ? 'Due today'
+                                  : 'Jatuh tempo hari ini'
+                                : isEn
+                                  ? `Due in ${dueCountdown} days`
+                                  : `Jatuh tempo ${dueCountdown} hari lagi`
+                            }
+                            className={`flex size-7 items-center justify-center rounded-lg border transition ${
                               dueCountdown <= 3
-                                ? 'bg-[var(--out-soft)] text-[var(--out)]'
-                                : 'bg-[var(--due-soft)] text-[var(--due)]'
+                                ? 'border-[var(--out)]/30 bg-[var(--out-soft)] text-[var(--out)]'
+                                : 'border-[var(--due)]/30 bg-[var(--due-soft)] text-[var(--due)]'
                             }`}
                           >
-                            {dueCountdown === 0 ? 'Jatuh tempo hari ini' : `H-${dueCountdown}`}
-                          </span>
-                        )}
-                        {settled && (
-                          <span className="inline-flex items-center gap-1 rounded bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
-                            <CheckCircle2 className="size-3" aria-hidden />
-                            {tDebts('card.paidOff')}
+                            <AlertTriangle className="size-3.5" aria-hidden />
+                          </button>
+                          <div className="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-1.5 w-48 translate-y-1 rounded-lg border border-[var(--line-strong)] bg-[var(--surface-1)]/95 px-2.5 py-2 opacity-0 shadow-[var(--shadow-lg)] backdrop-blur-sm transition-all duration-150 group-hover/due:visible group-hover/due:translate-y-0 group-hover/due:opacity-100 group-focus-within/due:visible group-focus-within/due:translate-y-0 group-focus-within/due:opacity-100">
+                            <p
+                              className={`text-[11px] font-semibold ${
+                                dueCountdown <= 3 ? 'text-[var(--out)]' : 'text-[var(--due)]'
+                              }`}
+                            >
+                              {dueCountdown === 0
+                                ? isEn
+                                  ? 'Due Today'
+                                  : 'Jatuh Tempo Hari Ini'
+                                : isEn
+                                  ? `Due in ${dueCountdown} days`
+                                  : `Jatuh Tempo ${dueCountdown} Hari Lagi`}
+                            </p>
+                            {debt.due_day && (
+                              <p className="tnum mt-0.5 text-[10px] text-[var(--text-muted)]">
+                                {isEn
+                                  ? `Every day ${debt.due_day} of month`
+                                  : `Setiap tanggal ${debt.due_day}`}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Ikon Kalender Auto-Payment / Payroll Otomatis (hover -> detail tanggal & rekening) */}
+                      {meta.autoPay && (
+                        <div className="group/auto relative">
+                          <button
+                            type="button"
+                            aria-label={
+                              isEn
+                                ? `Auto-pay every day ${meta.autoPayDay || debt.due_day || 1}`
+                                : `Auto-payment setiap tanggal ${meta.autoPayDay || debt.due_day || 1}`
+                            }
+                            className="flex size-7 items-center justify-center rounded-lg border border-[var(--brand)]/30 bg-[var(--brand-soft)] text-[var(--brand)] transition hover:border-[var(--brand)]"
+                          >
+                            <Calendar className="size-3.5" aria-hidden />
+                          </button>
+                          <div className="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-1.5 w-56 translate-y-1 rounded-lg border border-[var(--line-strong)] bg-[var(--surface-1)]/95 px-2.5 py-2 opacity-0 shadow-[var(--shadow-lg)] backdrop-blur-sm transition-all duration-150 group-hover/auto:visible group-hover/auto:translate-y-0 group-hover/auto:opacity-100 group-focus-within/auto:visible group-focus-within/auto:translate-y-0 group-focus-within/auto:opacity-100">
+                            <p className="text-[11px] font-semibold text-[var(--brand)]">
+                              {isEn ? 'Auto-Payment Active' : 'Auto-Payment Aktif'}
+                            </p>
+                            <p className="tnum mt-0.5 text-[11px] text-[var(--text)]">
+                              {isEn
+                                ? `Every day ${meta.autoPayDay || debt.due_day || 1}`
+                                : `Otomatis setiap tgl ${meta.autoPayDay || debt.due_day || 1}`}
+                            </p>
+                            <p className="mt-0.5 truncate text-[10px] text-[var(--text-muted)]">
+                              {isEn ? 'From: ' : 'Sumber: '}
+                              {walletName(meta.autoPayAccountId)}
+                            </p>
+                            {meta.lastAutoPaidYm === currentYm && (
+                              <p className="mt-1 text-[10px] font-medium text-[var(--brand)]">
+                                ✓ {isEn ? 'Paid this month' : 'Sudah tercatat bulan ini'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Ikon Bunga (hover -> detail %/thn Flat/Floating & estimasi bunga/bln) */}
+                      {meta.interestRate !== null && (
+                        <div className="group/rate relative">
+                          <button
+                            type="button"
+                            aria-label={`${meta.interestRate}% ${meta.interestType}`}
+                            className="flex size-7 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text-muted)] transition hover:border-[var(--due)] hover:text-[var(--due)]"
+                          >
+                            <Percent className="size-3.5" aria-hidden />
+                          </button>
+                          <div className="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-1.5 w-48 translate-y-1 rounded-lg border border-[var(--line-strong)] bg-[var(--surface-1)]/95 px-2.5 py-2 opacity-0 shadow-[var(--shadow-lg)] backdrop-blur-sm transition-all duration-150 group-hover/rate:visible group-hover/rate:translate-y-0 group-hover/rate:opacity-100 group-focus-within/rate:visible group-focus-within/rate:translate-y-0 group-focus-within/rate:opacity-100">
+                            <p className="tnum text-[11px] font-semibold text-[var(--text)]">
+                              {meta.interestRate}% / {isEn ? 'year' : 'tahun'} ·{' '}
+                              {meta.interestType === 'floating' ? 'Floating' : 'Flat'}
+                            </p>
+                            {monthlyEstInterest > 0 && (
+                              <p className="tnum mt-0.5 text-[10px] text-[var(--text-muted)]">
+                                {isEn ? 'Est. interest/mo: ' : 'Est. bunga/bln: '}~
+                                {formatRp(monthlyEstInterest)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {canEdit && (
+                        <>
+                          {onEdit && (
+                            <IconButton
+                              label={isEn ? 'Edit loan' : 'Edit pinjaman'}
+                              size="sm"
+                              onClick={() => onEdit(debt)}
+                              className="text-[var(--text-faint)] hover:text-[var(--brand)]"
+                            >
+                              <Pencil className="size-3.5" />
+                            </IconButton>
+                          )}
+                          <IconButton
+                            label={tCommon('delete')}
+                            size="sm"
+                            onClick={() => onDelete(debt.id)}
+                            className="text-[var(--text-faint)] hover:text-[var(--out)]"
+                          >
+                            <Trash2 className="size-4" />
+                          </IconButton>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-3 space-y-1.5">
+                    <div className="flex items-baseline justify-between gap-2">
+                      <Label>{tDebts('card.progress')}</Label>
+                      <span className="tnum text-[11px] font-semibold text-[var(--text-muted)]">
+                        {paidPct}%
+                      </span>
+                    </div>
+                    <Progress value={paidPct} tone={settled ? 'brand' : 'due'} />
+                  </div>
+                </div>
+
+                <div>
+                  <Rule className="my-3" />
+
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                    <div className="min-w-0">
+                      <Label>{tDebts('card.remainingLabel')}</Label>
+                      <div className="mt-0.5 truncate">
+                        <Amount
+                          value={formatRp(debt.remaining_balance)}
+                          tone="due"
+                          size="sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="min-w-0">
+                      <Label>{tDebts('card.installmentLabel')}</Label>
+                      <div className="mt-0.5 truncate">
+                        <Amount
+                          value={
+                            debt.monthly_installment
+                              ? formatRp(debt.monthly_installment)
+                              : '-'
+                          }
+                          size="sm"
+                        />
+                      </div>
+                    </div>
+                    <div className="col-span-2 min-w-0 sm:col-span-1">
+                      <Label>{tDebts('card.tenorLabel')}</Label>
+                      <div className="mt-0.5">
+                        <span className="tnum text-[13px] font-semibold text-[var(--text)]">
+                          {debt.remaining_tenor ?? '-'}
+                        </span>
+                        {debt.due_day && (
+                          <span className="tnum ml-1 text-[11px] text-[var(--text-faint)]">
+                            · tgl {debt.due_day}
                           </span>
                         )}
                       </div>
-                      {debt.contract_no && (
-                        <p className="tnum mt-0.5 truncate text-[11px] text-[var(--text-faint)]">
-                          {debt.contract_no}
-                        </p>
-                      )}
                     </div>
                   </div>
-                  {canEdit && (
-                    <div className="flex shrink-0 items-center gap-0.5">
-                      {onEdit && (
-                        <IconButton
-                          label={isEn ? 'Edit loan' : 'Edit pinjaman'}
-                          size="sm"
-                          onClick={() => onEdit(debt)}
-                          className="text-[var(--text-faint)] hover:text-[var(--brand)]"
-                        >
-                          <Pencil className="size-3.5" />
-                        </IconButton>
-                      )}
-                      <IconButton
-                        label={tCommon('delete')}
-                        size="sm"
-                        onClick={() => onDelete(debt.id)}
-                        className="text-[var(--text-faint)] hover:text-[var(--out)]"
-                      >
-                        <Trash2 className="size-4" />
-                      </IconButton>
-                    </div>
+
+                  {!settled && canEdit && (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      fullWidth
+                      className="mt-3"
+                      onClick={() => onPay(debt)}
+                    >
+                      {tDebts('card.pay')}
+                    </Button>
                   )}
                 </div>
-
-                {/* Badge Bunga (Flat/Floating) & Auto-Payment */}
-                {(meta.interestRate !== null || meta.autoPay) && (
-                  <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                    {meta.interestRate !== null && (
-                      <span
-                        title={
-                          monthlyEstInterest > 0
-                            ? `${isEn ? 'Est. monthly interest' : 'Est. bunga/bln'}: ~${formatRp(monthlyEstInterest)}`
-                            : undefined
-                        }
-                        className="tnum inline-flex items-center gap-1 rounded-md border border-[var(--due)]/25 bg-[var(--due-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--due)]"
-                      >
-                        <Percent className="size-2.5" aria-hidden />
-                        {meta.interestRate}%/{isEn ? 'yr' : 'thn'} ·{' '}
-                        {meta.interestType === 'floating' ? 'Floating' : 'Flat'}
-                      </span>
-                    )}
-                    {meta.autoPay && (
-                      <span className="inline-flex items-center gap-1 rounded-md border border-[var(--brand)]/25 bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
-                        <Zap className="size-2.5" aria-hidden />
-                        Auto tgl {meta.autoPayDay || debt.due_day || 1} ·{' '}
-                        {walletName(meta.autoPayAccountId)}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                <div className="mt-3 space-y-1.5">
-                  <div className="flex items-baseline justify-between gap-2">
-                    <Label>{tDebts('card.progress')}</Label>
-                    <span className="tnum text-[11px] font-semibold text-[var(--text-muted)]">
-                      {paidPct}%
-                    </span>
-                  </div>
-                  <Progress value={paidPct} tone={settled ? 'brand' : 'due'} />
-                </div>
-
-                <Rule className="my-3" />
-
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                  <div className="min-w-0">
-                    <Label>{tDebts('card.remainingLabel')}</Label>
-                    <div className="mt-0.5 truncate">
-                      <Amount
-                        value={formatRp(debt.remaining_balance)}
-                        tone="due"
-                        size="sm"
-                      />
-                    </div>
-                  </div>
-                  <div className="min-w-0">
-                    <Label>{tDebts('card.installmentLabel')}</Label>
-                    <div className="mt-0.5 truncate">
-                      <Amount
-                        value={
-                          debt.monthly_installment
-                            ? formatRp(debt.monthly_installment)
-                            : '-'
-                        }
-                        size="sm"
-                      />
-                    </div>
-                  </div>
-                  <div className="col-span-2 min-w-0 sm:col-span-1">
-                    <Label>{tDebts('card.tenorLabel')}</Label>
-                    <div className="mt-0.5">
-                      <span className="tnum text-[13px] font-semibold text-[var(--text)]">
-                        {debt.remaining_tenor ?? '-'}
-                      </span>
-                      {debt.due_day && (
-                        <span className="tnum ml-1 text-[11px] text-[var(--text-faint)]">
-                          · tgl {debt.due_day}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
-                {!settled && canEdit && (
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    fullWidth
-                    className="mt-3"
-                    onClick={() => onPay(debt)}
-                  >
-                    {tDebts('card.pay')}
-                  </Button>
-                )}
               </motion.article>
             );
           })}
