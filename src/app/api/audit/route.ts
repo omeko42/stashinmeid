@@ -3,7 +3,6 @@ import { cookies } from 'next/headers';
 import { createAdminClient } from '@/lib/supabase/admin';
 import { getCallerUserId } from '@/lib/currentUser';
 import { verifySuperadminToken } from '@/lib/jwt';
-import { getOrCreateSuperadminUserId } from '@/lib/superadminUser';
 
 export interface AuditEntry {
   id: string;
@@ -40,40 +39,39 @@ async function checkIsAdmin(
   return data?.role === 'admin';
 }
 
-async function getPrimaryAdminId(
-  admin: NonNullable<ReturnType<typeof createAdminClient>>
-): Promise<string | null> {
-  const superId = await getOrCreateSuperadminUserId();
-  if (superId) return superId;
-  const { data } = await admin
-    .from('profiles')
-    .select('id')
-    .eq('role', 'admin')
-    .limit(1)
-    .maybeSingle();
-  return data?.id ?? null;
+const AUDIT_BUCKET = 'receipts';
+
+async function readAuditJson(
+  admin: NonNullable<ReturnType<typeof createAdminClient>>,
+  path: string
+): Promise<AuditEntry[]> {
+  try {
+    const { data, error } = await admin.storage.from(AUDIT_BUCKET).download(path);
+    if (error || !data) return [];
+    const parsed = JSON.parse(await data.text());
+    return Array.isArray(parsed) ? (parsed as AuditEntry[]) : [];
+  } catch {
+    return [];
+  }
 }
 
-async function appendUserLog(
+async function appendAuditJson(
   admin: NonNullable<ReturnType<typeof createAdminClient>>,
-  uid: string,
-  field: 'personal_audit_logs' | 'global_audit_logs',
+  path: string,
   entry: AuditEntry,
   maxItems: number
 ) {
-  const { data } = await admin.auth.admin.getUserById(uid);
-  if (!data?.user) return;
-  const meta = (data.user.user_metadata ?? {}) as Record<string, unknown>;
-  const existing = Array.isArray(meta[field])
-    ? (meta[field] as AuditEntry[])
-    : [];
-  const next = [entry, ...existing].slice(0, maxItems);
-  await admin.auth.admin.updateUserById(uid, {
-    user_metadata: {
-      ...meta,
-      [field]: next,
-    },
-  });
+  try {
+    const existing = await readAuditJson(admin, path);
+    const next = [entry, ...existing].slice(0, maxItems);
+    const payload = Buffer.from(JSON.stringify(next), 'utf8');
+    await admin.storage.from(AUDIT_BUCKET).upload(path, payload, {
+      contentType: 'application/json',
+      upsert: true,
+    });
+  } catch {
+    // Non-blocking: jangan ganggu request utama bila storage belum siap
+  }
 }
 
 export async function GET() {
@@ -87,34 +85,14 @@ export async function GET() {
     return NextResponse.json({ myLogs: [], globalLogs: [], isAdmin: false });
   }
 
-  const [isAdmin, userRes, primaryAdminId] = await Promise.all([
+  const [isAdmin, myLogs] = await Promise.all([
     checkIsAdmin(admin, userId),
-    admin.auth.admin.getUserById(userId),
-    getPrimaryAdminId(admin),
+    readAuditJson(admin, `_system/audit/${userId}.json`),
   ]);
 
-  const userMeta = (userRes.data?.user?.user_metadata ?? {}) as Record<
-    string,
-    unknown
-  >;
-  const myLogs = Array.isArray(userMeta.personal_audit_logs)
-    ? (userMeta.personal_audit_logs as AuditEntry[])
+  const globalLogs = isAdmin
+    ? await readAuditJson(admin, `_system/audit/global.json`)
     : [];
-
-  let globalLogs: AuditEntry[] = [];
-  if (isAdmin && primaryAdminId) {
-    const adminRes =
-      primaryAdminId === userId
-        ? userRes
-        : await admin.auth.admin.getUserById(primaryAdminId);
-    const adminMeta = (adminRes.data?.user?.user_metadata ?? {}) as Record<
-      string,
-      unknown
-    >;
-    globalLogs = Array.isArray(adminMeta.global_audit_logs)
-      ? (adminMeta.global_audit_logs as AuditEntry[])
-      : [];
-  }
 
   return NextResponse.json({
     myLogs,
@@ -154,7 +132,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'action wajib diisi' }, { status: 400 });
   }
 
-  const [{ data: actorProfile }, { data: targetProfile }, primaryAdminId] =
+  const [{ data: actorProfile }, { data: targetProfile }] =
     await Promise.all([
       admin
         .from('profiles')
@@ -168,7 +146,6 @@ export async function POST(req: NextRequest) {
             .eq('id', targetUserId)
             .maybeSingle()
         : Promise.resolve({ data: null }),
-      getPrimaryAdminId(admin),
     ]);
 
   const entry: AuditEntry = {
@@ -185,18 +162,14 @@ export async function POST(req: NextRequest) {
     createdAt: new Date().toISOString(),
   };
 
-  // 1. Catat ke log pribadi pelaku
-  await appendUserLog(admin, userId, 'personal_audit_logs', entry, 100);
-
-  // 2. Catat 2-arah ke log pihak terkait (bila berbeda dari pelaku)
-  if (targetUserId && targetUserId !== userId) {
-    await appendUserLog(admin, targetUserId, 'personal_audit_logs', entry, 100);
-  }
-
-  // 3. Catat ke log global Admin
-  if (primaryAdminId) {
-    await appendUserLog(admin, primaryAdminId, 'global_audit_logs', entry, 250);
-  }
+  // Simpan ke private Storage (0 byte di JWT cookie agar tidak pernah kena 494 REQUEST_HEADER_TOO_LARGE)
+  await Promise.all([
+    appendAuditJson(admin, `_system/audit/${userId}.json`, entry, 100),
+    targetUserId && targetUserId !== userId
+      ? appendAuditJson(admin, `_system/audit/${targetUserId}.json`, entry, 100)
+      : Promise.resolve(),
+    appendAuditJson(admin, `_system/audit/global.json`, entry, 250),
+  ]);
 
   return NextResponse.json({ ok: true, entry });
 }
