@@ -1,7 +1,8 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslations } from 'next-intl';
+import { AnimatePresence, motion } from 'framer-motion';
 import { toast } from 'sonner';
 import {
   ArrowDownRight,
@@ -11,6 +12,7 @@ import {
   Check,
   Copy,
   ExternalLink,
+  Filter,
   Globe,
   Landmark,
   LayoutGrid,
@@ -213,9 +215,29 @@ export function SocialTab({
 
   // State Berita & Pasar Live (Gratis: CNBC ID, Antara, CoinTelegraph, CoinGecko, ECB)
   const [newsFilter, setNewsFilter] = useState<'all' | FinanceNewsItem['region']>('all');
+  const [newsFilterOpen, setNewsFilterOpen] = useState(false);
+  const newsFilterRef = useRef<HTMLDivElement>(null);
   const [liveNews, setLiveNews] = useState<FinanceNewsItem[]>(FALLBACK_NEWS);
   const [liveTickers, setLiveTickers] = useState<MarketTicker[]>(FALLBACK_TICKERS);
   const [newsLoading, setNewsLoading] = useState(false);
+
+  useEffect(() => {
+    if (!newsFilterOpen) return;
+    const onDown = (e: MouseEvent) => {
+      if (newsFilterRef.current && !newsFilterRef.current.contains(e.target as Node)) {
+        setNewsFilterOpen(false);
+      }
+    };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setNewsFilterOpen(false);
+    };
+    document.addEventListener('mousedown', onDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [newsFilterOpen]);
 
   const loadMarketNews = useCallback(async () => {
     setNewsLoading(true);
@@ -1821,41 +1843,138 @@ export function SocialTab({
             ))}
           </div>
 
-          {/* Filter Wilayah / Topik Berita + Segarkan */}
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap gap-1.5">
-              {(
-                [
-                  { id: 'all', label: 'Semua' },
-                  { id: 'lokal', label: 'Indonesia (CNBC & Antara)' },
-                  { id: 'crypto', label: 'Crypto (CoinTelegraph)' },
-                ] as const
-              ).map((tab) => (
-                <button
-                  key={tab.id}
-                  type="button"
-                  onClick={() => setNewsFilter(tab.id)}
-                  className={cn(
-                    'rounded-lg border px-3 py-1.5 text-[12px] font-semibold transition',
-                    newsFilter === tab.id
-                      ? 'border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]'
-                      : 'border-[var(--line)] bg-[var(--surface-1)] text-[var(--text-muted)] hover:text-[var(--text)]'
-                  )}
-                >
-                  {tab.label}
-                </button>
-              ))}
+          {/* Toolbar Berita: ringkasan + ikon Filter popover + Segarkan */}
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <p className="text-[12px] font-medium text-[var(--text-muted)]">
+                Berita Pasar ·{' '}
+                <span className="tnum font-semibold text-[var(--text)]">
+                  {filteredNews.length}
+                </span>{' '}
+                artikel
+              </p>
+              {newsFilter !== 'all' && (
+                <span className="inline-flex items-center gap-1 rounded-md border border-[var(--brand)]/30 bg-[var(--brand-soft)] px-2 py-0.5 text-[11px] font-semibold text-[var(--brand)]">
+                  {newsFilter === 'lokal'
+                    ? 'Indonesia (CNBC & Antara)'
+                    : newsFilter === 'crypto'
+                      ? 'Crypto (CoinTelegraph)'
+                      : 'Global'}
+                  <button
+                    type="button"
+                    aria-label="Reset filter berita"
+                    onClick={() => setNewsFilter('all')}
+                    className="hover:opacity-75"
+                  >
+                    <X className="size-3" />
+                  </button>
+                </span>
+              )}
             </div>
 
-            <Button
-              size="sm"
-              variant="secondary"
-              icon={<RefreshCw className="size-3.5" />}
-              loading={newsLoading}
-              onClick={loadMarketNews}
-            >
-              Segarkan
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              {/* Ikon Filter corong + Popover pilihan topik/wilayah */}
+              <div ref={newsFilterRef} className="relative">
+                <button
+                  type="button"
+                  onClick={() => setNewsFilterOpen((v) => !v)}
+                  aria-haspopup="dialog"
+                  aria-expanded={newsFilterOpen}
+                  aria-label="Filter berita"
+                  title="Filter sumber & topik berita"
+                  className={cn(
+                    'relative inline-flex size-9 items-center justify-center rounded-lg border transition',
+                    newsFilterOpen || newsFilter !== 'all'
+                      ? 'border-[var(--brand)] bg-[var(--brand-soft)] text-[var(--brand)]'
+                      : 'border-[var(--line)] bg-[var(--surface-1)] text-[var(--text-muted)] hover:border-[var(--line-strong)] hover:text-[var(--text)]'
+                  )}
+                >
+                  <Filter className="size-4" aria-hidden />
+                  {newsFilter !== 'all' && (
+                    <span className="absolute -right-1 -top-1 flex size-3.5 items-center justify-center rounded-full bg-[var(--brand)] text-[9px] font-bold text-[var(--brand-contrast)]">
+                      1
+                    </span>
+                  )}
+                </button>
+
+                <AnimatePresence>
+                  {newsFilterOpen && (
+                    <motion.div
+                      role="dialog"
+                      aria-label="Filter Berita"
+                      initial={{ opacity: 0, y: -6, scale: 0.97 }}
+                      animate={{ opacity: 1, y: 0, scale: 1 }}
+                      exit={{ opacity: 0, y: -6, scale: 0.97 }}
+                      transition={{ duration: 0.14, ease: [0.22, 1, 0.36, 1] }}
+                      className="absolute right-0 top-full z-40 mt-2 w-64 rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)] p-2.5 shadow-[var(--shadow-lg)]"
+                    >
+                      <p className="mb-1.5 px-2 text-[10px] font-semibold uppercase tracking-wider text-[var(--text-muted)]">
+                        Sumber & Topik Berita
+                      </p>
+                      <div className="space-y-1">
+                        {(
+                          [
+                            {
+                              id: 'all',
+                              label: 'Semua Berita',
+                              desc: 'Indonesia & Crypto',
+                            },
+                            {
+                              id: 'lokal',
+                              label: 'Indonesia',
+                              desc: 'CNBC Indonesia & Antara',
+                            },
+                            {
+                              id: 'crypto',
+                              label: 'Crypto',
+                              desc: 'CoinTelegraph Global',
+                            },
+                          ] as const
+                        ).map((opt) => {
+                          const active = newsFilter === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              onClick={() => {
+                                setNewsFilter(opt.id);
+                                setNewsFilterOpen(false);
+                              }}
+                              className={cn(
+                                'flex w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-left transition',
+                                active
+                                  ? 'bg-[var(--brand-soft)] text-[var(--brand)]'
+                                  : 'text-[var(--text)] hover:bg-[var(--surface-2)]'
+                              )}
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate text-[12px] font-semibold">
+                                  {opt.label}
+                                </p>
+                                <p className="truncate text-[10px] text-[var(--text-faint)]">
+                                  {opt.desc}
+                                </p>
+                              </div>
+                              {active && <Check className="size-3.5 shrink-0" aria-hidden />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+
+              <Button
+                size="sm"
+                variant="secondary"
+                icon={<RefreshCw className="size-3.5" />}
+                loading={newsLoading}
+                onClick={loadMarketNews}
+              >
+                Segarkan
+              </Button>
+            </div>
           </div>
 
           {/* Daftar Artikel Berita Live */}
