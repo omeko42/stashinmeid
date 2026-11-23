@@ -158,7 +158,7 @@ export function BudgetTab({
                       : 'Mis. Liburan 2 Hari, Makan Harian, Renovasi'
                     : 'Makan & Minum'
                 }
-                className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+                className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
               />
             </div>
             <div className="flex-1">
@@ -177,7 +177,7 @@ export function BudgetTab({
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="1000000"
-                className="h-10 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+                className="h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[13px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
               />
             </div>
             <Button type="submit" size="sm" loading={saving} className="whitespace-nowrap">

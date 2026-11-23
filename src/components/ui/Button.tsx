@@ -29,7 +29,7 @@ const VARIANTS: Record<Variant, string> = {
 };
 
 const SIZES: Record<Size, string> = {
-  sm: 'h-8 px-3 text-[12px] gap-1.5 rounded-lg',
+  sm: 'h-9 px-3 text-[12px] gap-1.5 rounded-lg',
   md: 'h-10 px-4 text-[13px] gap-2 rounded-lg',
   lg: 'h-12 px-5 text-[14px] gap-2 rounded-xl',
 };
@@ -85,7 +85,7 @@ export const IconButton = forwardRef<
   ref
 ) {
   const iconSizes = {
-    sm: 'size-8 rounded-lg',
+    sm: 'size-9 rounded-lg',
     md: 'size-10 rounded-lg',
     lg: 'size-12 rounded-xl',
   } as const;

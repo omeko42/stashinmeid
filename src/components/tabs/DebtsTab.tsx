@@ -700,7 +700,7 @@ export function DebtsTab({
                                   ? `Due in ${dueCountdown} days`
                                   : `Jatuh tempo ${dueCountdown} hari lagi`
                             }
-                            className={`flex size-7 items-center justify-center rounded-lg border transition ${
+                            className={`flex size-8 items-center justify-center rounded-lg border transition ${
                               dueCountdown <= 3
                                 ? 'border-[var(--out)]/30 bg-[var(--out-soft)] text-[var(--out)]'
                                 : 'border-[var(--due)]/30 bg-[var(--due-soft)] text-[var(--due)]'
@@ -746,7 +746,7 @@ export function DebtsTab({
                                 ? `Auto-pay every day ${meta.autoPayDay || debt.due_day || 1}`
                                 : `Auto-payment setiap tanggal ${meta.autoPayDay || debt.due_day || 1}`
                             }
-                            className="flex size-7 items-center justify-center rounded-lg border border-[var(--brand)]/30 bg-[var(--brand-soft)] text-[var(--brand)] transition hover:border-[var(--brand)]"
+                            className="flex size-8 items-center justify-center rounded-lg border border-[var(--brand)]/30 bg-[var(--brand-soft)] text-[var(--brand)] transition hover:border-[var(--brand)]"
                           >
                             <Calendar className="size-3.5" aria-hidden />
                           </button>
@@ -786,7 +786,7 @@ export function DebtsTab({
                           <button
                             type="button"
                             aria-label={`${meta.interestRate}% ${meta.interestType}`}
-                            className="flex size-7 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text-muted)] transition hover:border-[var(--due)] hover:text-[var(--due)]"
+                            className="flex size-8 items-center justify-center rounded-lg border border-[var(--line)] bg-[var(--surface-2)] text-[var(--text-muted)] transition hover:border-[var(--due)] hover:text-[var(--due)]"
                           >
                             <Percent className="size-3.5" aria-hidden />
                           </button>
@@ -812,7 +812,7 @@ export function DebtsTab({
                               label={isEn ? 'Edit loan' : 'Edit pinjaman'}
                               size="sm"
                               onClick={() => onEdit(debt)}
-                              className="text-[var(--text-faint)] hover:text-[var(--brand)]"
+                              className="!size-8 text-[var(--text-faint)] hover:text-[var(--brand)]"
                             >
                               <Pencil className="size-3.5" />
                             </IconButton>
@@ -821,9 +821,9 @@ export function DebtsTab({
                             label={tCommon('delete')}
                             size="sm"
                             onClick={() => onDelete(debt.id)}
-                            className="text-[var(--text-faint)] hover:text-[var(--out)]"
+                            className="!size-8 text-[var(--text-faint)] hover:text-[var(--out)]"
                           >
-                            <Trash2 className="size-4" />
+                            <Trash2 className="size-3.5" />
                           </IconButton>
                         </>
                       )}

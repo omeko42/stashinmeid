@@ -604,7 +604,7 @@ export function CashflowTab({
                       ))}
                   </button>
                 </th>
-                {canEdit && <th scope="col" className="w-[74px] px-2 py-2.5" />}
+                {canEdit && <th scope="col" className="w-[82px] px-2 py-2.5" />}
               </tr>
             </thead>
             <tbody>

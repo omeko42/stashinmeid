@@ -1108,7 +1108,7 @@ export function SocialTab({
                           onChange={(e) => setInviteEmail(e.target.value)}
                           placeholder="email@kolega.com"
                           aria-label="Email kolega untuk diundang ke grup"
-                          className="h-8 min-w-0 flex-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[12px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
+                          className="h-9 min-w-0 flex-1 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[12px] text-[var(--text)] placeholder:text-[var(--text-faint)] focus:border-[var(--brand)] focus:outline-none"
                         />
                         <Button
                           size="sm"
@@ -2235,7 +2235,7 @@ export function SocialTab({
               href={`https://wa.me/?text=${encodeURIComponent(shareConnText)}`}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] font-medium text-[var(--text)] transition hover:border-[var(--brand)]"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] font-medium text-[var(--text)] transition hover:border-[var(--brand)]"
             >
               <Share2 className="size-3.5 text-[var(--brand)]" aria-hidden />
               WhatsApp
@@ -2245,7 +2245,7 @@ export function SocialTab({
               href={`https://twitter.com/intent/tweet?text=${encodeURIComponent(shareConnText)}`}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] font-medium text-[var(--text)] transition hover:border-[var(--brand)]"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] font-medium text-[var(--text)] transition hover:border-[var(--brand)]"
             >
               <ExternalLink className="size-3.5" aria-hidden />
               X / Twitter
@@ -2257,7 +2257,7 @@ export function SocialTab({
                 await navigator.clipboard.writeText(shareConnText);
                 toast.success('Teks disalin, siap dibagikan ke medsos!');
               }}
-              className="inline-flex h-8 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] font-medium text-[var(--text)] transition hover:border-[var(--brand)]"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-3 text-[12px] font-medium text-[var(--text)] transition hover:border-[var(--brand)]"
             >
               <Copy className="size-3.5" aria-hidden />
               Salin Teks

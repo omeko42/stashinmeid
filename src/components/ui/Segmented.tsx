@@ -10,8 +10,9 @@ export interface SegmentedOption<T extends string> {
 }
 
 /**
- * Segmented control dengan indikator pill bergeser mulus (spring physics).
- * Setiap instance memakai `useId()` agar animasi antar-kontrol independen.
+ * Segmented control dengan indikator pill bergeser mulus (spring physics)
+ * dan tinggi ternormalisasi (`h-9` untuk `sm`, `h-10` untuk `md`) agar sejajar
+ * presisi dengan input pencarian, tombol filter, dan Button `sm`/`md`.
  */
 export function Segmented<T extends string>({
   options,
@@ -30,9 +31,14 @@ export function Segmented<T extends string>({
 }) {
   const layoutGroupId = useId();
 
+  const wrapperHeights = {
+    sm: 'h-9',
+    md: 'h-10',
+  } as const;
+
   const sizes = {
-    sm: 'px-2.5 py-1 text-[11px]',
-    md: 'px-3 py-1.5 text-[12px]',
+    sm: 'h-full px-2.5 text-[12px]',
+    md: 'h-full px-3 text-[12px]',
   } as const;
 
   return (
@@ -41,6 +47,7 @@ export function Segmented<T extends string>({
       aria-label={ariaLabel}
       className={cn(
         'inline-flex items-center gap-0.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] p-0.5',
+        wrapperHeights[size],
         className
       )}
     >
@@ -54,7 +61,7 @@ export function Segmented<T extends string>({
             type="button"
             onClick={() => onChange(option.value)}
             className={cn(
-              'relative rounded-[6px] font-semibold whitespace-nowrap transition-colors duration-150',
+              'relative inline-flex items-center justify-center rounded-[6px] font-semibold whitespace-nowrap transition-colors duration-150',
               sizes[size],
               active
                 ? 'text-[var(--text)]'
