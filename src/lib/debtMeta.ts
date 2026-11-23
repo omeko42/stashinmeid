@@ -123,6 +123,8 @@ export function serializeDebtNotes(
   return cleanText ? `${cleanText}\n${tag}` : tag;
 }
 
+import { appNow, nextDueDate } from '@/lib/format';
+
 /**
  * Estimasi porsi bunga per bulan dari sisa pokok & suku bunga tahunan (%).
  */
@@ -132,4 +134,27 @@ export function estimateMonthlyInterest(
 ): number {
   if (!interestRateAnnual || interestRateAnnual <= 0 || remainingBalance <= 0) return 0;
   return Math.round((remainingBalance * (interestRateAnnual / 100)) / 12);
+}
+
+/**
+ * Hitung tanggal jatuh tempo / jadwal auto-payment berikutnya.
+ * Bila cicilan bulan yang sama sudah dibayar (`lastAutoPaidYm === YYYY-MM`),
+ * otomatis geser ke tanggal `day` di periode bulan berikutnya.
+ */
+export function nextDebtScheduleDate(
+  day: number,
+  notes: string | null | undefined,
+  from = appNow()
+): Date {
+  const { meta } = parseDebtNotes(notes);
+  const candidate = nextDueDate(day, from);
+  const candYm = `${candidate.getFullYear()}-${String(candidate.getMonth() + 1).padStart(2, '0')}`;
+
+  if (meta.lastAutoPaidYm === candYm) {
+    const nextMonth = candidate.getMonth() + 1;
+    const maxDay = new Date(candidate.getFullYear(), nextMonth + 1, 0).getDate();
+    const clamped = Math.min(Math.max(day, 1), maxDay);
+    return new Date(candidate.getFullYear(), nextMonth, clamped);
+  }
+  return candidate;
 }

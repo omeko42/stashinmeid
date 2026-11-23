@@ -63,10 +63,14 @@ import {
   parseCSVTransactions,
 } from '@/lib/exportUtils';
 import { budgetStatuses } from '@/lib/budget';
-import { parseDebtNotes, serializeDebtNotes } from '@/lib/debtMeta';
+import {
+  nextDebtScheduleDate,
+  parseDebtNotes,
+  serializeDebtNotes,
+} from '@/lib/debtMeta';
 import { reportDbError } from '@/lib/dbErrors';
 import { createDemoDebts, createDemoTransactions } from '@/lib/demoData';
-import { appNow, nextDueDate, todayIso } from '@/lib/format';
+import { appNow, todayIso } from '@/lib/format';
 import {
   ArrowLeftRight,
   Bitcoin,
@@ -470,17 +474,19 @@ export default function DashboardClient({
 
   const upcomingDueGroups = useMemo(() => {
     const today = appNow();
-    const groups = new Map<number, Debt[]>();
+    const groups = new Map<string, { dueDay: number; nextDue: Date; items: Debt[] }>();
     for (const d of activeDebts) {
       if (d.due_day === null) continue;
-      const list = groups.get(d.due_day) ?? [];
-      list.push(d);
-      groups.set(d.due_day, list);
+      const nextDue = nextDebtScheduleDate(d.due_day, d.notes, today);
+      const iso = `${nextDue.getFullYear()}-${String(nextDue.getMonth() + 1).padStart(2, '0')}-${String(nextDue.getDate()).padStart(2, '0')}`;
+      const existing = groups.get(iso) ?? { dueDay: d.due_day, nextDue, items: [] };
+      existing.items.push(d);
+      groups.set(iso, existing);
     }
-    return [...groups.entries()]
-      .map(([dueDay, items]) => ({
+    return [...groups.values()]
+      .map(({ dueDay, nextDue, items }) => ({
         dueDay,
-        nextDue: nextDueDate(dueDay, today),
+        nextDue,
         items: items.sort(
           (a, b) => Number(b.monthly_installment) - Number(a.monthly_installment)
         ),
@@ -1085,14 +1091,14 @@ export default function DashboardClient({
       : null;
     const existingMeta = existingDebt ? parseDebtNotes(existingDebt.notes).meta : null;
 
-    // Safeguard: bila baru mengaktifkan auto-pay untuk tanggal yang sudah lewat di bulan ini,
-    // tandai bulan ini selesai agar tidak mendebet mendadak saat klik Simpan.
+    // Safeguard: bila baru mengaktifkan auto-pay untuk tanggal yang <= hari ini di bulan ini,
+    // mulai berlaku di tgl n periode bulan berikutnya agar tidak mendebet mendadak saat klik Simpan.
     let nextLastAutoPaidYm = existingMeta?.lastAutoPaidYm ?? null;
     if (
       debtForm.autoPay &&
       !existingMeta?.autoPay &&
       autoDayNum !== null &&
-      autoDayNum < now.getDate()
+      autoDayNum <= now.getDate()
     ) {
       nextLastAutoPaidYm = currentYm;
     }
@@ -1532,7 +1538,7 @@ export default function DashboardClient({
     const currentYm = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const done = await executeDebtInstallment(debt, {
       isAutoPay: false,
-      stampYm: meta.autoPay ? currentYm : undefined,
+      stampYm: currentYm,
     });
     if (done) {
       toast.success(tDebts('card.paidToast'));

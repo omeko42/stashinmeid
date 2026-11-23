@@ -19,9 +19,10 @@ import {
   Zap,
 } from 'lucide-react';
 import type { Debt } from '@/types/finance';
-import { appNow, daysUntil, formatRp, nextDueDate } from '@/lib/format';
+import { appNow, daysUntil, formatFullDate, formatRp } from '@/lib/format';
 import {
   estimateMonthlyInterest,
+  nextDebtScheduleDate,
   parseDebtNotes,
   type InterestType,
 } from '@/lib/debtMeta';
@@ -607,11 +608,20 @@ export function DebtsTab({
             );
 
             let dueCountdown: number | null = null;
+            let nextDueIso: string | null = null;
             if (!settled && debt.due_day) {
-              const nd = nextDueDate(debt.due_day, today);
+              const nd = nextDebtScheduleDate(debt.due_day, debt.notes, today);
               const iso = `${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, '0')}-${String(nd.getDate()).padStart(2, '0')}`;
+              nextDueIso = iso;
               const dLeft = daysUntil(iso);
               if (Number.isFinite(dLeft) && dLeft >= 0) dueCountdown = dLeft;
+            }
+
+            let nextAutoPayIso: string | null = null;
+            if (!settled && meta.autoPay) {
+              const autoDay = meta.autoPayDay || debt.due_day || 1;
+              const nd = nextDebtScheduleDate(autoDay, debt.notes, today);
+              nextAutoPayIso = `${nd.getFullYear()}-${String(nd.getMonth() + 1).padStart(2, '0')}-${String(nd.getDate()).padStart(2, '0')}`;
             }
 
             const currentYm = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}`;
@@ -712,11 +722,14 @@ export function DebtsTab({
                                   ? `Due in ${dueCountdown} days`
                                   : `Jatuh Tempo ${dueCountdown} Hari Lagi`}
                             </p>
-                            {debt.due_day && (
+                            {nextDueIso && (
                               <p className="tnum mt-0.5 text-[10px] text-[var(--text-muted)]">
-                                {isEn
-                                  ? `Every day ${debt.due_day} of month`
-                                  : `Setiap tanggal ${debt.due_day}`}
+                                {formatFullDate(nextDueIso)}
+                                {debt.due_day
+                                  ? isEn
+                                    ? ` · Day ${debt.due_day}`
+                                    : ` · Tgl ${debt.due_day}`
+                                  : ''}
                               </p>
                             )}
                           </div>
@@ -737,7 +750,7 @@ export function DebtsTab({
                           >
                             <Calendar className="size-3.5" aria-hidden />
                           </button>
-                          <div className="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-1.5 w-56 translate-y-1 rounded-lg border border-[var(--line-strong)] bg-[var(--surface-1)]/95 px-2.5 py-2 opacity-0 shadow-[var(--shadow-lg)] backdrop-blur-sm transition-all duration-150 group-hover/auto:visible group-hover/auto:translate-y-0 group-hover/auto:opacity-100 group-focus-within/auto:visible group-focus-within/auto:translate-y-0 group-focus-within/auto:opacity-100">
+                          <div className="pointer-events-none invisible absolute bottom-full right-0 z-30 mb-1.5 w-60 translate-y-1 rounded-lg border border-[var(--line-strong)] bg-[var(--surface-1)]/95 px-2.5 py-2 opacity-0 shadow-[var(--shadow-lg)] backdrop-blur-sm transition-all duration-150 group-hover/auto:visible group-hover/auto:translate-y-0 group-hover/auto:opacity-100 group-focus-within/auto:visible group-focus-within/auto:translate-y-0 group-focus-within/auto:opacity-100">
                             <p className="text-[11px] font-semibold text-[var(--brand)]">
                               {isEn ? 'Auto-Payment Active' : 'Auto-Payment Aktif'}
                             </p>
@@ -746,13 +759,21 @@ export function DebtsTab({
                                 ? `Every day ${meta.autoPayDay || debt.due_day || 1}`
                                 : `Otomatis setiap tgl ${meta.autoPayDay || debt.due_day || 1}`}
                             </p>
+                            {nextAutoPayIso && (
+                              <p className="tnum mt-0.5 text-[10px] text-[var(--text-muted)]">
+                                {isEn ? 'Next schedule: ' : 'Periode berikutnya: '}
+                                <span className="font-semibold text-[var(--text)]">
+                                  {formatFullDate(nextAutoPayIso)}
+                                </span>
+                              </p>
+                            )}
                             <p className="mt-0.5 truncate text-[10px] text-[var(--text-muted)]">
                               {isEn ? 'From: ' : 'Sumber: '}
                               {walletName(meta.autoPayAccountId)}
                             </p>
                             {meta.lastAutoPaidYm === currentYm && (
                               <p className="mt-1 text-[10px] font-medium text-[var(--brand)]">
-                                ✓ {isEn ? 'Paid this month' : 'Sudah tercatat bulan ini'}
+                                ✓ {isEn ? 'Paid this period' : 'Sudah tercatat bulan ini'}
                               </p>
                             )}
                           </div>
