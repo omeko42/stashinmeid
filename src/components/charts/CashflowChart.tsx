@@ -53,7 +53,7 @@ export function bucketTransactionsByFilter(
   let granularity: 'day' | 'month' | 'year' = 'month';
   if (filter.preset === 'day' || filter.preset === 'week' || filter.preset === 'month') {
     granularity = 'day';
-  } else if (filter.preset === 'ytd' || filter.preset === 'year') {
+  } else if (filter.preset === 'year') {
     granularity = 'month';
   } else if (filter.preset === 'all') {
     granularity = 'year';

@@ -1,29 +1,35 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import { useTranslations } from 'next-intl';
+import { useLocale, useTranslations } from 'next-intl';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   ArrowDown,
   ArrowDownRight,
   ArrowUp,
   ArrowUpRight,
-  Calendar,
   Download,
   Pencil,
   Plus,
   Search,
   Trash2,
-  Wallet,
   X,
 } from 'lucide-react';
 import type { Transaction, TransactionType } from '@/types/finance';
 import { formatFullDate, formatRp } from '@/lib/format';
 import { getCategory } from '@/lib/categories';
+import {
+  createDefaultPeriodFilter,
+  extractAvailableYears,
+  filterTransactionsByPeriod,
+  formatPeriodLabel,
+  type PeriodFilterState,
+} from '@/lib/periodFilter';
 import { Amount, Label } from '@/components/ui/Surface';
 import { Button, IconButton } from '@/components/ui/Button';
 import { EmptyState } from '@/components/ui/EmptyState';
 import { Segmented } from '@/components/ui/Segmented';
+import { PeriodFilterPopover } from '@/components/ui/PeriodFilterPopover';
 
 type SortKey = 'date' | 'amount';
 type SortDir = 'asc' | 'desc';
@@ -55,9 +61,8 @@ const TONE_BADGE: Record<string, string> = {
 /**
  * Riwayat arus kas (ledger presisi).
  *
- * Memakai `table-fixed` agar teks mutasi bank panjang (SPAN / BRIVA / TRANSFER)
- * terpotong rapi dengan ellipsis & tidak pernah mendorong kolom KATEGORI / NOMINAL
- * keluar layar. Klik baris mana pun untuk melihat detail lengkap mutasi.
+ * Seluruh filter Periode, Dompet, dan Kategori diringkas ke dalam satu ikon
+ * Filter popover berbasis dropdown (skalabel tanpa batas tahun/dompet).
  */
 export function CashflowTab({
   transactions,
@@ -74,6 +79,8 @@ export function CashflowTab({
   onQuickAdd,
   onExportCsv,
 }: CashflowTabProps) {
+  const locale = useLocale();
+  const isEn = locale === 'en';
   const accountById = useMemo(
     () => new Map(accounts.map((a) => [a.id, a])),
     [accounts]
@@ -98,44 +105,43 @@ export function CashflowTab({
 
   const [sortKey, setSortKey] = useState<SortKey>('date');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
-  const [selectedYear, setSelectedYear] = useState<string>('all');
+  const [periodFilter, setPeriodFilter] = useState<PeriodFilterState>(() =>
+    createDefaultPeriodFilter('all')
+  );
   const [selectedWallet, setSelectedWallet] = useState<string>('all');
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const PAGE_STEP = 50;
   const [visibleLimit, setVisibleLimit] = useState(PAGE_STEP);
 
-  // Ekstrak daftar tahun & dompet unik dari seluruh transaksi aktif
-  const availableYears = useMemo(() => {
-    const years = new Set<string>();
-    for (const tx of transactions) {
-      const yr = tx.transaction_date?.slice(0, 4);
-      if (yr && /^\d{4}$/.test(yr)) years.add(yr);
-    }
-    return [...years].sort((a, b) => b.localeCompare(a));
-  }, [transactions]);
+  const availableYears = useMemo(
+    () => extractAvailableYears(transactions),
+    [transactions]
+  );
 
-  const walletFilters = useMemo(() => {
+  const walletOptions = useMemo(() => {
     const list: { id: string; label: string }[] = [];
-    const hasUnlinked = transactions.some((tx) => !tx.account_id);
-    if (hasUnlinked) {
-      list.push({ id: '__cash__', label: 'Tunai' });
+    if (transactions.some((tx) => !tx.account_id)) {
+      list.push({ id: '__cash__', label: isEn ? 'Cash (Tunai)' : 'Kas Tunai' });
     }
     for (const acc of accounts) {
-      if (transactions.some((tx) => tx.account_id === acc.id)) {
-        list.push({ id: acc.id, label: acc.name });
-      }
+      list.push({ id: acc.id, label: acc.name });
     }
     return list;
-  }, [transactions, accounts]);
+  }, [transactions, accounts, isEn]);
+
+  const categoryOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const tx of transactions) {
+      if (tx.category) set.add(tx.category);
+    }
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [transactions]);
 
   const refined = useMemo(() => {
-    return filteredTransactions.filter((tx) => {
-      if (selectedYear !== 'all' && !tx.transaction_date.startsWith(selectedYear)) {
-        return false;
-      }
-      if (selectedWallet === '__cash__' && tx.account_id) {
-        return false;
-      }
+    const byPeriod = filterTransactionsByPeriod(filteredTransactions, periodFilter);
+    return byPeriod.filter((tx) => {
+      if (selectedWallet === '__cash__' && tx.account_id) return false;
       if (
         selectedWallet !== 'all' &&
         selectedWallet !== '__cash__' &&
@@ -143,9 +149,12 @@ export function CashflowTab({
       ) {
         return false;
       }
+      if (selectedCategory !== 'all' && tx.category !== selectedCategory) {
+        return false;
+      }
       return true;
     });
-  }, [filteredTransactions, selectedYear, selectedWallet]);
+  }, [filteredTransactions, periodFilter, selectedWallet, selectedCategory]);
 
   const sorted = useMemo(() => {
     const rows = [...refined];
@@ -185,15 +194,23 @@ export function CashflowTab({
     }
   };
 
-  const resetAllFilters = () => {
-    onSearchChange('');
-    onFilterTypeChange('all');
-    setSelectedYear('all');
+  const activeFilterCount =
+    (periodFilter.preset !== 'all' ? 1 : 0) +
+    (selectedWallet !== 'all' ? 1 : 0) +
+    (selectedCategory !== 'all' ? 1 : 0);
+
+  const resetSubFilters = () => {
+    setPeriodFilter(createDefaultPeriodFilter('all'));
     setSelectedWallet('all');
+    setSelectedCategory('all');
     setVisibleLimit(PAGE_STEP);
   };
 
-  const hasSubFilter = selectedYear !== 'all' || selectedWallet !== 'all';
+  const resetAllFilters = () => {
+    onSearchChange('');
+    onFilterTypeChange('all');
+    resetSubFilters();
+  };
 
   const filterOptions = [
     { value: 'all' as const, label: tCashflow('filterAll') },
@@ -202,10 +219,12 @@ export function CashflowTab({
   ];
 
   const hasAnyTransaction = transactions.length > 0;
+  const selectCls =
+    'h-9 w-full rounded-lg border border-[var(--line)] bg-[var(--surface-2)] px-2.5 text-[12px] text-[var(--text)] focus:border-[var(--brand)] focus:outline-none';
 
   return (
     <div className="space-y-4">
-      {/* Header & kontrol utama */}
+      {/* Header & kontrol utama — ringkas 1 baris tanpa strip filter memanjang */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h2 className="text-[18px] font-semibold text-[var(--text)]">
@@ -252,6 +271,76 @@ export function CashflowTab({
               ariaLabel={tCashflow('filterAll')}
             />
 
+            {/* Satu ikon Filter corong untuk Periode + Dompet + Kategori (skalabel) */}
+            <PeriodFilterPopover
+              value={periodFilter}
+              onChange={(next) => {
+                setPeriodFilter(next);
+                setVisibleLimit(PAGE_STEP);
+              }}
+              availableYears={availableYears}
+              isEn={isEn}
+              activeCount={activeFilterCount}
+              hint={isEn ? 'Period, Wallet & Category' : 'Periode, Dompet & Kategori'}
+              onReset={resetSubFilters}
+              extraFields={
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label
+                      htmlFor="cf-wallet-select"
+                      className="mb-1 block text-[10px] font-semibold text-[var(--text-muted)]"
+                    >
+                      {isEn ? 'Wallet' : 'Dompet'}
+                    </label>
+                    <select
+                      id="cf-wallet-select"
+                      value={selectedWallet}
+                      onChange={(e) => {
+                        setSelectedWallet(e.target.value);
+                        setVisibleLimit(PAGE_STEP);
+                      }}
+                      className={selectCls}
+                    >
+                      <option value="all">
+                        {isEn ? 'All Wallets' : 'Semua Dompet'}
+                      </option>
+                      {walletOptions.map((w) => (
+                        <option key={w.id} value={w.id}>
+                          {w.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label
+                      htmlFor="cf-category-select"
+                      className="mb-1 block text-[10px] font-semibold text-[var(--text-muted)]"
+                    >
+                      {isEn ? 'Category' : 'Kategori'}
+                    </label>
+                    <select
+                      id="cf-category-select"
+                      value={selectedCategory}
+                      onChange={(e) => {
+                        setSelectedCategory(e.target.value);
+                        setVisibleLimit(PAGE_STEP);
+                      }}
+                      className={selectCls}
+                    >
+                      <option value="all">
+                        {isEn ? 'All Categories' : 'Semua Kategori'}
+                      </option>
+                      {categoryOptions.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+              }
+            />
+
             <IconButton
               label={t('settings.data.exportCsv')}
               variant="secondary"
@@ -271,107 +360,64 @@ export function CashflowTab({
         </div>
       </div>
 
-      {/* Filter cepat Tahun & Dompet (muncul otomatis bila multi-tahun / multi-dompet) */}
-      {(availableYears.length > 1 || walletFilters.length > 1) && (
-        <div className="flex flex-wrap items-center gap-2 rounded-xl border border-[var(--line)] bg-[var(--surface-1)] px-3 py-2.5">
-          {availableYears.length > 1 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 pr-1 text-[11px] font-semibold text-[var(--text-faint)]">
-                <Calendar className="size-3" aria-hidden />
-                Tahun
-              </span>
+      {/* Chip ringkas hanya muncul bila ada filter aktif (0 space saat default) */}
+      {activeFilterCount > 0 && (
+        <div className="flex flex-wrap items-center gap-1.5 text-[11px]">
+          {periodFilter.preset !== 'all' && (
+            <span className="inline-flex items-center gap-1 rounded-md border border-[var(--brand)]/30 bg-[var(--brand-soft)] px-2 py-0.5 font-semibold text-[var(--brand)]">
+              {formatPeriodLabel(periodFilter, isEn)}
               <button
                 type="button"
+                aria-label="Hapus filter periode"
                 onClick={() => {
-                  setSelectedYear('all');
+                  setPeriodFilter(createDefaultPeriodFilter('all'));
                   setVisibleLimit(PAGE_STEP);
                 }}
-                className={`rounded-md px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition ${
-                  selectedYear === 'all'
-                    ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
-                    : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
-                }`}
+                className="hover:opacity-75"
               >
-                Semua
+                <X className="size-3" />
               </button>
-              {availableYears.map((yr) => (
-                <button
-                  key={yr}
-                  type="button"
-                  onClick={() => {
-                    setSelectedYear(yr);
-                    setVisibleLimit(PAGE_STEP);
-                  }}
-                  className={`tnum rounded-md px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition ${
-                    selectedYear === yr
-                      ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
-                      : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
-                  }`}
-                >
-                  {yr}
-                </button>
-              ))}
-            </div>
+            </span>
           )}
-
-          {availableYears.length > 1 && walletFilters.length > 1 && (
-            <span className="hidden h-4 w-px bg-[var(--line)] sm:inline-block" aria-hidden />
-          )}
-
-          {walletFilters.length > 1 && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              <span className="inline-flex items-center gap-1 pr-1 text-[11px] font-semibold text-[var(--text-faint)]">
-                <Wallet className="size-3" aria-hidden />
-                Dompet
-              </span>
+          {selectedWallet !== 'all' && (
+            <span className="inline-flex items-center gap-1 rounded-md border border-[var(--brand)]/30 bg-[var(--brand-soft)] px-2 py-0.5 font-semibold text-[var(--brand)]">
+              {walletOptions.find((w) => w.id === selectedWallet)?.label ?? selectedWallet}
               <button
                 type="button"
+                aria-label="Hapus filter dompet"
                 onClick={() => {
                   setSelectedWallet('all');
                   setVisibleLimit(PAGE_STEP);
                 }}
-                className={`rounded-md px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition ${
-                  selectedWallet === 'all'
-                    ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
-                    : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
-                }`}
+                className="hover:opacity-75"
               >
-                Semua
+                <X className="size-3" />
               </button>
-              {walletFilters.map((w) => (
-                <button
-                  key={w.id}
-                  type="button"
-                  onClick={() => {
-                    setSelectedWallet(w.id);
-                    setVisibleLimit(PAGE_STEP);
-                  }}
-                  className={`rounded-md px-2 py-1 text-[11px] font-semibold whitespace-nowrap transition ${
-                    selectedWallet === w.id
-                      ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
-                      : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
-                  }`}
-                >
-                  {w.label}
-                </button>
-              ))}
-            </div>
+            </span>
           )}
-
-          {hasSubFilter && (
-            <button
-              type="button"
-              onClick={() => {
-                setSelectedYear('all');
-                setSelectedWallet('all');
-                setVisibleLimit(PAGE_STEP);
-              }}
-              className="ml-auto inline-flex items-center gap-1 rounded-md px-2 py-1 text-[11px] font-medium text-[var(--text-muted)] transition hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
-            >
-              <X className="size-3" aria-hidden />
-              Reset
-            </button>
+          {selectedCategory !== 'all' && (
+            <span className="inline-flex items-center gap-1 rounded-md border border-[var(--brand)]/30 bg-[var(--brand-soft)] px-2 py-0.5 font-semibold text-[var(--brand)]">
+              {selectedCategory}
+              <button
+                type="button"
+                aria-label="Hapus filter kategori"
+                onClick={() => {
+                  setSelectedCategory('all');
+                  setVisibleLimit(PAGE_STEP);
+                }}
+                className="hover:opacity-75"
+              >
+                <X className="size-3" />
+              </button>
+            </span>
           )}
+          <button
+            type="button"
+            onClick={resetSubFilters}
+            className="ml-1 font-medium text-[var(--text-muted)] hover:text-[var(--text)] hover:underline"
+          >
+            Reset
+          </button>
         </div>
       )}
 
@@ -433,7 +479,7 @@ export function CashflowTab({
         </div>
       ) : (
         <div className="overflow-hidden rounded-xl border border-[var(--line)] bg-[var(--surface-1)] shadow-[var(--shadow-sm)]">
-          {/* Mobile: kartu 2-baris lega (judul & nominal di atas, tanggal/dompet & aksi di bawah) */}
+          {/* Mobile: kartu 2-baris lega */}
           <div className="divide-y divide-[var(--line)] sm:hidden">
             {visibleRows.map((tx) => {
               const meta = getCategory(tx.category);
@@ -518,7 +564,7 @@ export function CashflowTab({
             })}
           </div>
 
-          {/* Desktop: tabel ledger `table-fixed` — KATEGORI, NOMINAL & AKSI selalu pas 100% tanpa pernah terpotong */}
+          {/* Desktop: tabel ledger `table-fixed` */}
           <table className="hidden w-full table-fixed border-collapse text-left sm:table">
             <thead className="sticky top-0 z-10 bg-[var(--surface-2)]">
               <tr className="border-b border-[var(--line)]">
@@ -609,9 +655,12 @@ export function CashflowTab({
                                 transition={{ duration: 0.16 }}
                                 className="mt-1 overflow-hidden text-[11px] text-[var(--text-muted)]"
                               >
-                                Sumber: <span className="font-medium text-[var(--text)]">{wLabel}</span>
+                                Sumber:{' '}
+                                <span className="font-medium text-[var(--text)]">{wLabel}</span>
                                 {' · '}Kategori:{' '}
-                                <span className="font-medium text-[var(--text)]">{tx.category}</span>
+                                <span className="font-medium text-[var(--text)]">
+                                  {tx.category}
+                                </span>
                                 {tx.source === 'import' ? ' · Impor Mutasi' : ''}
                               </motion.p>
                             )}
