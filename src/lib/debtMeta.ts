@@ -22,6 +22,8 @@ export interface DebtMeta {
   autoPayAccountId: string | null;
   /** Bulan terakhir auto-payment dijalankan ('YYYY-MM') agar tidak dobel. */
   lastAutoPaidYm: string | null;
+  /** Nominal cicilan khusus per bulan ('YYYY-MM' -> Rp), mis. untuk PayLater / tagihan bervariasi. */
+  scheduleOverrides: Record<string, number>;
 }
 
 export const DEFAULT_DEBT_META: DebtMeta = {
@@ -31,10 +33,24 @@ export const DEFAULT_DEBT_META: DebtMeta = {
   autoPayDay: null,
   autoPayAccountId: null,
   lastAutoPaidYm: null,
+  scheduleOverrides: {},
 };
 
 const META_PREFIX = '[STASHINME_DEBT_META:';
-const META_REGEX = /\s*\[STASHINME_DEBT_META:(\{[\s\S]*?\})\]\s*$/;
+const META_REGEX = /\s*\[STASHINME_DEBT_META:(\{[\s\S]*\})\]\s*$/;
+
+function sanitizeOverrides(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object') return {};
+  const out: Record<string, number> = {};
+  for (const [k, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!/^\d{4}-\d{2}$/.test(k)) continue;
+    const num = Number(v);
+    if (Number.isFinite(num) && num >= 0) {
+      out[k] = Math.round(num);
+    }
+  }
+  return out;
+}
 
 export function parseDebtNotes(notes: string | null | undefined): {
   text: string;
@@ -78,6 +94,7 @@ export function parseDebtNotes(notes: string | null | undefined): {
           typeof raw.lastAutoPaidYm === 'string' && /^\d{4}-\d{2}$/.test(raw.lastAutoPaidYm)
             ? raw.lastAutoPaidYm
             : null,
+        scheduleOverrides: sanitizeOverrides(raw.scheduleOverrides),
       },
     };
   } catch {
@@ -90,6 +107,7 @@ export function serializeDebtNotes(
   meta: Partial<DebtMeta>
 ): string | null {
   const cleanText = text.trim();
+  const cleanOverrides = sanitizeOverrides(meta.scheduleOverrides);
   const normalized: DebtMeta = {
     interestRate:
       typeof meta.interestRate === 'number' && Number.isFinite(meta.interestRate) && meta.interestRate >= 0
@@ -106,6 +124,7 @@ export function serializeDebtNotes(
         : null,
     autoPayAccountId: meta.autoPayAccountId ? meta.autoPayAccountId.trim() : null,
     lastAutoPaidYm: meta.lastAutoPaidYm || null,
+    scheduleOverrides: cleanOverrides,
   };
 
   const hasMeta =
@@ -113,7 +132,8 @@ export function serializeDebtNotes(
     normalized.interestType === 'floating' ||
     normalized.autoPay ||
     normalized.autoPayAccountId !== null ||
-    normalized.lastAutoPaidYm !== null;
+    normalized.lastAutoPaidYm !== null ||
+    Object.keys(cleanOverrides).length > 0;
 
   if (!hasMeta) {
     return cleanText || null;

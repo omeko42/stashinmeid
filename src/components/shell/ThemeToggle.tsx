@@ -1,47 +1,95 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import { useTheme } from 'next-themes';
 import { Moon, Sun, Monitor } from 'lucide-react';
 import { useLocale, useTranslations } from 'next-intl';
 import { IconButton } from '@/components/ui/Button';
-import { useConfirm } from '@/components/ui/ConfirmProvider';
 
-/** Putar tema terang / gelap / ikuti sistem dengan konfirmasi & audit log. */
-export function ThemeToggle({ className }: { className?: string }) {
+type ThemeOption = 'light' | 'dark' | 'system';
+
+/**
+ * Pengalih tema terang / gelap / ikuti sistem (1-klik langsung tanpa pop-up konfirmasi).
+ * - `variant="segmented"`: menampilkan ketiga tombol sekaligus (Terang · Gelap · Sistem).
+ * - `variant="icon"` (default): tombol ikon ringkas untuk menu kecil.
+ */
+export function ThemeToggle({
+  className,
+  variant = 'icon',
+}: {
+  className?: string;
+  variant?: 'icon' | 'segmented';
+}) {
   const t = useTranslations('common.theme');
   const locale = useLocale();
   const isEn = locale === 'en';
   const { theme, setTheme, resolvedTheme } = useTheme();
-  const { confirm } = useConfirm();
+  const [mounted, setMounted] = useState(false);
 
-  const cycle = async () => {
-    const order = ['light', 'dark', 'system'] as const;
-    const current = (theme ?? 'system') as (typeof order)[number];
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const current = ((mounted ? theme : 'system') ?? 'system') as ThemeOption;
+
+  if (variant === 'segmented') {
+    const options: { id: ThemeOption; label: string; icon: React.ReactNode }[] = [
+      {
+        id: 'light',
+        label: isEn ? 'Light' : 'Terang',
+        icon: <Sun className="size-3.5" aria-hidden />,
+      },
+      {
+        id: 'dark',
+        label: isEn ? 'Dark' : 'Gelap',
+        icon: <Moon className="size-3.5" aria-hidden />,
+      },
+      {
+        id: 'system',
+        label: isEn ? 'System' : 'Sistem',
+        icon: <Monitor className="size-3.5" aria-hidden />,
+      },
+    ];
+
+    return (
+      <div
+        role="radiogroup"
+        aria-label={t('toggle')}
+        className={`inline-flex h-9 items-center gap-0.5 rounded-lg border border-[var(--line)] bg-[var(--surface-2)] p-0.5 ${className ?? ''}`}
+      >
+        {options.map((opt) => {
+          const active = current === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              role="radio"
+              aria-checked={active}
+              onClick={() => setTheme(opt.id)}
+              className={`inline-flex h-full items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium whitespace-nowrap transition-colors ${
+                active
+                  ? 'bg-[var(--surface-1)] text-[var(--text)] shadow-xs ring-1 ring-[var(--line)]'
+                  : 'text-[var(--text-muted)] hover:text-[var(--text)]'
+              }`}
+            >
+              {opt.icon}
+              <span>{opt.label}</span>
+            </button>
+          );
+        })}
+      </div>
+    );
+  }
+
+  const cycle = () => {
+    const order: readonly ThemeOption[] = ['light', 'dark', 'system'];
     const idx = order.indexOf(current);
     const next = order[(idx + 1) % order.length];
-    const labelMap = isEn
-      ? { light: 'Light', dark: 'Dark', system: 'System' }
-      : { light: 'Terang', dark: 'Gelap', system: 'Ikuti Sistem' };
-
-    const ok = await confirm({
-      title: isEn ? 'Change Theme?' : 'Ganti Tema?',
-      description: isEn
-        ? `Switch appearance theme to ${labelMap[next]}?`
-        : `Apakah Anda yakin mengganti tema tampilan ke ${labelMap[next]}?`,
-      confirmLabel: isEn ? 'Yes, Change' : 'Ya, Ganti',
-      cancelLabel: isEn ? 'Cancel' : 'Batal',
-      audit: {
-        action: 'Ganti Tema',
-        category: 'settings',
-        detail: `Tema diubah dari ${current} ke ${next}`,
-      },
-    });
-    if (!ok) return;
     setTheme(next);
   };
 
   const icon =
-    theme === 'system' ? (
+    current === 'system' ? (
       <Monitor className="size-4" />
     ) : resolvedTheme === 'light' ? (
       <Sun className="size-4" />
@@ -53,7 +101,7 @@ export function ThemeToggle({ className }: { className?: string }) {
     <IconButton
       type="button"
       label={t('toggle')}
-      onClick={() => void cycle()}
+      onClick={cycle}
       className={className}
     >
       {icon}

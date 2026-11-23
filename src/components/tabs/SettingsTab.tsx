@@ -365,7 +365,7 @@ export function SettingsTab({
                 title={tSettings('appearance.title')}
                 caption={tSettings('appearance.theme')}
               >
-                <ThemeToggle />
+                <ThemeToggle variant="segmented" />
               </SettingRow>
 
               <SettingRow

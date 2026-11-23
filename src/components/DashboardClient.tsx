@@ -122,6 +122,7 @@ const EMPTY_DEBT_FORM: DebtFormState = {
   autoPayDay: '',
   autoPayAccountId: '',
   notes: '',
+  scheduleOverrides: {},
 };
 
 /**
@@ -1105,9 +1106,9 @@ export default function DashboardClient({
             : '',
       autoPayAccountId: parsed.meta.autoPayAccountId || '__cash__',
       notes: parsed.text,
+      scheduleOverrides: { ...parsed.meta.scheduleOverrides },
     });
     setShowDebtForm(true);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleAddDebt = async (e: React.FormEvent) => {
@@ -1156,6 +1157,7 @@ export default function DashboardClient({
         ? debtForm.autoPayAccountId || '__cash__'
         : null,
       lastAutoPaidYm: nextLastAutoPaidYm,
+      scheduleOverrides: debtForm.scheduleOverrides,
     });
 
     // MODE EDIT PINJAMAN EKSISTING
@@ -1301,13 +1303,20 @@ export default function DashboardClient({
       balanceOverrides?: Map<string, number>;
     } = {}
   ): Promise<boolean> => {
+    const parsed = parseDebtNotes(debt.notes);
+    const dueDay = debt.due_day || parsed.meta.autoPayDay || 1;
+    const nextDate = nextDebtScheduleDate(dueDay, debt.notes, appNow());
+    const targetYm =
+      options.stampYm ||
+      `${nextDate.getFullYear()}-${String(nextDate.getMonth() + 1).padStart(2, '0')}`;
+    const scheduledAmount =
+      parsed.meta.scheduleOverrides[targetYm] ?? debt.monthly_installment;
     const payAmount =
-      debt.monthly_installment > 0
-        ? Math.min(debt.monthly_installment, debt.remaining_balance)
+      scheduledAmount > 0
+        ? Math.min(scheduledAmount, debt.remaining_balance)
         : debt.remaining_balance;
     if (payAmount <= 0) return false;
 
-    const parsed = parseDebtNotes(debt.notes);
     const sourceAccId =
       parsed.meta.autoPayAccountId && parsed.meta.autoPayAccountId !== '__cash__'
         ? parsed.meta.autoPayAccountId
