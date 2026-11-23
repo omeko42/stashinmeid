@@ -14,6 +14,7 @@ import {
 } from 'recharts';
 import type { Transaction } from '@/types/finance';
 import { appNow, formatRp, formatShortRp, parseIsoDate } from '@/lib/format';
+import { maskAmount, useBalancePrivacy } from '@/components/ui/BalancePrivacy';
 import {
   type PeriodFilterState,
   resolvePeriodRange,
@@ -150,48 +151,61 @@ function ChartTooltip({
   active,
   payload,
   label,
+  masked,
+  showInflow,
+  showOutflow,
 }: {
   active?: boolean;
   payload?: Array<{ dataKey?: string; value?: number }>;
   label?: string;
+  masked?: boolean;
+  showInflow?: boolean;
+  showOutflow?: boolean;
 }) {
   if (!active || !payload?.length) return null;
 
   const inflow = payload.find((p) => p.dataKey === 'inflow')?.value ?? 0;
   const outflow = payload.find((p) => p.dataKey === 'outflow')?.value ?? 0;
   const net = inflow - outflow;
+  const fmt = (n: number) => (masked ? maskAmount(formatRp(n)) : formatRp(n));
 
   return (
-    <div className="min-w-[168px] rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)]/95 px-3 py-2.5 shadow-[var(--shadow-md)] backdrop-blur-sm">
+    <div className="min-w-[176px] rounded-xl border border-[var(--line-strong)] bg-[var(--surface-1)]/95 px-3 py-2.5 shadow-[var(--shadow-lg)] backdrop-blur-md">
       <p className="text-[11px] font-semibold uppercase tracking-wide text-[var(--text-muted)]">
         {label}
       </p>
       <div className="mt-1.5 space-y-1 text-[12px]">
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
-            <span className="size-2 rounded-full bg-[var(--brand)]" aria-hidden />
-            Masuk
-          </span>
-          <span className="tnum font-semibold text-[var(--brand)]">{formatRp(inflow)}</span>
-        </div>
-        <div className="flex items-center justify-between gap-3">
-          <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
-            <span className="size-2 rounded-full bg-[var(--out)]" aria-hidden />
-            Keluar
-          </span>
-          <span className="tnum font-semibold text-[var(--out)]">{formatRp(outflow)}</span>
-        </div>
-        <div className="flex items-center justify-between gap-3 border-t border-[var(--line)] pt-1">
-          <span className="text-[11px] font-medium text-[var(--text-muted)]">Selisih</span>
-          <span
-            className={`tnum font-semibold ${
-              net >= 0 ? 'text-[var(--brand)]' : 'text-[var(--out)]'
-            }`}
-          >
-            {net >= 0 ? '+' : ''}
-            {formatRp(net)}
-          </span>
-        </div>
+        {showInflow && (
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
+              <span className="size-2 rounded-full bg-[var(--brand)]" aria-hidden />
+              Masuk
+            </span>
+            <span className="tnum font-semibold text-[var(--brand)]">{fmt(inflow)}</span>
+          </div>
+        )}
+        {showOutflow && (
+          <div className="flex items-center justify-between gap-3">
+            <span className="flex items-center gap-1.5 text-[var(--text-muted)]">
+              <span className="size-2 rounded-full bg-[var(--out)]" aria-hidden />
+              Keluar
+            </span>
+            <span className="tnum font-semibold text-[var(--out)]">{fmt(outflow)}</span>
+          </div>
+        )}
+        {showInflow && showOutflow && (
+          <div className="flex items-center justify-between gap-3 border-t border-[var(--line)] pt-1">
+            <span className="text-[11px] font-medium text-[var(--text-muted)]">Selisih</span>
+            <span
+              className={`tnum font-semibold ${
+                net >= 0 ? 'text-[var(--brand)]' : 'text-[var(--out)]'
+              }`}
+            >
+              {net >= 0 ? '+' : ''}
+              {fmt(net)}
+            </span>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -205,10 +219,17 @@ function ChartTooltip({
 export function CashflowChart({
   transactions,
   filter,
+  showInflow = true,
+  showOutflow = true,
 }: {
   transactions: Transaction[];
   filter: PeriodFilterState;
+  showInflow?: boolean;
+  showOutflow?: boolean;
 }) {
+  const { hidden, ready } = useBalancePrivacy();
+  const masked = ready && hidden;
+
   const data = useMemo(
     () => bucketTransactionsByFilter(transactions, filter),
     [transactions, filter]
@@ -216,7 +237,7 @@ export function CashflowChart({
 
   if (data.length === 0) {
     return (
-      <div className="flex h-60 items-center justify-center text-[12px] text-[var(--text-muted)]">
+      <div className="flex h-full min-h-[268px] items-center justify-center text-[12px] text-[var(--text-muted)]">
         Belum ada transaksi pada periode ini.
       </div>
     );
@@ -224,7 +245,7 @@ export function CashflowChart({
 
   if (data.length === 1) {
     return (
-      <div className="h-60 w-full">
+      <div className="h-full min-h-[268px] w-full">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ top: 12, right: 16, left: 0, bottom: 0 }} barGap={12}>
             <CartesianGrid stroke="var(--line)" strokeDasharray="2 4" vertical={false} />
@@ -240,27 +261,40 @@ export function CashflowChart({
               fontSize={11}
               tickLine={false}
               axisLine={false}
-              tickFormatter={(v) => formatShortRp(Number(v))}
+              tickFormatter={(v) => (masked ? '•••' : formatShortRp(Number(v)))}
               width={58}
               domain={[0, (max: number) => (max > 0 ? max * 1.2 : 100)]}
             />
-            <Tooltip content={<ChartTooltip />} cursor={{ fill: 'var(--surface-2)', opacity: 0.45 }} />
-            <Bar
-              dataKey="inflow"
-              name="Masuk"
-              fill="var(--brand)"
-              radius={[6, 6, 0, 0]}
-              maxBarSize={48}
-              animationDuration={500}
+            <Tooltip
+              content={
+                <ChartTooltip
+                  masked={masked}
+                  showInflow={showInflow}
+                  showOutflow={showOutflow}
+                />
+              }
+              cursor={{ fill: 'var(--surface-2)', opacity: 0.45 }}
             />
-            <Bar
-              dataKey="outflow"
-              name="Keluar"
-              fill="var(--out)"
-              radius={[6, 6, 0, 0]}
-              maxBarSize={48}
-              animationDuration={500}
-            />
+            {showInflow && (
+              <Bar
+                dataKey="inflow"
+                name="Masuk"
+                fill="var(--brand)"
+                radius={[6, 6, 0, 0]}
+                maxBarSize={48}
+                animationDuration={500}
+              />
+            )}
+            {showOutflow && (
+              <Bar
+                dataKey="outflow"
+                name="Keluar"
+                fill="var(--out)"
+                radius={[6, 6, 0, 0]}
+                maxBarSize={48}
+                animationDuration={500}
+              />
+            )}
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -268,17 +302,17 @@ export function CashflowChart({
   }
 
   return (
-    <div className="h-60 w-full">
+    <div className="h-full min-h-[268px] w-full">
       <ResponsiveContainer width="100%" height="100%">
-        <AreaChart data={data} margin={{ top: 12, right: 12, left: 0, bottom: 0 }}>
+        <AreaChart data={data} margin={{ top: 14, right: 12, left: 0, bottom: 0 }}>
           <defs>
             <linearGradient id="smInflowGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--brand)" stopOpacity={0.32} />
-              <stop offset="95%" stopColor="var(--brand)" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--brand)" stopOpacity={0.34} />
+              <stop offset="92%" stopColor="var(--brand)" stopOpacity={0.01} />
             </linearGradient>
             <linearGradient id="smOutflowGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%" stopColor="var(--out)" stopOpacity={0.26} />
-              <stop offset="95%" stopColor="var(--out)" stopOpacity={0} />
+              <stop offset="0%" stopColor="var(--out)" stopOpacity={0.28} />
+              <stop offset="92%" stopColor="var(--out)" stopOpacity={0.01} />
             </linearGradient>
           </defs>
           <CartesianGrid stroke="var(--line)" strokeDasharray="2 4" vertical={false} />
@@ -295,38 +329,58 @@ export function CashflowChart({
             fontSize={11}
             tickLine={false}
             axisLine={false}
-            tickFormatter={(v) => formatShortRp(Number(v))}
+            tickFormatter={(v) => (masked ? '•••' : formatShortRp(Number(v)))}
             width={58}
             domain={[0, (max: number) => (max > 0 ? max * 1.15 : 100)]}
           />
           <Tooltip
-            content={<ChartTooltip />}
+            content={
+              <ChartTooltip
+                masked={masked}
+                showInflow={showInflow}
+                showOutflow={showOutflow}
+              />
+            }
             cursor={{ stroke: 'var(--line-strong)', strokeWidth: 1, strokeDasharray: '3 3' }}
           />
-          <Area
-            type="monotone"
-            dataKey="inflow"
-            name="Masuk"
-            stroke="var(--brand)"
-            strokeWidth={2.25}
-            fill="url(#smInflowGrad)"
-            fillOpacity={1}
-            activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--surface-1)', fill: 'var(--brand)' }}
-            animationDuration={550}
-            animationEasing="ease-out"
-          />
-          <Area
-            type="monotone"
-            dataKey="outflow"
-            name="Keluar"
-            stroke="var(--out)"
-            strokeWidth={2.25}
-            fill="url(#smOutflowGrad)"
-            fillOpacity={1}
-            activeDot={{ r: 5, strokeWidth: 2, stroke: 'var(--surface-1)', fill: 'var(--out)' }}
-            animationDuration={550}
-            animationEasing="ease-out"
-          />
+          {showInflow && (
+            <Area
+              type="monotone"
+              dataKey="inflow"
+              name="Masuk"
+              stroke="var(--brand)"
+              strokeWidth={2.25}
+              fill="url(#smInflowGrad)"
+              fillOpacity={1}
+              activeDot={{
+                r: 5,
+                strokeWidth: 2.5,
+                stroke: 'var(--surface-1)',
+                fill: 'var(--brand)',
+              }}
+              animationDuration={550}
+              animationEasing="ease-out"
+            />
+          )}
+          {showOutflow && (
+            <Area
+              type="monotone"
+              dataKey="outflow"
+              name="Keluar"
+              stroke="var(--out)"
+              strokeWidth={2.25}
+              fill="url(#smOutflowGrad)"
+              fillOpacity={1}
+              activeDot={{
+                r: 5,
+                strokeWidth: 2.5,
+                stroke: 'var(--surface-1)',
+                fill: 'var(--out)',
+              }}
+              animationDuration={550}
+              animationEasing="ease-out"
+            />
+          )}
         </AreaChart>
       </ResponsiveContainer>
     </div>

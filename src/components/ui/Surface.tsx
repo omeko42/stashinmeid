@@ -128,7 +128,10 @@ export function Progress({
       aria-valuemax={100}
     >
       <div
-        className={cn('h-full rounded-full transition-[width] duration-500', tones[tone])}
+        className={cn(
+          'progress-bar-fill h-full rounded-full transition-[width] duration-500 ease-out',
+          tones[tone]
+        )}
         style={{ width: `${pct}%` }}
       />
     </div>

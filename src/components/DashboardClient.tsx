@@ -2207,38 +2207,54 @@ export default function DashboardClient({
                     {isEn ? 'Space:' : 'Ruang Keuangan:'}
                   </span>
 
-                  {/* #1 Semua Ruang — di mobile cukup icon stack saja agar ringkas 1 baris */}
+                  {/* #1 Semua Ruang — dengan sliding spring pill */}
                   <button
                     type="button"
                     onClick={() => setActiveScope('all')}
                     aria-label={isEn ? 'All Spaces' : 'Semua Ruang'}
                     title={isEn ? 'All Spaces' : 'Semua Ruang'}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition-colors ${
+                    className={`relative inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[12px] font-semibold whitespace-nowrap transition-colors ${
                       activeScope === 'all'
-                        ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
+                        ? 'text-[var(--brand-contrast)]'
                         : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
                     }`}
                   >
-                    <Layers className="size-3.5 shrink-0" aria-hidden />
-                    <span className="hidden sm:inline">
+                    {activeScope === 'all' && (
+                      <motion.span
+                        layoutId="workspace-scope-pill"
+                        transition={{ type: 'spring', stiffness: 440, damping: 32 }}
+                        className="absolute inset-0 rounded-lg bg-[var(--brand)] shadow-sm"
+                        aria-hidden
+                      />
+                    )}
+                    <Layers className="relative z-10 size-3.5 shrink-0" aria-hidden />
+                    <span className="relative z-10 hidden sm:inline">
                       {isEn ? 'All Spaces' : 'Semua Ruang'}
                     </span>
                   </button>
 
-                  {/* #2 Pribadi — di mobile cukup icon user saja */}
+                  {/* #2 Pribadi — dengan sliding spring pill */}
                   <button
                     type="button"
                     onClick={() => setActiveScope('personal')}
                     aria-label={isEn ? 'Personal' : 'Pribadi'}
                     title={isEn ? 'Personal' : 'Pribadi'}
-                    className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition-colors ${
+                    className={`relative inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[12px] font-semibold whitespace-nowrap transition-colors ${
                       activeScope === 'personal'
-                        ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
+                        ? 'text-[var(--brand-contrast)]'
                         : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
                     }`}
                   >
-                    <User className="size-3.5 shrink-0" aria-hidden />
-                    <span className="hidden sm:inline">
+                    {activeScope === 'personal' && (
+                      <motion.span
+                        layoutId="workspace-scope-pill"
+                        transition={{ type: 'spring', stiffness: 440, damping: 32 }}
+                        className="absolute inset-0 rounded-lg bg-[var(--brand)] shadow-sm"
+                        aria-hidden
+                      />
+                    )}
+                    <User className="relative z-10 size-3.5 shrink-0" aria-hidden />
+                    <span className="relative z-10 hidden sm:inline">
                       {isEn ? 'Personal' : 'Pribadi'}
                     </span>
                   </button>
@@ -2264,28 +2280,36 @@ export default function DashboardClient({
                             ? 'Groups'
                             : 'Grup'
                       }
-                      className={`inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-[12px] font-semibold whitespace-nowrap transition-colors ${
+                      className={`relative inline-flex h-9 items-center gap-1.5 rounded-lg px-3 text-[12px] font-semibold whitespace-nowrap transition-colors ${
                         isGroupScope
-                          ? 'bg-[var(--brand)] text-[var(--brand-contrast)]'
+                          ? 'text-[var(--brand-contrast)]'
                           : 'bg-[var(--surface-2)] text-[var(--text-muted)] hover:text-[var(--text)]'
                       }`}
                     >
-                      <Building2 className="size-3.5 shrink-0" aria-hidden />
+                      {isGroupScope && (
+                        <motion.span
+                          layoutId="workspace-scope-pill"
+                          transition={{ type: 'spring', stiffness: 440, damping: 32 }}
+                          className="absolute inset-0 rounded-lg bg-[var(--brand)] shadow-sm"
+                          aria-hidden
+                        />
+                      )}
+                      <Building2 className="relative z-10 size-3.5 shrink-0" aria-hidden />
                       {activeGroup ? (
-                        <span className="max-w-[110px] truncate sm:max-w-none">
+                        <span className="relative z-10 max-w-[110px] truncate sm:max-w-none">
                           <span className="hidden sm:inline">
                             {isEn ? 'Group: ' : 'Grup: '}
                           </span>
                           {activeGroup.name}
                         </span>
                       ) : (
-                        <span className="hidden sm:inline">
+                        <span className="relative z-10 hidden sm:inline">
                           {isEn ? 'Groups' : 'Grup'}
                         </span>
                       )}
                       {kolega.groups.length > 0 && (
                         <span
-                          className={`rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                          className={`relative z-10 rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
                             isGroupScope
                               ? 'bg-black/20 text-[var(--brand-contrast)]'
                               : 'bg-[var(--surface-1)] text-[var(--text-muted)]'
@@ -2295,7 +2319,7 @@ export default function DashboardClient({
                         </span>
                       )}
                       <ChevronDown
-                        className={`size-3.5 opacity-80 transition-transform duration-150 ${
+                        className={`relative z-10 size-3.5 opacity-80 transition-transform duration-150 ${
                           groupPickerOpen ? 'rotate-180' : ''
                         }`}
                         aria-hidden
