@@ -212,7 +212,7 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={() => {
-                  if (isSocial && !collapsed) {
+                  if (isSocial) {
                     if (activeTab === 'social') {
                       setSocialExpanded((v) => !v);
                     } else {
@@ -224,7 +224,7 @@ export function Sidebar({
                   }
                 }}
                 aria-current={active ? 'page' : undefined}
-                aria-expanded={isSocial && !collapsed ? socialExpanded : undefined}
+                aria-expanded={isSocial ? socialExpanded : undefined}
                 title={collapsed ? item.label : undefined}
                 className={cn(
                   'group relative flex w-full items-center rounded-lg py-2 text-[13px] font-medium transition-colors duration-150',
@@ -281,8 +281,8 @@ export function Sidebar({
                 )}
               </button>
 
-              {/* Dropdown sub-menu Sosial di sidebar PC */}
-              {isSocial && !collapsed && (
+              {/* Dropdown sub-menu Sosial di sidebar PC (baik mode luas maupun minimize) */}
+              {isSocial && (
                 <AnimatePresence initial={false}>
                   {socialExpanded && (
                     <motion.div
@@ -292,41 +292,78 @@ export function Sidebar({
                       transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
                       className="overflow-hidden"
                     >
-                      <div className="ml-4 mt-1 space-y-0.5 border-l border-[var(--line)] pl-2.5">
-                        {socialItems.map((subItem) => {
-                          const subActive =
-                            activeTab === 'social' && socialSub === subItem.id;
-                          return (
-                            <button
-                              key={subItem.id}
-                              type="button"
-                              onClick={() => {
-                                if (onSelectSocialSub) {
-                                  onSelectSocialSub(subItem.id);
-                                } else {
-                                  onNavigate('social');
-                                }
-                              }}
-                              className={cn(
-                                'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors',
-                                subActive
-                                  ? 'bg-[var(--brand-soft)] font-semibold text-[var(--brand)]'
-                                  : 'text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
-                              )}
-                            >
-                              {subItem.icon}
-                              <span className="flex-1 truncate text-left">
-                                {subItem.label}
-                              </span>
-                              {subItem.badge !== undefined && subItem.badge > 0 && (
-                                <span className="tnum flex min-w-[16px] items-center justify-center rounded-full bg-[var(--out)] px-1 text-[10px] font-bold leading-[16px] text-white">
-                                  {subItem.badge}
+                      {collapsed ? (
+                        <div className="mt-1.5 flex flex-col items-center gap-1 rounded-lg border border-[var(--line)]/70 bg-[var(--surface-2)]/40 py-1.5">
+                          {socialItems.map((subItem) => {
+                            const subActive =
+                              activeTab === 'social' && socialSub === subItem.id;
+                            return (
+                              <button
+                                key={subItem.id}
+                                type="button"
+                                title={subItem.label}
+                                aria-label={subItem.label}
+                                onClick={() => {
+                                  if (onSelectSocialSub) {
+                                    onSelectSocialSub(subItem.id);
+                                  } else {
+                                    onNavigate('social');
+                                  }
+                                }}
+                                className={cn(
+                                  'relative flex size-8 items-center justify-center rounded-lg transition-colors',
+                                  subActive
+                                    ? 'bg-[var(--brand-soft)] text-[var(--brand)] ring-1 ring-[var(--brand)]/30'
+                                    : 'text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                                )}
+                              >
+                                {subItem.icon}
+                                {subItem.badge !== undefined && subItem.badge > 0 && (
+                                  <span className="tnum absolute -right-0.5 -top-0.5 flex min-w-[14px] items-center justify-center rounded-full bg-[var(--out)] px-1 text-[9px] font-bold leading-[14px] text-white">
+                                    {subItem.badge}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <div className="ml-4 mt-1 space-y-0.5 border-l border-[var(--line)] pl-2.5">
+                          {socialItems.map((subItem) => {
+                            const subActive =
+                              activeTab === 'social' && socialSub === subItem.id;
+                            return (
+                              <button
+                                key={subItem.id}
+                                type="button"
+                                onClick={() => {
+                                  if (onSelectSocialSub) {
+                                    onSelectSocialSub(subItem.id);
+                                  } else {
+                                    onNavigate('social');
+                                  }
+                                }}
+                                className={cn(
+                                  'flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-[12px] font-medium transition-colors',
+                                  subActive
+                                    ? 'bg-[var(--brand-soft)] font-semibold text-[var(--brand)]'
+                                    : 'text-[var(--text-muted)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]'
+                                )}
+                              >
+                                {subItem.icon}
+                                <span className="flex-1 truncate text-left">
+                                  {subItem.label}
                                 </span>
-                              )}
-                            </button>
-                          );
-                        })}
-                      </div>
+                                {subItem.badge !== undefined && subItem.badge > 0 && (
+                                  <span className="tnum flex min-w-[16px] items-center justify-center rounded-full bg-[var(--out)] px-1 text-[10px] font-bold leading-[16px] text-white">
+                                    {subItem.badge}
+                                  </span>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
                     </motion.div>
                   )}
                 </AnimatePresence>
