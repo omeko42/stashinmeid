@@ -82,6 +82,7 @@ function isNonCashTx(tx: Transaction, walletKindMap?: Record<string, string>): b
 
 interface EnrichedStatementRow {
   tx: Transaction;
+  isNonCash: boolean;
   dateLabel: string;
   timeLabel: string;
   walletName: string;
@@ -118,8 +119,10 @@ function buildEnrichedRows(
         : fallbackNet;
 
   return sorted.map((tx) => {
+    const nonCash = isNonCashTx(tx, options?.walletKindMap);
     const row: EnrichedStatementRow = {
       tx,
+      isNonCash: nonCash,
       dateLabel: formatShortDateId(tx.transaction_date),
       timeLabel: formatTimeHms(tx.created_at),
       walletName: resolveWalletName(tx, options?.walletMap),
@@ -131,13 +134,58 @@ function buildEnrichedRows(
     // Mundurkan saldo ke posisi sebelum transaksi ini terjadi
     const amt = Number(tx.amount);
     const delta = tx.type === 'inflow' ? -amt : amt;
-    if (isNonCashTx(tx, options?.walletKindMap)) {
+    if (nonCash) {
       curNonCash += delta;
     } else {
       curCash += delta;
     }
     return row;
   });
+}
+
+/**
+ * Gambar mini-icon vektor tajam di jsPDF (bebas pecah & kompatibel semua PDF viewer):
+ * - 'total'   : Ikon Dompet (emerald)
+ * - 'cash'    : Ikon Uang Kertas (hijau)
+ * - 'noncash' : Ikon Kartu Bank (biru)
+ */
+function drawPdfSaldoIcon(
+  doc: jsPDF,
+  kind: 'total' | 'cash' | 'noncash',
+  x: number,
+  y: number
+) {
+  const w = 3.2;
+  const h = 2.2;
+  doc.setLineWidth(0.28);
+
+  if (kind === 'total') {
+    // Ikon Dompet (Wallet) emerald
+    doc.setDrawColor(14, 159, 110);
+    doc.setFillColor(14, 159, 110);
+    doc.roundedRect(x, y, w, h, 0.45, 0.45, 'S');
+    // Flap / kancing dompet kanan
+    doc.roundedRect(x + w - 1.15, y + 0.6, 1.15, 1.0, 0.25, 0.25, 'FD');
+    return;
+  }
+
+  if (kind === 'cash') {
+    // Ikon Uang Kertas (Banknote) hijau
+    doc.setDrawColor(22, 163, 74);
+    doc.setFillColor(22, 163, 74);
+    doc.rect(x, y, w, h, 'S');
+    doc.circle(x + w / 2, y + h / 2, 0.45, 'F');
+    return;
+  }
+
+  // Ikon Kartu Bank (CreditCard) biru
+  doc.setDrawColor(37, 99, 235);
+  doc.setFillColor(37, 99, 235);
+  doc.roundedRect(x, y, w, h, 0.4, 0.4, 'S');
+  // Strip magnetik atas
+  doc.rect(x, y + 0.45, w, 0.45, 'F');
+  // Chip kecil kiri bawah
+  doc.rect(x + 0.45, y + 1.35, 0.75, 0.45, 'F');
 }
 
 function makeDocRef(): string {
@@ -343,12 +391,29 @@ export async function exportToPDF(
     doc.text(k.val, x + 3.5, cursorY + 13.5);
   });
 
-  // 4. TABEL RINCIAN TRANSAKSI (DEBIT / KREDIT)
+  // 4. TABEL RINCIAN TRANSAKSI (6 Kolom: Tanggal | Uraian | Ikon Saldo | Keluar | Masuk | Saldo Akhir)
   cursorY += boxH + 7;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   doc.setTextColor(16, 22, 20);
   doc.text('RINCIAN MUTASI ARUS KAS', margin, cursorY);
+
+  // Legenda Mini-Icon Vektor di sisi kanan judul tabel
+  const legendY = cursorY - 2.1;
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(7.2);
+  doc.setTextColor(90, 102, 98);
+  const lx3 = pageWidth - margin - 14.5;
+  drawPdfSaldoIcon(doc, 'noncash', lx3 - 4.2, legendY);
+  doc.text('Non-Tunai', lx3, cursorY);
+
+  const lx2 = lx3 - 19;
+  drawPdfSaldoIcon(doc, 'cash', lx2 - 4.2, legendY);
+  doc.text('Tunai', lx2, cursorY);
+
+  const lx1 = lx2 - 18.5;
+  drawPdfSaldoIcon(doc, 'total', lx1 - 4.2, legendY);
+  doc.text('Total', lx1, cursorY);
 
   autoTable(doc, {
     startY: cursorY + 3,
@@ -357,22 +422,37 @@ export async function exportToPDF(
       [
         'TANGGAL & WAKTU',
         'URAIAN TRANSAKSI',
+        'SALDO',
         'KELUAR (IDR)',
         'MASUK (IDR)',
         'SALDO AKHIR (IDR)',
       ],
     ],
-    body: enrichedRows.map((r) => [
-      `${r.dateLabel}\n${r.timeLabel}`,
-      `${(r.tx.description || r.tx.category || '-').slice(0, 72)}\n${r.tx.category} · ${r.walletName}`,
-      r.tx.type === 'outflow' ? formatNum(Number(r.tx.amount)) : '-',
-      r.tx.type === 'inflow' ? formatNum(Number(r.tx.amount)) : '-',
-      `Total: ${formatNum(r.runningTotal)}\nTunai: ${formatNum(r.runningCash)}\nNon-Tunai: ${formatNum(r.runningNonCash)}`,
-    ]),
+    body: enrichedRows.map((r) => {
+      const amtStr = formatNum(Number(r.tx.amount));
+      const isOut = r.tx.type === 'outflow';
+      const isIn = r.tx.type === 'inflow';
+      const outCol = isOut
+        ? `${amtStr}\n${r.isNonCash ? '-' : amtStr}\n${r.isNonCash ? amtStr : '-'}`
+        : '-\n-\n-';
+      const inCol = isIn
+        ? `${amtStr}\n${r.isNonCash ? '-' : amtStr}\n${r.isNonCash ? amtStr : '-'}`
+        : '-\n-\n-';
+      const balCol = `${formatNum(r.runningTotal)}\n${formatNum(r.runningCash)}\n${formatNum(r.runningNonCash)}`;
+
+      return [
+        `${r.dateLabel}\n${r.timeLabel}`,
+        `${(r.tx.description || r.tx.category || '-').slice(0, 68)}\n${r.tx.category} · ${r.walletName}`,
+        ' \n \n ',
+        outCol,
+        inCol,
+        balCol,
+      ];
+    }),
     theme: 'grid',
     styles: {
-      fontSize: 7.2,
-      cellPadding: 2.2,
+      fontSize: 7,
+      cellPadding: { top: 2.2, right: 2.2, bottom: 2.2, left: 2.2 },
       lineColor: [226, 232, 230],
       lineWidth: 0.2,
       textColor: [24, 32, 30],
@@ -382,17 +462,29 @@ export async function exportToPDF(
       fillColor: [18, 25, 30],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
-      fontSize: 7.2,
+      fontSize: 7,
     },
     alternateRowStyles: {
       fillColor: [249, 251, 250],
     },
     columnStyles: {
-      0: { cellWidth: 24, fontStyle: 'bold', textColor: [75, 85, 82], fontSize: 6.8 },
-      1: { cellWidth: 70 },
-      2: { cellWidth: 24, halign: 'right', textColor: [200, 55, 68], fontStyle: 'bold' },
-      3: { cellWidth: 24, halign: 'right', textColor: [14, 145, 100], fontStyle: 'bold' },
-      4: { cellWidth: 40, halign: 'right', fontSize: 6.7, textColor: [42, 52, 48] },
+      0: { cellWidth: 24, fontStyle: 'bold', textColor: [75, 85, 82], fontSize: 6.7 },
+      1: { cellWidth: 66 },
+      2: { cellWidth: 10, halign: 'center' },
+      3: { cellWidth: 26, halign: 'right', textColor: [200, 55, 68], fontStyle: 'bold' },
+      4: { cellWidth: 26, halign: 'right', textColor: [14, 145, 100], fontStyle: 'bold' },
+      5: { cellWidth: 30, halign: 'right', fontStyle: 'bold', textColor: [24, 32, 30] },
+    },
+    didDrawCell: (data) => {
+      if (data.section === 'body' && data.column.index === 2) {
+        const cx = data.cell.x + (data.cell.width - 3.2) / 2;
+        const innerH = data.cell.height - 4.4;
+        const step = innerH / 3;
+        const baseY = data.cell.y + 2.2 + (step - 2.2) / 2;
+        drawPdfSaldoIcon(doc, 'total', cx, baseY);
+        drawPdfSaldoIcon(doc, 'cash', cx, baseY + step);
+        drawPdfSaldoIcon(doc, 'noncash', cx, baseY + step * 2);
+      }
     },
   });
 
@@ -828,101 +920,116 @@ export async function exportToWord(
                 children: [
                   makeHeaderCell('TANGGAL & WAKTU'),
                   makeHeaderCell('URAIAN TRANSAKSI'),
+                  makeHeaderCell('SALDO', AlignmentType.CENTER),
                   makeHeaderCell('KELUAR (IDR)', AlignmentType.RIGHT),
                   makeHeaderCell('MASUK (IDR)', AlignmentType.RIGHT),
                   makeHeaderCell('SALDO AKHIR (IDR)', AlignmentType.RIGHT),
                 ],
               }),
-              ...enrichedRows.map(
-                (r) =>
-                  new TableRow({
-                    children: [
-                      new TableCell({
-                        borders: cellBorder,
-                        children: [
-                          new Paragraph({
-                            children: [
-                              new TextRun({ text: r.dateLabel, bold: true, size: 16 }),
-                            ],
-                          }),
-                          new Paragraph({
-                            children: [
-                              new TextRun({ text: r.timeLabel, color: '5E6B66', size: 15 }),
-                            ],
-                          }),
-                        ],
-                      }),
-                      new TableCell({
-                        borders: cellBorder,
-                        children: [
-                          new Paragraph({
-                            children: [
-                              new TextRun({
-                                text: (r.tx.description || r.tx.category).slice(0, 72),
-                                bold: true,
-                                size: 16,
-                              }),
-                            ],
-                          }),
-                          new Paragraph({
-                            children: [
-                              new TextRun({
-                                text: `${r.tx.category} · ${r.walletName}`,
-                                color: '5E6B66',
-                                size: 15,
-                              }),
-                            ],
-                          }),
-                        ],
-                      }),
-                      makeCell(
-                        r.tx.type === 'outflow' ? formatNum(Number(r.tx.amount)) : '-',
-                        AlignmentType.RIGHT,
-                        'D64550'
-                      ),
-                      makeCell(
-                        r.tx.type === 'inflow' ? formatNum(Number(r.tx.amount)) : '-',
-                        AlignmentType.RIGHT,
-                        '0E9F6E'
-                      ),
-                      new TableCell({
-                        borders: cellBorder,
-                        children: [
-                          new Paragraph({
-                            alignment: AlignmentType.RIGHT,
-                            children: [
-                              new TextRun({
-                                text: `Total: ${formatNum(r.runningTotal)}`,
-                                bold: true,
-                                size: 15,
-                              }),
-                            ],
-                          }),
-                          new Paragraph({
-                            alignment: AlignmentType.RIGHT,
-                            children: [
-                              new TextRun({
-                                text: `Tunai: ${formatNum(r.runningCash)}`,
-                                color: '5E6B66',
-                                size: 14,
-                              }),
-                            ],
-                          }),
-                          new Paragraph({
-                            alignment: AlignmentType.RIGHT,
-                            children: [
-                              new TextRun({
-                                text: `Non-Tunai: ${formatNum(r.runningNonCash)}`,
-                                color: '5E6B66',
-                                size: 14,
-                              }),
-                            ],
-                          }),
-                        ],
-                      }),
-                    ],
-                  })
-              ),
+              ...enrichedRows.map((r) => {
+                const amtStr = formatNum(Number(r.tx.amount));
+                const isOut = r.tx.type === 'outflow';
+                const isIn = r.tx.type === 'inflow';
+                const outLines = isOut
+                  ? [amtStr, r.isNonCash ? '-' : amtStr, r.isNonCash ? amtStr : '-']
+                  : ['-', '-', '-'];
+                const inLines = isIn
+                  ? [amtStr, r.isNonCash ? '-' : amtStr, r.isNonCash ? amtStr : '-']
+                  : ['-', '-', '-'];
+                const balLines = [
+                  formatNum(r.runningTotal),
+                  formatNum(r.runningCash),
+                  formatNum(r.runningNonCash),
+                ];
+
+                const make3LineNumCell = (lines: string[], primaryColor: string) =>
+                  new TableCell({
+                    borders: cellBorder,
+                    children: lines.map(
+                      (val, idx) =>
+                        new Paragraph({
+                          alignment: AlignmentType.RIGHT,
+                          children: [
+                            new TextRun({
+                              text: val,
+                              bold: idx === 0,
+                              color: idx === 0 ? primaryColor : '5E6B66',
+                              size: idx === 0 ? 15 : 14,
+                            }),
+                          ],
+                        })
+                    ),
+                  });
+
+                return new TableRow({
+                  children: [
+                    new TableCell({
+                      borders: cellBorder,
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({ text: r.dateLabel, bold: true, size: 15 }),
+                          ],
+                        }),
+                        new Paragraph({
+                          children: [
+                            new TextRun({ text: r.timeLabel, color: '5E6B66', size: 14 }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    new TableCell({
+                      borders: cellBorder,
+                      children: [
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: (r.tx.description || r.tx.category).slice(0, 68),
+                              bold: true,
+                              size: 15,
+                            }),
+                          ],
+                        }),
+                        new Paragraph({
+                          children: [
+                            new TextRun({
+                              text: `${r.tx.category} · ${r.walletName}`,
+                              color: '5E6B66',
+                              size: 14,
+                            }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    new TableCell({
+                      borders: cellBorder,
+                      children: [
+                        new Paragraph({
+                          alignment: AlignmentType.CENTER,
+                          children: [
+                            new TextRun({ text: 'Total', bold: true, color: '0E9F6E', size: 14 }),
+                          ],
+                        }),
+                        new Paragraph({
+                          alignment: AlignmentType.CENTER,
+                          children: [
+                            new TextRun({ text: 'Tunai', color: '16A34A', size: 13 }),
+                          ],
+                        }),
+                        new Paragraph({
+                          alignment: AlignmentType.CENTER,
+                          children: [
+                            new TextRun({ text: 'Non-Tunai', color: '2563EB', size: 13 }),
+                          ],
+                        }),
+                      ],
+                    }),
+                    make3LineNumCell(outLines, 'D64550'),
+                    make3LineNumCell(inLines, '0E9F6E'),
+                    make3LineNumCell(balLines, '101614'),
+                  ],
+                });
+              }),
             ],
           }),
 
