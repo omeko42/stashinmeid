@@ -475,7 +475,7 @@
     "totalHint": "All wallets (in {currency})",
     "physical": "Cash balance",
     "physicalHint": "Cash & other · {count} wallets",
-    "nonPhysical": "Non-cash",
+    "nonPhysical": "Non-cash balance",
     "nonPhysicalHint": "Bank/e-wallet/crypto · {count} wallets",
     "subLabel": "Balance sections",
     "sub": {

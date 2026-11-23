@@ -475,7 +475,7 @@
     "totalHint": "Semua dompet (dalam {currency})",
     "physical": "Saldo tunai",
     "physicalHint": "Kas & lainnya · {count} dompet",
-    "nonPhysical": "Non-tunai",
+    "nonPhysical": "Saldo non-tunai",
     "nonPhysicalHint": "Bank/e-wallet/crypto · {count} dompet",
     "subLabel": "Bagian saldo",
     "sub": {
