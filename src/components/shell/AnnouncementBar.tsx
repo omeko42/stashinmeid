@@ -80,7 +80,7 @@ export function AnnouncementBar({
   return (
     <div
       role="status"
-      className="relative overflow-hidden border-b border-[var(--line)] bg-[var(--brand-soft)] pt-[env(safe-area-inset-top)]"
+      className="relative overflow-hidden border-b border-[var(--line)] bg-[var(--brand-soft)] lg:pt-[env(safe-area-inset-top)]"
     >
       <div className="marquee-mask overflow-hidden">
         <div

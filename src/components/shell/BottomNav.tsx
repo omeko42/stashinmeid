@@ -157,7 +157,7 @@ export function BottomNav({
     return (
       <nav
         aria-label={isEn ? 'Social navigation' : 'Navigasi Sosial'}
-        className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-0.5 border-t border-[var(--line)] bg-[var(--surface-1)]/95 px-1.5 pb-[env(safe-area-inset-bottom)] pt-1.5 backdrop-blur-xl lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-0.5 border-t border-[var(--line)] bg-[var(--surface-1)] px-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] pt-1.5 [backface-visibility:hidden] [transform:translate3d(0,0,0)] [will-change:transform] lg:hidden"
       >
         {leftSocial.map(renderSocialSlot)}
 
@@ -196,7 +196,7 @@ export function BottomNav({
       return (
         <nav
           aria-label={isEn ? 'Admin settings navigation' : 'Navigasi Pengaturan Admin'}
-          className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-0.5 border-t border-[var(--line)] bg-[var(--surface-1)]/95 px-1.5 pb-[env(safe-area-inset-bottom)] pt-1.5 backdrop-blur-xl lg:hidden"
+          className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-0.5 border-t border-[var(--line)] bg-[var(--surface-1)] px-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))] pt-1.5 [backface-visibility:hidden] [transform:translate3d(0,0,0)] [will-change:transform] lg:hidden"
         >
           {adminSlots.map((item) => {
             const active = settingsAdminSection === item.id;
@@ -241,7 +241,7 @@ export function BottomNav({
     return (
       <nav
         aria-label={isEn ? 'Settings navigation' : 'Navigasi Pengaturan'}
-        className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-0.5 border-t border-[var(--line)] bg-[var(--surface-1)]/95 px-1 pb-[env(safe-area-inset-bottom)] pt-1.5 backdrop-blur-xl lg:hidden"
+        className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-0.5 border-t border-[var(--line)] bg-[var(--surface-1)] px-1 pb-[max(0.375rem,env(safe-area-inset-bottom))] pt-1.5 [backface-visibility:hidden] [transform:translate3d(0,0,0)] [will-change:transform] lg:hidden"
       >
         {personalSlots.map((item) => {
           const active = settingsPersonalSection === item.id;
@@ -322,7 +322,7 @@ export function BottomNav({
   return (
     <nav
       aria-label={t('nav.openMenu')}
-      className="fixed inset-x-0 bottom-0 z-30 flex items-center gap-1 border-t border-[var(--line)] bg-[var(--surface-1)]/95 px-2 pb-[env(safe-area-inset-bottom)] pt-1.5 backdrop-blur-xl lg:hidden"
+      className="fixed inset-x-0 bottom-0 z-40 flex items-center gap-1 border-t border-[var(--line)] bg-[var(--surface-1)] px-2 pb-[max(0.375rem,env(safe-area-inset-bottom))] pt-1.5 [backface-visibility:hidden] [transform:translate3d(0,0,0)] [will-change:transform] lg:hidden"
     >
       {left.map(renderItem)}
 

@@ -2124,8 +2124,27 @@ export default function DashboardClient({
         onLogout={handleLogout}
       />
 
+      <MobileHeader
+        profileClient={profileClient}
+        isSuperadmin={isSuperadmin || userRole === 'admin'}
+        canEdit={canEdit}
+        unreadNotifications={notifications.unreadCount}
+        onOpenNotifications={() => setNotificationsOpen(true)}
+        onProfile={() => navigate('profile')}
+        onOpenKyc={undefined}
+        onOpenSecurity={openSecurityPage}
+        onOpenSettings={() => navigate('settings')}
+        onUsers={() => navigate('users')}
+        onScan={() => fileInputRef.current?.click()}
+        onImport={() => csvInputRef.current?.click()}
+        onExportPdf={handleExportPdf}
+        onExportWord={handleExportWord}
+        onExportCsv={handleExportCsv}
+        onLogout={handleLogout}
+      />
+
       <div
-        className={`flex min-w-0 flex-1 flex-col transition-[padding] duration-200 ${
+        className={`flex min-w-0 flex-1 flex-col pt-[calc(3.5rem+env(safe-area-inset-top))] transition-[padding] duration-200 lg:pt-0 ${
           sidebarCollapsed ? 'lg:pl-[4.5rem]' : 'lg:pl-60'
         }`}
       >
@@ -2135,26 +2154,7 @@ export default function DashboardClient({
           onClickAlert={() => setNotificationsOpen(true)}
         />
 
-        <MobileHeader
-          profileClient={profileClient}
-          isSuperadmin={isSuperadmin || userRole === 'admin'}
-          canEdit={canEdit}
-          unreadNotifications={notifications.unreadCount}
-          onOpenNotifications={() => setNotificationsOpen(true)}
-          onProfile={() => navigate('profile')}
-          onOpenKyc={undefined}
-          onOpenSecurity={openSecurityPage}
-          onOpenSettings={() => navigate('settings')}
-          onUsers={() => navigate('users')}
-          onScan={() => fileInputRef.current?.click()}
-          onImport={() => csvInputRef.current?.click()}
-          onExportPdf={handleExportPdf}
-          onExportWord={handleExportWord}
-          onExportCsv={handleExportCsv}
-          onLogout={handleLogout}
-        />
-
-        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-7 lg:px-8 lg:pb-10 lg:pt-10">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-[calc(5.75rem+env(safe-area-inset-bottom))] pt-5 lg:px-8 lg:pb-10 lg:pt-10">
           {isDemoMode && (
             <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[var(--due)]/35 bg-[var(--due-soft)] px-4 py-3 text-[12px] text-[var(--text)]">
               <span className="inline-flex items-center gap-2">
@@ -2960,7 +2960,7 @@ export default function DashboardClient({
       )}
 
       {/* Floating Action Stack kanan bawah: Obrolan Cepat (mengambang di semua menu kecuali Obrolan) + Tombol Catat/Upload AI */}
-      <div className="fixed bottom-20 right-4 z-40 flex flex-col items-end gap-2.5 lg:bottom-6 lg:right-6">
+      <div className="fixed bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 z-30 flex flex-col items-end gap-2.5 [backface-visibility:hidden] [transform:translate3d(0,0,0)] lg:bottom-6 lg:right-6">
         {!(activeTab === 'social' && sosialSub === 'chat') && !isDemoMode && (
           <FloatingQuickChat
             contacts={connections.accepted.map((c) => ({
