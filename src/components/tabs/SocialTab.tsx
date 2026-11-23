@@ -672,34 +672,49 @@ export function SocialTab({
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
               {/* Kolom Kiri & Tengah (2 kolom): Metrik, Transaksi Grup, dan Pinjaman Grup */}
               <div className="space-y-4 lg:col-span-2">
-                <section className="rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-5">
-                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <Label>Ringkasan Kas Grup: {selectedGroup.name}</Label>
-                        {(() => {
-                          const ownerMember = selectedGroup.members.find(
-                            (m) => m.user_id === selectedGroup.owner_id
-                          );
-                          const badgeText =
-                            ownerMember?.title ||
-                            (selectedGroup.isOwner ? tKolega('owner') : null);
-                          return badgeText ? (
-                            <span className="rounded bg-[var(--brand-soft)] px-1.5 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
-                              {badgeText}
-                            </span>
-                          ) : null;
-                        })()}
-                      </div>
-                      <div className="mt-1.5">
-                        <Amount value={formatRp(groupMetrics.balance)} size="xl" />
-                      </div>
+                <section className="hero-surface card-interactive rounded-xl border border-[var(--line)] bg-[var(--surface-1)] p-5">
+                  {/* Baris 1: Judul + Badge Jabatan di kiri, Link Ringkasan Utama di kanan */}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <Label className="truncate">
+                        Ringkasan Kas Grup · {selectedGroup.name}
+                      </Label>
+                      {(() => {
+                        const ownerMember = selectedGroup.members.find(
+                          (m) => m.user_id === selectedGroup.owner_id
+                        );
+                        const badgeText =
+                          ownerMember?.title ||
+                          (selectedGroup.isOwner ? tKolega('owner') : null);
+                        return badgeText ? (
+                          <span className="shrink-0 rounded-md bg-[var(--brand-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--brand)]">
+                            {badgeText}
+                          </span>
+                        ) : null;
+                      })()}
+                    </div>
+
+                    {onFocusGroupInDashboard && (
+                      <button
+                        type="button"
+                        onClick={() => onFocusGroupInDashboard(selectedGroup.id)}
+                        className="shrink-0 text-[12px] font-semibold text-[var(--brand)] whitespace-nowrap transition hover:underline"
+                      >
+                        Buka di Ringkasan →
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Baris 2: Saldo besar di kiri, 2 tombol aksi sejajar rapi di kanan */}
+                  <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="min-w-0">
+                      <Amount value={formatRp(groupMetrics.balance)} size="xl" />
                       <p className="mt-1 text-[11px] text-[var(--text-muted)]">
                         Saldo bersih ruang <strong>{selectedGroup.name}</strong>
                       </p>
                     </div>
 
-                    <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex shrink-0 flex-wrap items-center gap-2">
                       {onQuickAddForGroup && (
                         <Button
                           size="sm"
@@ -707,8 +722,7 @@ export function SocialTab({
                           className="whitespace-nowrap"
                           onClick={() => onQuickAddForGroup(selectedGroup.id)}
                         >
-                          <span className="sm:hidden">Kas</span>
-                          <span className="hidden sm:inline">Catat Kas Grup</span>
+                          Catat Kas
                         </Button>
                       )}
                       {onAddDebtForGroup && (
@@ -719,49 +733,44 @@ export function SocialTab({
                           className="whitespace-nowrap"
                           onClick={() => onAddDebtForGroup(selectedGroup.id)}
                         >
-                          <span className="sm:hidden">Pinjaman</span>
-                          <span className="hidden sm:inline">Catat Pinjaman Grup</span>
-                        </Button>
-                      )}
-                      {onFocusGroupInDashboard && (
-                        <Button
-                          size="sm"
-                          variant="ghost"
-                          className="whitespace-nowrap"
-                          onClick={() => onFocusGroupInDashboard(selectedGroup.id)}
-                        >
-                          <span className="sm:hidden">Ringkasan →</span>
-                          <span className="hidden sm:inline">Buka di Ringkasan Utama →</span>
+                          Catat Pinjaman
                         </Button>
                       )}
                     </div>
                   </div>
 
-                  <div className="mt-4 grid grid-cols-1 gap-3 border-t border-[var(--line)] pt-4 sm:grid-cols-3">
-                    <div>
-                      <div className="flex items-center gap-1">
-                        <ArrowDownRight className="size-3.5 text-[var(--brand)]" aria-hidden />
+                  {/* Baris 3: 3 Metrik Grup sejajar dengan garis pemisah vertikal */}
+                  <div className="mt-4 grid grid-cols-1 gap-3 border-t border-[var(--line)] pt-4 sm:grid-cols-3 sm:gap-0 sm:divide-x sm:divide-[var(--line)]">
+                    <div className="sm:pr-4">
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex size-5 items-center justify-center rounded-md bg-[var(--brand-soft)] text-[var(--brand)]">
+                          <ArrowDownRight className="size-3.5" aria-hidden />
+                        </span>
                         <Label>Masuk Grup</Label>
                       </div>
                       <div className="mt-1">
                         <Amount value={formatRp(groupMetrics.inflow)} tone="brand" size="md" />
                       </div>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-1">
-                        <ArrowUpRight className="size-3.5 text-[var(--out)]" aria-hidden />
+                    <div className="sm:px-4">
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex size-5 items-center justify-center rounded-md bg-[var(--out-soft)] text-[var(--out)]">
+                          <ArrowUpRight className="size-3.5" aria-hidden />
+                        </span>
                         <Label>Keluar Grup</Label>
                       </div>
-                      <div className="mt-1">
+                      <div className="mt-1.5">
                         <Amount value={formatRp(groupMetrics.outflow)} tone="out" size="md" />
                       </div>
                     </div>
-                    <div>
-                      <div className="flex items-center gap-1">
-                        <Landmark className="size-3.5 text-[var(--due)]" aria-hidden />
-                        <Label>Utang / Pinjaman Grup</Label>
+                    <div className="sm:pl-4">
+                      <div className="flex items-center gap-1.5">
+                        <span className="flex size-5 items-center justify-center rounded-md bg-[var(--due-soft)] text-[var(--due)]">
+                          <Landmark className="size-3.5" aria-hidden />
+                        </span>
+                        <Label>Pinjaman Grup</Label>
                       </div>
-                      <div className="mt-1">
+                      <div className="mt-1.5">
                         <Amount value={formatRp(groupMetrics.debtTotal)} tone="due" size="md" />
                       </div>
                       <p className="tnum mt-0.5 text-[11px] text-[var(--text-faint)]">
