@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, type ReactNode } from 'react';
+import { useEffect, useRef, type ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { X } from 'lucide-react';
@@ -8,11 +8,32 @@ import { cn } from '@/lib/cn';
 import { IconButton } from './Button';
 
 /**
+ * Penghitung global jumlah modal aktif agar modal bertumpuk (mis. ConfirmProvider
+ * di atas Modal lain) tidak pernah meninggalkan `body.style.overflow = 'hidden'`
+ * tersangkut saat ditutup atau berpindah halaman (termasuk ke /demo).
+ */
+let activeModalCount = 0;
+
+function lockBodyScroll() {
+  activeModalCount += 1;
+  if (activeModalCount === 1) {
+    document.body.style.overflow = 'hidden';
+  }
+}
+
+function unlockBodyScroll() {
+  activeModalCount = Math.max(0, activeModalCount - 1);
+  if (activeModalCount === 0) {
+    document.body.style.overflow = '';
+  }
+}
+
+/**
  * Modal yang aksesibel:
  * - focus dipindah ke panel saat dibuka
  * - Escape menutup
  * - klik backdrop menutup
- * - focus dikembalikan ke pemicu saat ditutup
+ * - scroll lock aman untuk modal bertumpuk (reference-counted)
  */
 export function Modal({
   open,
@@ -33,22 +54,26 @@ export function Modal({
   footer?: ReactNode;
   size?: 'sm' | 'md' | 'lg';
 }) {
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
   useEffect(() => {
     if (!open) return;
 
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === 'Escape') onCloseRef.current();
     };
 
     document.addEventListener('keydown', onKeyDown);
-    const previousOverflow = document.body.style.overflow;
-    document.body.style.overflow = 'hidden';
+    lockBodyScroll();
 
     return () => {
       document.removeEventListener('keydown', onKeyDown);
-      document.body.style.overflow = previousOverflow;
+      unlockBodyScroll();
     };
-  }, [open, onClose]);
+  }, [open]);
 
   if (typeof document === 'undefined') return null;
 
